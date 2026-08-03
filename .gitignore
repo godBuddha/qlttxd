@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Uploads / user data
+uploads/
+
+# Environment secrets
+.env
+
+# Logs
+*.log
+
+# Core dumps
+core.*
+
+# Backups
+backups/
+
+# Test results / reports
+test-results/
+playwright-report/
+blob-report/
+
+# E2E screenshots & artifacts
+e2e/
+
+# macOS
+.DS_Store
+
+# npm lockfile noise (keep package-lock.json for reproducible installs)
+# package-lock.json
+
+# Editor
+.vscode/
+.idea/

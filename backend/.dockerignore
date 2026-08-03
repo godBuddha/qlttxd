@@ -1,0 +1,12 @@
+# Backend .dockerignore
+node_modules
+test/
+test-*.mjs
+test-*.js
+TEST-RESULT*
+reset-db.js
+uploads/
+*.md
+.env
+# core dumps
+core.*

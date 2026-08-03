@@ -1,0 +1,15 @@
+# Multi-stage: build frontend with Node, serve with Caddy
+# Build context: app/ directory (not frontend/)
+# Usage: docker build -f frontend/Dockerfile.caddy .
+FROM node:24-alpine AS builder
+WORKDIR /app
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ .
+RUN npm run build
+
+FROM caddy:2.8-alpine
+COPY --from=builder /app/dist /srv
+COPY Caddyfile /etc/caddy/Caddyfile
+EXPOSE 80 443
+CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile"]

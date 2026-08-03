@@ -1,0 +1,16 @@
+# Frontend .dockerignore
+# Keep: package*.json, vite.config.js, index.html, src/
+node_modules
+dist
+e2e/
+core.*
+core.203629
+debug-*.mjs
+inspect-*.mjs
+take-screenshots.mjs
+test-*.mjs
+TEST-RESULT*
+playwright.config.js
+nginx.conf
+Dockerfile
+*.md

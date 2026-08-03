@@ -1,0 +1,16 @@
+# Root context .dockerignore for Dockerfile.caddy
+# Keep: frontend/ and Caddyfile (required for build)
+backend/
+db/
+scripts/
+docs/
+*.md
+.git/
+.gitignore
+.env
+.env.example
+docker-compose.yml
+TODO.md
+screenshots/
+take-screenshots.mjs
+core.*
