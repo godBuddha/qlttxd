@@ -415,11 +415,13 @@ CREATE TABLE audit_log (
     id_ban_ghi      UUID,                        -- id bản ghi bị tác động
     chi_tiet        JSONB,                       -- dữ liệu chi tiết / before-after
     ip              VARCHAR(45),                 -- địa chỉ IP nguồn
-    thoi_gian       TIMESTAMPTZ NOT NULL DEFAULT now()
+    thoi_gian       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    request_id      UUID
 );
-CREATE INDEX idx_audit_entity ON audit_log (bang_bi_tac_dong, id_ban_ghi);
-CREATE INDEX idx_audit_time    ON audit_log (thoi_gian);
-CREATE INDEX idx_audit_user    ON audit_log (nguoi_dung_id);
+CREATE INDEX idx_audit_entity         ON audit_log (bang_bi_tac_dong, id_ban_ghi);
+CREATE INDEX idx_audit_time           ON audit_log (thoi_gian);
+CREATE INDEX idx_audit_user           ON audit_log (nguoi_dung_id);
+CREATE INDEX idx_audit_log_user_created ON audit_log (nguoi_dung_id, thoi_gian);
 
 -- ---------------------------------------------------------------------------
 -- 12. Seed dữ liệu danh mục hành vi vi phạm (Điều 16 Nghị định 16/2022/NĐ-CP)

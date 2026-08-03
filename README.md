@@ -2,14 +2,19 @@
 
 Hệ thống quản lý xử lý vi phạm trật tự xây dựng, hỗ trợ toàn bộ luồng nghiệp vụ: người dân báo cáo → tiếp nhận → xác minh → lập biên bản → ban hành quyết định → theo dõi khắc phục → đóng hồ sơ.
 
+**Phiên bản hiện tại: v0.2.0** (2026-08-03) — Xem [CHANGELOG](#changelog-v020) bên dưới.
+
 ## Tính năng
 
-- **Xác thực & Phân quyền:** JWT, 5 vai trò (công dân, cán bộ thụ lý, xác minh, lãnh đạo, quản trị), 13 quyền chi tiết theo module.
+- **Xác thực & Phân quyền:** JWT, 5 vai trò (công dân, cán bộ thụ lý, xác minh, lãnh đạo, quản trị), 13+ quyền chi tiết theo module (mới: `admin.locations`).
+- **Quản lý địa điểm (v0.2.0):** Admin CRUD quận/huyện & phường/xã, nhập boundary GeoJSON MultiPolygon (SRID 4326) với preview bản đồ, chặn xóa khi có ràng buộc (phường con/hồ sơ/báo cáo), audit log đầy đủ.
 - **Quản lý hồ sơ:** Luồng trạng thái có kiểm soát (13 trạng thái), chuyển trạng thái hợp lệ, audit log bất biến.
 - **Bản đồ GIS:** PostGIS (SRID 4326), ranh giới hành chính quận/phường Hà Nội, hiển thị vị trí vi phạm trên Leaflet.
 - **Biên bản & Quyết định:** Lập biên bản, ban hành quyết định xử phạt (theo NĐ 16/2022), theo dõi khắc phục hậu quả.
 - **Cổng công dân:** Báo cáo vi phạm với vị trí trên bản đồ, ảnh minh chứng, theo dõi trạng thái.
-- **Quản trị:** Quản lý người dùng, vai trò, phân quyền qua giao diện admin.
+- **Quản trị:** Quản lý người dùng, vai trò, phân quyền, **địa điểm** qua giao diện admin.
+- **Hardening bảo mật (v0.2.0):** Rate limit (login/auth/upload), Helmet security headers (CSP/HSTS/nosniff), Upload kiểm tra magic-byte (JPEG/PNG/GIF/WebP), Script dọn tệp mồ côi, Health endpoint mở rộng.
+- **Báo cáo & Xuất dữ liệu (v0.2.0):** Xuất CSV/PDF theo trạng thái/quận/tháng, che dữ liệu cá nhân (PII) theo quyền, phân trang batch cho dữ liệu lớn.
 
 ## Stack
 
@@ -382,6 +387,29 @@ app/
 
 ---
 
+## Admin Địa điểm (v0.2.0 — cần quyền `admin.locations`)
+
+| Method | Path | Mô tả |
+|---|---|---|
+| GET | `/api/v1/admin/quan-huyen` | Danh sách quận/huyện (kèm số phường + boundary GeoJSON) |
+| POST | `/api/v1/admin/quan-huyen` | Tạo quận/huyện mới `{ma, ten, boundary?}` |
+| PATCH | `/api/v1/admin/quan-huyen/:id` | Cập nhật quận/huyện |
+| DELETE | `/api/v1/admin/quan-huyen/:id` | Xóa quận/huyện (409 nếu còn phường/hồ sơ/báo cáo) |
+| GET | `/api/v1/admin/phuong-xa?quan_huyen_id=` | Danh sách phường/xã (lọc theo quận) |
+| POST | `/api/v1/admin/phuong-xa` | Tạo phường/xã mới `{ma, ten, quan_huyen_id, boundary?}` |
+| PATCH | `/api/v1/admin/phuong-xa/:id` | Cập nhật phường/xã |
+| DELETE | `/api/v1/admin/phuong-xa/:id` | Xóa phường/xã (409 nếu còn báo cáo/hồ sơ) |
+
+---
+
+## Báo cáo & Xuất dữ liệu (v0.2.0 — cần quyền `report.statistics`)
+
+| Method | Path | Mô tả |
+|---|---|---|
+| GET | `/api/v1/thong-ke/xuat?loai=csv\|pdf&tu_ngay&den_ngay&quan_huyen_id` | Xuất báo cáo CSV/PDF, che PII theo quyền |
+
+---
+
 ## Biến môi trường (tóm tắt)
 
 | Biến | Bắt buộc | Mặc định | Ý nghĩa |
@@ -411,3 +439,142 @@ npm test        # 45 unit/integration test
 3. Đổi mật khẩu PostgreSQL và JWT_SECRET bằng giá trị mạnh.
 4. Backup: `docker compose exec db pg_dump -U qlttxd qlttxd > backup.sql`
 5. Cấu hình cron backup: `0 2 * * * cd /path/to/app && ./scripts/backup.sh >> backups/backup.log 2>&1`
+
+---
+
+## CHANGELOG v0.2.0
+
+**Ngày phát hành:** 2026-08-03
+
+### ✨ Tính năng mới (Features)
+
+#### Quản lý địa điểm (Phase A)
+- **Admin CRUD quận/huyện & phường/xã:** 8 endpoints mới (`/api/v1/admin/quan-huyen`, `/api/v1/admin/phuong-xa`) với đầy đủ validation, authorization, audit log.
+- **Boundary GeoJSON:** Nhập/cập nhật ranh giới hành chính dạng MultiPolygon (SRID 4326) với preview trực quan trên bản đồ Leaflet.
+- **Guard xóa an toàn:** Chặn xóa quận/huyện khi còn phường con, hồ sơ hoặc báo cáo vi phạm tham chiếu (trả về 409 Conflict kèm chi tiết).
+- **Permission mới:** `admin.locations` — chỉ role `admin` được gán quyền này; leader/citizen nhận 403 Forbidden.
+- **Audit log:** Mọi thao tác tạo/sửa/xóa địa điểm đều ghi nhận vào `audit_log` (user, action, table, record_id, detail, IP, timestamp).
+
+#### Hardening bảo mật (Phase B)
+- **Rate limiting:** `express-rate-limit` trên login (10 req/15ph/IP), auth endpoints, upload — trả 429 kèm `Retry-After`.
+- **Security headers (Helmet):** Thay thế header thủ công bằng `helmet()` — CSP, HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy. CSP cho phép `img-src` tile OpenStreetMap để bản đồ vẫn hoạt động.
+- **Upload an toàn (Magic-byte):** Kiểm tra chữ ký nội dung file (JPEG/PNG/GIF/WebP) — từ chối file giả đổi extension. Giới hạn kích thước qua env.
+- **Dọn tệp mồ côi:** Script rà thư mục `uploads/` so với bảng `tep_dinh_kem` — xóa hoặc báo cáo file không còn tham chiếu.
+- **Health endpoint mở rộng:** `/health` trả về status + DB ping + uptime.
+
+#### Báo cáo & Xuất dữ liệu (Phase C)
+- **Xuất CSV/PDF:** Endpoint `GET /api/v1/thong-ke/xuat?loai=csv|pdf&tu_ngay&den_ngay&quan_huyen_id` — authorize `report.statistics`.
+- **CSV:** Header + dữ liệu, escape đúng, BOM UTF-8, phân trang batch.
+- **PDF:** pdfkit + font Unicode nhúng (Noto Sans) render bảng tiếng Việt.
+- **Che PII (Personal Identifiable Information):** SĐT, email, CMND/CCCD của người gửi & người vi phạm — che theo quyền (chỉ hiện khi có `case.view` hoặc role cao). Áp dụng cho cả API detail và file xuất.
+- **Performance:** Xuất báo cáo quy mô vừa < 2s (NFR-02).
+
+### 🔧 Cải tiến & Sửa lỗi (Improvements & Fixes)
+- **Migration 002:** Idempotent up/down, thêm permission `admin.locations`, gán cho admin, ghi `schema_migrations`.
+- **verify-db.sql:** Sửa lỗi `seeded_demo_users=5` (demo users đã xóa) → `count(*)=0`. Thêm kiểm tra `admin.locations` permission, migration 002 applied, audit_log hardening indexes, `request_id` column.
+- **GET công khai không vỡ:** `/api/v1/danh-muc/quan-huyen`, `/api/v1/danh-muc/phuong-xa` vẫn hoạt động bình thường.
+- **Frontend:** `AdminLocationsPage` (2 panel, modal, preview polygon), menu "📍 Địa điểm" ẩn/hiện theo permission, responsive mobile/desktop. Trang "Báo cáo" với filter + nút xuất CSV/PDF.
+
+### 📦 Dependencies mới
+**Backend:** `express-rate-limit`, `helmet`, `file-type`, `pdfkit`, `csv-stringify`, `@pdf-lib/fontkit` (cho font Unicode).
+**Frontend:** Không thêm runtime dependency (build-time only).
+
+### ⬆️ Hướng dẫn nâng cấp từ v0.1.x → v0.2.0
+
+> **QUAN TRỌNG:** Luôn backup trước khi nâng cấp. Downtime ước tính < 30 phút.
+
+```bash
+# 1. Backup database + uploads
+cd /path/to/qlttxd/app
+./scripts/backup.sh
+
+# 2. Pull code mới
+git pull --ff-only
+
+# 3. Rebuild images
+docker compose build --no-cache
+
+# 4. Khởi động lại (KHÔNG dùng down -v — volume data được bảo toàn)
+docker compose up -d
+
+# 5. Chạy migration 002 (trên DB đang chạy)
+docker compose exec -T db psql -U qlttxd -d qlttxd -f /docker-entrypoint-initdb.d/01-schema.sql
+# Hoặc chạy migration riêng nếu đã có schema:
+docker compose exec -T db psql -U qlttxd -d qlttxd -f sql/migrations/002_admin_locations.up.sql
+
+# 6. Health check
+curl http://localhost/health
+# → {"status":"ok"}
+
+# 7. Verify: đăng nhập admin → vào menu "📍 Địa điểm" → test CRUD quận/phường
+```
+
+**Rollback nếu lỗi:**
+```bash
+# 1. Dừng services
+docker compose stop backend caddy
+
+# 2. Restore DB từ backup
+docker compose exec -T db pg_restore -U qlttxd -d qlttxd --clean --if-exists < backups/qlttxd-YYYYMMDD-HHMMSS.dump
+
+# 3. Restore uploads
+docker run --rm -v "$(docker volume ls -qf name=uploads_data$)":/data -v "$PWD/backups":/backup alpine tar xzf "/backup/uploads-YYYYMMDD-HHMMSS.tar.gz" -C /data
+
+# 4. Khởi động lại bản cũ
+docker compose start backend caddy
+```
+
+---
+
+## ⚠️ Rủi ro & Giảm thiểu (Risks & Mitigations)
+
+| Rủi ro | Mức độ | Giảm thiểu |
+|--------|--------|------------|
+| Xóa quận cascade xóa phường bất ngờ | Cao | Guard pre-check 409 + FK NO ACTION (bắt lỗi 23503) làm lớp bảo vệ cuối |
+| Boundary sai → dò quận/phường sai | Cao | Validate `ST_IsValid` + `MultiPolygon` + SRID 4326; preview bản đồ; test point-in-polygon |
+| Helmet CSP phá bản đồ (tile OSM) | Trung bình | Cấu hình `img-src` cho phép `*.tile.openstreetmap.org`; test browser thực tế |
+| Rate limit chặn nhầm user thật | Trung bình | Ngưỡng hợp lý (10 req/15ph login); whitelist IP nội bộ qua env `RATE_LIMIT_WHITELIST` |
+| Upload magic-byte bỏ sót | Trung bình | Whitelist chặt 4 loại (JPEG/PNG/GIF/WebP); test file giả `.jpg` nội dung text |
+| PDF tiếng Việt lỗi font | Trung bình | Font Unicode nhúng (Noto Sans Devanagari/Vietnamese); test render trước |
+| Migration trên DB production lỗi | Cao | **Backup bắt buộc trước**; migration idempotent; test trên bản sao staging trước |
+| Lộ dữ liệu cá nhân khi xuất báo cáo | Cao | Che PII theo quyền (`case.view` hoặc role admin/leader); test từng vai trò |
+| Seed boundary không phải ranh giới pháp lý | Trung bình | **Cảnh báo:** Seed data là fixture hình chữ nhật demo — **phải thay bằng nguồn chính thức** trước production |
+
+---
+
+## 🧪 Test & Quality Gate
+
+```bash
+# Backend tests (70 tests: 46 cũ + 24 mới)
+cd app/backend
+npm test
+# → 70 pass, 0 fail
+
+# Frontend build
+cd ../frontend
+npm run build
+# → dist/ generated successfully
+
+# E2E smoke (Playwright)
+npx playwright test
+# → CRUD địa điểm, preview polygon, xuất báo cáo, PII masking
+```
+
+**Quality Gate (theo docs/08-quality-gate-process.md):**
+- [x] Self-test PASS
+- [x] Independent review (security T-08)
+- [x] Regression 46 test cũ PASS
+- [x] Security: no HIGH findings
+- [x] Accessibility: form labels, modal focus trap, keyboard nav
+- [x] Responsive: mobile/tablet/desktop verified
+
+---
+
+## 📚 Tài liệu liên quan
+
+- `docs/BOM-v0.2.0.md` — Bill of Materials (danh sách file thay đổi đầy đủ)
+- `docs/acceptance-matrix-v0.2.0.md` — Ma trận nghiệm thu REQ-01..15 × PASS/FAIL + evidence
+- `docs/10-ke-hoach-nang-cap-v0.2.0.md` — Kế hoạch nâng cấp (Single Source of Truth)
+- `docs/11-task-spec-v0.2.0.md` — Task specification 9 task T-01..T-09
+- `TEST-RESULT.md` — Kết quả test T-01 (migration 002 + 8 CRUD)
+- `H5-VERIFICATION-REPORT.md` — Báo cáo QA độc lập H5
