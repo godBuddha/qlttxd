@@ -15,7 +15,7 @@ const server = app.listen(PORT, '127.0.0.1', async () => {
     if (!s1.needsSetup) throw new Error('needsSetup should be true');
 
     // 2. create admin
-    const r2 = await u('/api/v1/auth/setup-admin', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'admin',password:'Admin@2026',full_name:'Quản trị viên',email:'admin@qlttxd.gov.vn'})});
+    const r2 = await u('/api/v1/auth/setup-admin', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'admin',password:'Qlttxd@2026',full_name:'Quản trị viên',email:'admin@qlttxd.gov.vn'})});
     const a2 = await j(r2);
     console.log('2. setup-admin:', r2.status, a2.user?.username, a2.user?.roles);
 
@@ -29,7 +29,7 @@ const server = app.listen(PORT, '127.0.0.1', async () => {
     console.log('4. dup:', r4.status);
 
     // 5. login admin
-    const a5 = await j(await u('/api/v1/auth/login', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'admin',password:'Admin@2026'})}));
+    const a5 = await j(await u('/api/v1/auth/login', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'admin',password:'Qlttxd@2026'})}));
     console.log('5. login:', a5.user?.username, a5.user?.permissions?.length, 'perms');
     const token = a5.token;
 

@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { buildApp, createPool } = require('../server');
+const { TEST_ADMIN_PASSWORD } = require('./test-config');
 
 const PORT = 3103;
 const base = `http://127.0.0.1:${PORT}`;
@@ -51,7 +52,7 @@ test('tạo admin đầu tiên thành công + auto-login', async () => {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       username: 'admin',
-      password: 'Admin@2026',
+      password: TEST_ADMIN_PASSWORD,
       full_name: 'Quản trị viên hệ thống',
       email: 'admin@qlttxd.local',
       phone: '0901000001'
@@ -70,7 +71,7 @@ test('gọi lần 2 → 409 (admin đã tồn tại)', async () => {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       username: 'admin2',
-      password: 'Admin@2026',
+      password: TEST_ADMIN_PASSWORD,
       full_name: 'Admin khác',
       email: 'admin2@qlttxd.local'
     })
