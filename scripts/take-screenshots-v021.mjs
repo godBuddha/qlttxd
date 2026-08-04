@@ -1,7 +1,8 @@
 import { chromium } from 'playwright-core';
-import { mkdirSync } from 'fs';
+import { mkdirSync, existsSync, readdirSync, statSync } from 'fs';
 
 const BASE = process.env.FRONTEND_URL || 'http://localhost:5175';
+const API = process.env.BACKEND_URL || 'http://localhost:3000';
 const DIR = '/workspace/ssd/qlttxd/docs/screenshots/v0.2.1';
 mkdirSync(DIR, { recursive: true });
 
@@ -16,18 +17,28 @@ async function snap(page, name) {
   console.log(`✅ ${name}.png`);
 }
 
-async function login(page, username, password) {
+async function loginViaAPI(page, username, password) {
+  // Call API directly from Node (not from browser) to avoid rate limit
+  const resp = await fetch(`${API}/api/v1/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  });
+  const data = await resp.json();
+  if (!data.token) throw new Error(`Login failed for ${username}: ${JSON.stringify(data)}`);
+  
+  // Set token in localStorage and navigate
   await page.goto(BASE);
   await page.waitForLoadState('networkidle');
-  await page.waitForSelector('input', { timeout: 10000 });
-  const inputs = await page.$$('input');
-  if (inputs.length >= 2) {
-    await inputs[0].fill(username);
-    await inputs[1].fill(password);
-  }
-  await page.click('button');
-  await page.waitForTimeout(2000);
+  await page.evaluate(({ token, user }) => {
+    localStorage.setItem('qlttxd_token', token);
+    localStorage.setItem('qlttxd_user', JSON.stringify(user));
+  }, { token: data.token, user: data.user });
+  
+  // Reload to trigger React state
+  await page.goto(BASE);
   await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(2000);
 }
 
 async function clickNav(page, navText) {
@@ -40,7 +51,7 @@ async function clickNav(page, navText) {
   return false;
 }
 
-console.log('🚀 Bắt đầu chụp screenshots v0.2.1...\n');
+console.log('🚀 Bắt đầu chụp screenshots v0.2.1 (API login)...\n');
 
 const page = await ctx.newPage();
 
@@ -50,11 +61,11 @@ await page.waitForLoadState('networkidle');
 await page.waitForSelector('input', { timeout: 10000 });
 await snap(page, '01-login-page');
 
-// 2. Login as admin
-await login(page, 'admin', 'Qlttxd@2026');
+// 2. Login as admin via API
+await loginViaAPI(page, 'admin', 'Qlttxd@2026');
 await snap(page, '02-dashboard-admin');
 
-// 3. Navigate via sidebar buttons
+// 3. Navigate via sidebar
 const navItems = [
   { text: 'Tổng quan', name: '03-tong-quan' },
   { text: 'Hồ sơ xử lý', name: '04-danh-sach-ho-so' },
@@ -73,14 +84,14 @@ for (const nav of navItems) {
     if (ok) {
       await snap(page, nav.name);
     } else {
-      console.log(`⚠️ ${nav.name}: button "${nav.text}" not found`);
+      console.log(`⚠️ ${nav.name}: button not found`);
     }
   } catch (e) {
     console.log(`⚠️ ${nav.name}: ${e.message.substring(0, 80)}`);
   }
 }
 
-// 4. Try to open a case detail
+// 4. Case detail
 try {
   await clickNav(page, 'Hồ sơ xử lý');
   await page.waitForTimeout(1000);
@@ -90,7 +101,6 @@ try {
     await page.waitForTimeout(1500);
     await snap(page, '12-chi-tiet-ho-so');
 
-    // Click tabs if available
     for (const tab of ['Biên bản', 'Quyết định', 'Khắc phục', 'Timeline']) {
       try {
         const tabBtn = await page.$(`button:has-text("${tab}"), a:has-text("${tab}")`);
@@ -106,7 +116,7 @@ try {
   console.log(`⚠️ Case detail: ${e.message.substring(0, 80)}`);
 }
 
-// 5. Logout & login as other roles
+// 5. Other roles
 const roles = [
   { user: 'canbo01', pass: 'Qlttxd@2026', label: 'handler' },
   { user: 'xacthuc01', pass: 'Qlttxd@2026', label: 'verifier' },
@@ -116,12 +126,8 @@ const roles = [
 
 for (const r of roles) {
   try {
-    // Logout
-    const logoutBtn = await page.$('button:has-text("Đăng xuất")');
-    if (logoutBtn) { await logoutBtn.click(); await page.waitForTimeout(1000); }
-
-    await login(page, r.user, r.pass);
-    await page.waitForTimeout(1500);
+    await loginViaAPI(page, r.user, r.pass);
+    await page.waitForTimeout(1000);
     await snap(page, `14-dashboard-${r.label}`);
 
     // Navigate to available pages
