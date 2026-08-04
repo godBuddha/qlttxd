@@ -2,7 +2,7 @@
 
 > Xử lý vi phạm trật tự xây dựng: người dân báo cáo → tiếp nhận → xác minh → lập biên bản → ban hành quyết định → theo dõi khắc phục → đóng hồ sơ.
 
-**v0.2.0** · Node.js 24 + React 19 + PostgreSQL 16/PostGIS · Self-hosted Docker
+**v0.2.1** · Node.js 24 + React 19 + PostgreSQL 16/PostGIS · Self-hosted Docker
 
 ---
 
@@ -57,6 +57,30 @@
 | ![Citizen Dashboard](docs/screenshots/v0.2.0-full/citizen-dashboard.png) | ![Báo cáo](docs/screenshots/v0.2.0-full/citizen-Báo-cáo.png) |
 
 ---
+
+## ✨ Tính năng v0.2.1
+
+- **Hardening bảo mật:** Helmet security headers (CSP/HSTS/nosniff), Rate limit cho auth endpoints (429)
+- **Health mở rộng:** DB ping + uptime + version
+- **Đổi mật khẩu:** Endpoint `PATCH /api/v1/auth/password`
+- **Audit log:** Endpoint `GET /api/v1/admin/audit-log` với filter + phân trang
+- **Xuất báo cáo:** CSV + PII masking theo quyền
+- **Xuất PDF:** Báo cáo PDF tiếng Việt
+
+### Frontend mới
+- Trang Nhật ký hệ thống (Audit Log) — admin
+- Trang Danh mục (loại vi phạm, hành vi, mức phạt) — admin
+- Trang Hồ sơ cá nhân + đổi mật khẩu — tất cả user
+- Trang Báo cáo/Thống kê + nút xuất CSV/PDF
+- Hiển thị ảnh minh chứng trong chi tiết hồ sơ
+
+### Cải tiến
+- `schema_migrations` table trong schema
+- `GET /api/v1/ho-so/:id` trả thêm `khac_phuc[]`
+- `admin.locations` permission trong seed
+
+### Dependencies mới
+- Backend: `helmet`, `express-rate-limit`, `csv-stringify`, `pdfkit`
 
 ## ✨ Tính năng v0.2.0
 
@@ -199,6 +223,37 @@ npm test        # 70 unit/integration test
 - Frontend: Không thêm runtime dependency
 
 > CHANGELOG đầy đủ: [app/README.md § CHANGELOG](app/README.md#changelog-v020)
+
+---
+
+## 📋 CHANGELOG v0.2.1
+
+**Ngày:** 2026-08-06
+
+### Tính năng mới
+- **Hardening bảo mật:** Helmet security headers (CSP/HSTS/nosniff), Rate limit cho auth endpoints (429)
+- **Health mở rộng:** DB ping + uptime + version
+- **Đổi mật khẩu:** Endpoint `PATCH /api/v1/auth/password`
+- **Audit log:** Endpoint `GET /api/v1/admin/audit-log` với filter + phân trang
+- **Xuất báo cáo:** CSV + PII masking theo quyền
+- **Xuất PDF:** Báo cáo PDF tiếng Việt
+
+### Frontend mới
+- Trang Nhật ký hệ thống (Audit Log) — admin
+- Trang Danh mục (loại vi phạm, hành vi, mức phạt) — admin
+- Trang Hồ sơ cá nhân + đổi mật khẩu — tất cả user
+- Trang Báo cáo/Thống kê + nút xuất CSV/PDF
+- Hiển thị ảnh minh chứng trong chi tiết hồ sơ
+
+### Cải tiến
+- `schema_migrations` table trong schema
+- `GET /api/v1/ho-so/:id` trả thêm `khac_phuc[]`
+- `admin.locations` permission trong seed
+
+### Dependencies mới
+- Backend: `helmet`, `express-rate-limit`, `csv-stringify`, `pdfkit`
+
+> CHANGELOG đầy đủ: [CHANGELOG.md](CHANGELOG.md)
 
 ---
 

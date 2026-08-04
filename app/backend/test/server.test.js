@@ -31,6 +31,15 @@ async function json(path, options = {}) {
   return { response, body: await response.json() };
 }
 
+test('GET /health trả {status, db, uptime, version}', async () => {
+  const { response, body } = await json('/health');
+  assert.equal(response.status, 200);
+  assert.equal(body.status, 'ok');
+  assert.equal(body.db, 'connected');
+  assert.ok(typeof body.uptime === 'number' && body.uptime >= 0);
+  assert.ok(typeof body.version === 'string' && body.version.length > 0);
+});
+
 test('setup admin và đăng nhập', async () => {
   // Setup admin; if already exists (409), fall back to login
   const setup = await json('/api/v1/auth/setup-admin', {

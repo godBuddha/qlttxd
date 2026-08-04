@@ -40,6 +40,7 @@ $$ LANGUAGE plpgsql;
 -- ---------------------------------------------------------------------------
 -- 1. Xóa đối tượng cũ (theo thứ tự phụ thuộc ngược) để script chạy lại được
 -- ---------------------------------------------------------------------------
+DROP TABLE IF EXISTS schema_migrations        CASCADE;
 DROP TABLE IF EXISTS audit_log               CASCADE;
 DROP TABLE IF EXISTS tep_dinh_kem            CASCADE;
 DROP TABLE IF EXISTS thong_bao               CASCADE;
@@ -548,5 +549,15 @@ INSERT INTO permissions (code, name, module) VALUES
     ('admin.audit',        'Xem nhật ký kiểm toán',        'admin'),
     ('admin.locations',    'Quản lý địa điểm (đơn vị hành chính)', 'admin')
 ON CONFLICT (code) DO NOTHING;
+
+-- ---------------------------------------------------------------------------
+-- 14. Bảng theo dõi migration (schema_migrations)
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version     VARCHAR(100) PRIMARY KEY,
+    checksum    VARCHAR(200),
+    applied_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 COMMIT;

@@ -96,7 +96,7 @@ function CitizenPage({ api, notify }) {
   return <><div className="page-title"><div><p className="eyebrow">Cổng công dân</p><h2>Báo cáo vi phạm xây dựng</h2><p>Chọn chính xác vị trí, cung cấp thông tin và ảnh minh chứng (tối đa 5 ảnh).</p></div></div>{result && <section className="success-card"><strong>Đã tiếp nhận {result.ma_bao_cao}</strong><span>Vị trí: {result.toa_do?.lat?.toFixed(6)}, {result.toa_do?.lng?.toFixed(6)}. Quận/phường sẽ được hệ thống tự động xác định.</span></section>}<div className="two-col"><MapView point={point} onPick={setPoint} height="520px" /><form className="panel form-grid" onSubmit={submit}><h3>Nội dung báo cáo</h3><label className="full">Mô tả vi phạm *<textarea required name="mo_ta" value={form.mo_ta} onChange={change} placeholder="Mô tả công trình, hành vi và dấu hiệu vi phạm" /></label><label className="full">Địa chỉ<input name="dia_chi" value={form.dia_chi} onChange={change} /></label><label>Thời gian xảy ra<input type="datetime-local" name="thoi_gian_xay_ra" value={form.thoi_gian_xay_ra} onChange={change} /></label><div className="coordinate">Tọa độ: {point ? `${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}` : 'Chưa chọn'}</div><fieldset className="full"><legend>Người gửi</legend><label>Họ tên<input name="nguoi_gui_ten" value={form.nguoi_gui_ten} onChange={change} /></label><label>Số điện thoại<input name="nguoi_gui_sdt" value={form.nguoi_gui_sdt} onChange={change} /></label><label>Email<input type="email" name="nguoi_gui_email" value={form.nguoi_gui_email} onChange={change} /></label></fieldset><label className="full">Ảnh minh chứng<input type="file" accept="image/*" multiple onChange={(e) => setFiles(Array.from(e.target.files).slice(0, 5))} /></label>{files.length > 0 && <div className="file-list full">Đã chọn: {files.map((f) => f.name).join(', ')}</div>}<button className="full" disabled={busy}>{busy ? 'Đang gửi…' : 'Gửi báo cáo'}</button></form></div><section className="panel"><h3>Báo cáo của tôi</h3><ReportTable reports={reports} /></section></>;
 }
 
-function ReportTable({ reports }) { return <div className="table-wrap"><table><thead><tr><th>Mã báo cáo</th><th>Mô tả</th><th>Địa chỉ</th><th>Ngày tạo</th></tr></thead><tbody>{reports.length ? reports.map((r) => <tr key={r.id || r.ma_bao_cao}><td>{r.ma_bao_cao}</td><td>{r.mo_ta || '—'}</td><td>{r.dia_chi || '—'}</td><td>{dateText(r.created_at)}</td></tr>) : <tr><td colSpan="4" className="empty">Chưa có báo cáo nào.</td></tr>}</tbody></table></div>; }
+function ReportTable({ reports }) { return <div className="table-wrap"><table><thead><tr><th>Mã báo cáo</th><th>Mô tả</th><th>Địa chỉ</th><th>Ảnh</th><th>Ngày tạo</th></tr></thead><tbody>{reports.length ? reports.map((r) => <tr key={r.id || r.ma_bao_cao}><td>{r.ma_bao_cao}</td><td>{r.mo_ta || '—'}</td><td>{r.dia_chi || '—'}</td><td>{r.anh_count ? `${r.anh_count} ảnh` : '—'}</td><td>{dateText(r.created_at)}</td></tr>) : <tr><td colSpan="5" className="empty">Chưa có báo cáo nào.</td></tr>}</tbody></table></div>; }
 
 function Dashboard({ api, navigate, notify }) {
   const [data, setData] = useState(null); useEffect(() => { api('/api/v1/thong-ke/tong-quan').then((r) => setData(r.data)).catch((e) => notify(errorText(e), 'error')); }, []);
@@ -123,7 +123,14 @@ function CaseDetail({ id, api, user, navigate, notify }) {
   useEffect(() => { load(); }, [id]);
   if (!item) return <Loading />;
   async function transition() { if (!state || state === item.trang_thai) return; setBusy(true); try { await api(`/api/v1/ho-so/${id}/trang-thai`, { method: 'PATCH', body: JSON.stringify({ trang_thai: state }) }); notify('Đã cập nhật trạng thái.', 'success'); load(); } catch (e) { notify(errorText(e), 'error'); setState(item.trang_thai); } finally { setBusy(false); } }
-  return <><div className="page-title"><div><button className="back" onClick={() => navigate('cases')}>← Danh sách hồ sơ</button><h2>{item.ma_ho_so}</h2><Status value={item.trang_thai} /></div></div><div className="detail-grid"><section className="panel"><h3>Thông tin hồ sơ</h3><dl><dt>Địa chỉ</dt><dd>{item.dia_chi || '—'}</dd><dt>Mô tả</dt><dd>{item.mo_ta || item.bao_cao?.mo_ta || '—'}</dd><dt>Thời gian xảy ra</dt><dd>{dateText(item.thoi_gian_xay_ra)}</dd><dt>Người vi phạm</dt><dd>{item.nguoi_vi_pham?.ten || 'Chưa cập nhật'}</dd><dt>Trạng thái</dt><dd><Status value={item.trang_thai} /></dd></dl>{can(user, 'case.update') && <div className="action-box"><label>Chuyển trạng thái<select value={state} onChange={(e) => setState(e.target.value)}>{STATES.map((x) => <option key={x} value={x}>{STATE_LABELS[x]}</option>)}</select></label><button disabled={busy || state === item.trang_thai} onClick={transition}>Cập nhật</button><small>Hệ thống chỉ chấp nhận các chuyển trạng thái hợp lệ.</small></div>}</section><section className="panel"><h3>Vị trí GIS</h3>{item.toa_do ? <MapView point={item.toa_do} height="350px" /> : <p className="empty">Hồ sơ chưa có tọa độ.</p>}</section></div><section className="panel"><div className="tabs">{[['overview', 'Timeline'], ['minutes', 'Biên bản'], ['decision', 'Quyết định'], ['remedy', 'Khắc phục']].map(([key, label]) => <button key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>{label}</button>)}</div>{tab === 'overview' && <Timeline item={item} />}{tab === 'minutes' && <Minutes caseItem={item} api={api} allow={can(user, 'bien_ban.create')} notify={notify} refresh={load} />}{tab === 'decision' && <Decision caseItem={item} api={api} allow={can(user, 'quyet_dinh.issue')} notify={notify} refresh={load} />}{tab === 'remedy' && <Remedy caseItem={item} api={api} allow={can(user, 'khac_phuc.manage')} notify={notify} refresh={load} />}</section></>;
+  return <><div className="page-title"><div><button className="back" onClick={() => navigate('cases')}>← Danh sách hồ sơ</button><h2>{item.ma_ho_so}</h2><Status value={item.trang_thai} /></div></div><div className="detail-grid"><section className="panel"><h3>Thông tin hồ sơ</h3><dl><dt>Địa chỉ</dt><dd>{item.dia_chi || '—'}</dd><dt>Mô tả</dt><dd>{item.mo_ta || item.bao_cao?.mo_ta || '—'}</dd><dt>Thời gian xảy ra</dt><dd>{dateText(item.thoi_gian_xay_ra)}</dd><dt>Người vi phạm</dt><dd>{item.nguoi_vi_pham?.ten || 'Chưa cập nhật'}</dd><dt>Trạng thái</dt><dd><Status value={item.trang_thai} /></dd></dl>{can(user, 'case.update') && <div className="action-box"><label>Chuyển trạng thái<select value={state} onChange={(e) => setState(e.target.value)}>{STATES.map((x) => <option key={x} value={x}>{STATE_LABELS[x]}</option>)}</select></label><button disabled={busy || state === item.trang_thai} onClick={transition}>Cập nhật</button><small>Hệ thống chỉ chấp nhận các chuyển trạng thái hợp lệ.</small></div>}</section><section className="panel"><h3>Vị trí GIS</h3>{item.toa_do ? <MapView point={item.toa_do} height="350px" /> : <p className="empty">Hồ sơ chưa có tọa độ.</p>}</section></div><section className="panel"><div className="tabs">{[['overview', 'Timeline'], ['images', `Ảnh (${item.anh?.length || 0})`], ['minutes', 'Biên bản'], ['decision', 'Quyết định'], ['remedy', 'Khắc phục']].map(([key, label]) => <button key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>{label}</button>)}</div>{tab === 'overview' && <Timeline item={item} />}{tab === 'images' && <EvidenceGallery images={item.anh || []} />}{tab === 'minutes' && <Minutes caseItem={item} api={api} allow={can(user, 'bien_ban.create')} notify={notify} refresh={load} />}{tab === 'decision' && <Decision caseItem={item} api={api} allow={can(user, 'quyet_dinh.issue')} notify={notify} refresh={load} />}{tab === 'remedy' && <Remedy caseItem={item} api={api} allow={can(user, 'khac_phuc.manage')} notify={notify} refresh={load} />}</section></>;
+}
+function EvidenceGallery({ images }) {
+  const [lightbox, setLightbox] = useState(null);
+  const token = localStorage.getItem('qlttxd_token');
+  if (!images.length) return <div className="tab-body"><p className="empty">Chưa có ảnh minh chứng.</p></div>;
+  const imgSrc = (a) => `${API_BASE}${a.duong_dan}?token=${token}`;
+  return <div className="tab-body"><h3>Ảnh minh chứng</h3><div className="evidence-gallery">{images.map((a, i) => <img key={a.id} src={imgSrc(a)} alt={a.ten_goc} className="evidence-img" onClick={() => setLightbox(i)} loading="lazy" />)}</div>{lightbox !== null && <div className="lightbox-overlay" onClick={() => setLightbox(null)}><button className="lightbox-close" onClick={() => setLightbox(null)}>×</button><button className="lightbox-prev" onClick={(e) => { e.stopPropagation(); setLightbox((lightbox - 1 + images.length) % images.length); }}>‹</button><img className="lightbox-img" src={imgSrc(images[lightbox])} alt={images[lightbox].ten_goc} onClick={(e) => e.stopPropagation()} /><button className="lightbox-next" onClick={(e) => { e.stopPropagation(); setLightbox((lightbox + 1) % images.length); }}>›</button><div className="lightbox-caption">{images[lightbox].ten_goc}</div></div>}</div>;
 }
 function Timeline({ item }) { return <div><h3>Tiến trình xử lý</h3><ol className="timeline"><li><b>Khởi tạo hồ sơ</b><span>{dateText(item.created_at)}</span></li><li className="current"><b>{STATE_LABELS[item.trang_thai]}</b><span>Cập nhật {dateText(item.updated_at)}</span></li></ol></div>; }
 function Minutes({ caseItem, api, allow, notify, refresh }) { const [noi_dung, setNoiDung] = useState(''); const [muc_phat_du_kien, setFine] = useState(''); async function submit(e) { e.preventDefault(); try { await api(`/api/v1/ho-so/${caseItem.id}/bien-ban`, { method: 'POST', body: JSON.stringify({ noi_dung, muc_phat_du_kien: muc_phat_du_kien || null }) }); notify('Đã lập biên bản.', 'success'); refresh(); } catch (x) { notify(errorText(x), 'error'); } } return <div className="tab-body"><h3>Biên bản</h3>{caseItem.bien_ban?.length ? <ul className="record-list">{caseItem.bien_ban.map((x) => <li key={x.id}><b>{x.ma_bien_ban}</b><span>{x.noi_dung || 'Không có nội dung'} — {money(x.muc_phat_du_kien)}</span></li>)}</ul> : <p className="empty">Chưa có biên bản.</p>}{allow && <form className="inline-form" onSubmit={submit}><h4>Lập biên bản</h4><label>Nội dung<textarea value={noi_dung} onChange={(e) => setNoiDung(e.target.value)} /></label><label>Mức phạt dự kiến<input type="number" min="0" value={muc_phat_du_kien} onChange={(e) => setFine(e.target.value)} /></label><button>Lập biên bản</button></form>}</div>; }
@@ -253,6 +260,78 @@ function AdminRolesPage({ api, notify }) {
   );
 }
 
+const AUDIT_TABLES = ['', 'ho_so', 'bao_cao_vi_pham', 'users', 'quan_huyen', 'phuong_xa', 'bien_ban', 'quyet_dinh', 'khac_phuc', 'roles'];
+const AUDIT_TABLE_LABELS = { '': 'Tất cả', ho_so: 'Hồ sơ', bao_cao_vi_pham: 'Báo cáo', users: 'Người dùng', quan_huyen: 'Quận/Huyện', phuong_xa: 'Phường/Xã', bien_ban: 'Biên bản', quyet_dinh: 'Quyết định', khac_phuc: 'Khắc phục', roles: 'Vai trò' };
+const AUDIT_ACTIONS = ['', 'create', 'update', 'delete', 'login', 'setup_admin', 'update_permissions', 'change_password'];
+const AUDIT_ACTION_LABELS = { '': 'Tất cả', create: 'Tạo mới', update: 'Cập nhật', delete: 'Xóa', login: 'Đăng nhập', setup_admin: 'Khởi tạo admin', update_permissions: 'Phân quyền', change_password: 'Đổi mật khẩu' };
+
+function AdminAuditLogPage({ api, notify }) {
+  const [logs, setLogs] = useState([]);
+  const [filters, setFilters] = useState({ bang: '', hanh_dong: '', page: 1 });
+  const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState(null);
+  useEffect(() => {
+    setLoading(true);
+    const q = new URLSearchParams({ page: filters.page, limit: 50 });
+    if (filters.bang) q.set('bang', filters.bang);
+    if (filters.hanh_dong) q.set('hanh_dong', filters.hanh_dong);
+    api(`/api/v1/admin/audit-log?${q}`).then((r) => setLogs(r.data || [])).catch((e) => notify(errorText(e), 'error')).finally(() => setLoading(false));
+  }, [filters]);
+  const set = (key, value) => setFilters((old) => ({ ...old, [key]: value, page: key === 'page' ? value : 1 }));
+  return (
+    <>
+      <div className="page-title"><div><p className="eyebrow">Quản trị hệ thống</p><h2>Nhật ký hệ thống</h2><p>Xem lại mọi thao tác trong hệ thống — ai, làm gì, khi nào.</p></div></div>
+      <section className="panel filters">
+        <label>Bảng<select value={filters.bang} onChange={(e) => set('bang', e.target.value)}>{AUDIT_TABLES.map((t) => <option key={t} value={t}>{AUDIT_TABLE_LABELS[t] || t}</option>)}</select></label>
+        <label>Hành động<select value={filters.hanh_dong} onChange={(e) => set('hanh_dong', e.target.value)}>{AUDIT_ACTIONS.map((a) => <option key={a} value={a}>{AUDIT_ACTION_LABELS[a] || a}</option>)}</select></label>
+      </section>
+      {loading ? <Loading /> : (
+        <section className="panel">
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Thời gian</th><th>Người dùng</th><th>Hành động</th><th>Bảng</th><th>ID bản ghi</th><th></th></tr></thead>
+              <tbody>{logs.length ? logs.map((row) => (
+                <tr key={row.id} className={expandedId === row.id ? 'selected-row' : ''}>
+                  <td>{dateText(row.thoi_gian)}</td>
+                  <td>{row.full_name || row.username || '—'}</td>
+                  <td><span className="badge">{AUDIT_ACTION_LABELS[row.hanh_dong] || row.hanh_dong}</span></td>
+                  <td>{AUDIT_TABLE_LABELS[row.bang_bi_tac_dong] || row.bang_bi_tac_dong}</td>
+                  <td><code style={{ fontSize: '.78rem' }}>{row.id_ban_ghi ? String(row.id_ban_ghi).slice(0, 8) + '…' : '—'}</code></td>
+                  <td><button className="text-button" onClick={() => setExpandedId(expandedId === row.id ? null : row.id)}>{expandedId === row.id ? 'Thu gọn' : 'Chi tiết'}</button></td>
+                </tr>
+              )).concat(expandedId ? [] : []) : <tr><td colSpan="6" className="empty">Chưa có nhật ký nào.</td></tr>}</tbody>
+            </table>
+          </div>
+          {expandedId && (() => {
+            const row = logs.find((r) => r.id === expandedId);
+            if (!row) return null;
+            return (
+              <div className="audit-detail">
+                <h4>Chi tiết thao tác</h4>
+                <dl>
+                  <dt>Thời gian</dt><dd>{dateText(row.thoi_gian)}</dd>
+                  <dt>Người dùng</dt><dd>{row.full_name || row.username || '—'} {row.username && row.full_name ? `(${row.username})` : ''}</dd>
+                  <dt>Hành động</dt><dd>{AUDIT_ACTION_LABELS[row.hanh_dong] || row.hanh_dong}</dd>
+                  <dt>Bảng</dt><dd>{row.bang_bi_tac_dong}</dd>
+                  <dt>ID bản ghi</dt><dd>{row.id_ban_ghi || '—'}</dd>
+                  <dt>IP</dt><dd>{row.ip || '—'}</dd>
+                  {row.request_id && <><dt>Request ID</dt><dd>{row.request_id}</dd></>}
+                </dl>
+                {row.chi_tiet && <div className="audit-json"><h4>Dữ liệu chi tiết</h4><pre>{typeof row.chi_tiet === 'string' ? row.chi_tiet : JSON.stringify(row.chi_tiet, null, 2)}</pre></div>}
+              </div>
+            );
+          })()}
+          <div className="pagination">
+            <button disabled={filters.page === 1} onClick={() => set('page', filters.page - 1)}>← Trang trước</button>
+            <span>Trang {filters.page}</span>
+            <button disabled={logs.length < 50} onClick={() => set('page', filters.page + 1)}>Trang sau →</button>
+          </div>
+        </section>
+      )}
+    </>
+  );
+}
+
 function AdminLocationsPage({ api, notify }) {
   const [districts, setDistricts] = useState([]);
   const [wards, setWards] = useState([]);
@@ -368,6 +447,301 @@ function AdminLocationsPage({ api, notify }) {
   );
 }
 
+function AdminCatalogPage({ api, notify }) {
+  const [tab, setTab] = useState('loai-vi-pham');
+  const [loaiVP, setLoaiVP] = useState([]);
+  const [hanhVi, setHanhVi] = useState([]);
+  const [mucPhat, setMucPhat] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [editItem, setEditItem] = useState(null);
+  const [filterLoai, setFilterLoai] = useState('');
+  const [filterHanhVi, setFilterHanhVi] = useState('');
+  const load = () => Promise.all([
+    api('/api/v1/admin/loai-vi-pham').then((r) => setLoaiVP(r.data || [])),
+    api('/api/v1/admin/hanh-vi').then((r) => setHanhVi(r.data || [])),
+    api('/api/v1/admin/muc-phat').then((r) => setMucPhat(r.data || []))
+  ]).finally(() => setLoading(false));
+  useEffect(() => { load(); }, []);
+  const openCreate = () => { setEditItem(null); setShowModal(true); };
+  const openEdit = (item) => { setEditItem(item); setShowModal(true); };
+  const handleSave = async () => { setShowModal(false); load(); };
+  async function handleDelete(item, type) {
+    const labels = { 'loai-vi-pham': 'loại vi phạm', 'hanh-vi': 'hành vi', 'muc-phat': 'mức phạt' };
+    if (!window.confirm(`Xác nhận xóa ${labels[type]} "${item.ten || item.code}"?`)) return;
+    try {
+      await api(`/api/v1/admin/${type}/${item.id}`, { method: 'DELETE' });
+      notify(`Đã xóa ${labels[type]}.`, 'success');
+      load();
+    } catch (err) { notify(errorText(err), 'error'); }
+  }
+  if (loading) return <Loading />;
+  const filteredHanhVi = filterLoai ? hanhVi.filter((h) => String(h.loai_vi_pham_id) === String(filterLoai)) : hanhVi;
+  const filteredMucPhat = filterHanhVi ? mucPhat.filter((m) => String(m.hanh_vi_id) === String(filterHanhVi)) : mucPhat;
+  return (
+    <>
+      <div className="page-title"><div><p className="eyebrow">Quản trị hệ thống</p><h2>Quản lý danh mục</h2><p>Loại vi phạm, hành vi vi phạm, mức phạt — theo Điều 16 NĐ 16/2022/NĐ-CP.</p></div></div>
+      <div className="tabs" style={{ marginBottom: 18 }}>{
+        [['loai-vi-pham', 'Loại vi phạm'], ['hanh-vi', 'Hành vi vi phạm'], ['muc-phat', 'Mức phạt']].map(([key, label]) =>
+          <button key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>{label}</button>
+        )
+      }</div>
+      {tab === 'loai-vi-pham' && <section className="panel">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+          <h3 style={{ margin: 0 }}>Loại vi phạm ({loaiVP.length})</h3>
+          <button onClick={openCreate}>Thêm loại</button>
+        </div>
+        <div className="table-wrap"><table><thead><tr><th>Mã</th><th>Tên</th><th>STT</th><th>Mô tả</th><th></th></tr></thead>
+          <tbody>{loaiVP.length ? loaiVP.map((item) => (
+            <tr key={item.id}>
+              <td><code>{item.code}</code></td><td><strong>{item.ten}</strong></td><td>{item.so_thu_tu}</td><td style={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.mo_ta || '—'}</td>
+              <td style={{ whiteSpace: 'nowrap' }}><button className="text-button" onClick={() => openEdit(item)}>Sửa</button><button className="text-button" onClick={() => handleDelete(item, 'loai-vi-pham')}>Xóa</button></td>
+            </tr>
+          )) : <tr><td colSpan="5" className="empty">Chưa có loại vi phạm nào.</td></tr>}</tbody></table></div>
+      </section>}
+      {tab === 'hanh-vi' && <section className="panel">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <h3 style={{ margin: 0 }}>Hành vi vi phạm ({filteredHanhVi.length})</h3>
+            <select value={filterLoai} onChange={(e) => setFilterLoai(e.target.value)} style={{ width: 'auto', minWidth: 180 }}>
+              <option value="">Tất cả loại</option>
+              {loaiVP.map((l) => <option key={l.id} value={l.id}>{l.ten}</option>)}
+            </select>
+          </div>
+          <button onClick={openCreate}>Thêm hành vi</button>
+        </div>
+        <div className="table-wrap"><table><thead><tr><th>Điều/Khoản/Điểm</th><th>Tên</th><th>Loại VP</th><th>Trạng thái</th><th></th></tr></thead>
+          <tbody>{filteredHanhVi.length ? filteredHanhVi.map((item) => (
+            <tr key={item.id}>
+              <td>Điều {item.dieu}, Khoản {item.khoan}{item.diem ? `, Điểm ${item.diem}` : ''}</td>
+              <td>{item.ten}</td><td>{item.loai_vi_pham_ten || '—'}</td>
+              <td>{item.is_active ? <span className="badge da_khac_phuc">Hoạt động</span> : <span className="badge da_huy">Tắt</span>}</td>
+              <td style={{ whiteSpace: 'nowrap' }}><button className="text-button" onClick={() => openEdit(item)}>Sửa</button><button className="text-button" onClick={() => handleDelete(item, 'hanh-vi')}>Xóa</button></td>
+            </tr>
+          )) : <tr><td colSpan="5" className="empty">{filterLoai ? 'Không có hành vi nào cho loại vi phạm này.' : 'Chưa có hành vi vi phạm nào.'}</td></tr>}</tbody></table></div>
+      </section>}
+      {tab === 'muc-phat' && <section className="panel">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <h3 style={{ margin: 0 }}>Mức phạt ({filteredMucPhat.length})</h3>
+            <select value={filterHanhVi} onChange={(e) => setFilterHanhVi(e.target.value)} style={{ width: 'auto', minWidth: 220 }}>
+              <option value="">Tất cả hành vi</option>
+              {hanhVi.map((h) => <option key={h.id} value={h.id}>Khoản {h.khoan}: {h.ten?.slice(0, 60)}</option>)}
+            </select>
+          </div>
+          <button onClick={openCreate}>Thêm mức phạt</button>
+        </div>
+        <div className="table-wrap"><table><thead><tr><th>Hành vi (Khoản)</th><th>Nhóm CT</th><th>Tối thiểu</th><th>Tối đa</th><th></th></tr></thead>
+          <tbody>{filteredMucPhat.length ? filteredMucPhat.map((item) => (
+            <tr key={item.id}>
+              <td>Khoản {item.khoan}: {item.hanh_vi_ten?.slice(0, 80) || '—'}</td>
+              <td>Nhóm {item.nhom_cong_trinh}</td>
+              <td>{money(item.muc_toi_thieu)}</td><td>{money(item.muc_toi_da)}</td>
+              <td style={{ whiteSpace: 'nowrap' }}><button className="text-button" onClick={() => openEdit(item)}>Sửa</button><button className="text-button" onClick={() => handleDelete(item, 'muc-phat')}>Xóa</button></td>
+            </tr>
+          )) : <tr><td colSpan="5" className="empty">{filterHanhVi ? 'Không có mức phạt nào cho hành vi này.' : 'Chưa có mức phạt nào.'}</td></tr>}</tbody></table></div>
+      </section>}
+      {showModal && <CatalogModal tab={tab} editItem={editItem} loaiVP={loaiVP} hanhVi={hanhVi} api={api} notify={notify} onClose={() => setShowModal(false)} onSave={handleSave} />}
+    </>
+  );
+}
+
+function CatalogModal({ tab, editItem, loaiVP, hanhVi, api, notify, onClose, onSave }) {
+  const labels = { 'loai-vi-pham': 'loại vi phạm', 'hanh-vi': 'hành vi vi phạm', 'muc-phat': 'mức phạt' };
+  const [form, setForm] = useState(() => {
+    if (tab === 'loai-vi-pham') return editItem ? { code: editItem.code, ten: editItem.ten, mo_ta: editItem.mo_ta || '', so_thu_tu: editItem.so_thu_tu ?? 0 } : { code: '', ten: '', mo_ta: '', so_thu_tu: 0 };
+    if (tab === 'hanh-vi') return editItem ? { loai_vi_pham_id: editItem.loai_vi_pham_id, dieu: editItem.dieu || '16', khoan: editItem.khoan, diem: editItem.diem || '', ten: editItem.ten, mo_ta: editItem.mo_ta || '', is_active: editItem.is_active } : { loai_vi_pham_id: '', dieu: '16', khoan: '', diem: '', ten: '', mo_ta: '', is_active: true };
+    return editItem ? { hanh_vi_id: editItem.hanh_vi_id, nhom_cong_trinh: editItem.nhom_cong_trinh, muc_toi_thieu: editItem.muc_toi_thieu, muc_toi_da: editItem.muc_toi_da } : { hanh_vi_id: '', nhom_cong_trinh: 1, muc_toi_thieu: '', muc_toi_da: '' };
+  });
+  const [busy, setBusy] = useState(false);
+  const change = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  async function submit(e) {
+    e.preventDefault(); setBusy(true);
+    try {
+      if (tab === 'loai-vi-pham') {
+        if (!form.code.trim()) return notify('Mã là bắt buộc.', 'error'), setBusy(false);
+        if (!form.ten.trim()) return notify('Tên là bắt buộc.', 'error'), setBusy(false);
+      }
+      if (tab === 'hanh-vi') {
+        if (!form.loai_vi_pham_id) return notify('Phải chọn loại vi phạm.', 'error'), setBusy(false);
+        if (!form.khoan.trim()) return notify('Khoản là bắt buộc.', 'error'), setBusy(false);
+        if (!form.ten.trim()) return notify('Tên là bắt buộc.', 'error'), setBusy(false);
+      }
+      if (tab === 'muc-phat') {
+        if (!form.hanh_vi_id) return notify('Phải chọn hành vi.', 'error'), setBusy(false);
+        if (Number(form.muc_toi_thieu) < 0) return notify('Mức tối thiểu phải >= 0.', 'error'), setBusy(false);
+        if (Number(form.muc_toi_da) < Number(form.muc_toi_thieu)) return notify('Mức tối đa phải >= mức tối thiểu.', 'error'), setBusy(false);
+      }
+      const payload = { ...form };
+      if (tab === 'loai-vi-pham') payload.so_thu_tu = Number(payload.so_thu_tu) || 0;
+      if (tab === 'hanh-vi') { payload.is_active = payload.is_active === true || payload.is_active === 'true'; }
+      if (tab === 'muc-phat') { payload.nhom_cong_trinh = Number(payload.nhom_cong_trinh); payload.muc_toi_thieu = Number(payload.muc_toi_thieu); payload.muc_toi_da = Number(payload.muc_toi_da); }
+      const ep = `/api/v1/admin/${tab}`;
+      if (editItem) { await api(`${ep}/${editItem.id}`, { method: 'PATCH', body: JSON.stringify(payload) }); notify(`Đã cập nhật ${labels[tab]}.`, 'success'); }
+      else { await api(ep, { method: 'POST', body: JSON.stringify(payload) }); notify(`Đã tạo ${labels[tab]} mới.`, 'success'); }
+      onSave();
+    } catch (err) { notify(errorText(err), 'error'); } finally { setBusy(false); }
+  }
+  const NHOM_LABELS = { 1: 'Nhóm 1 — Nhà ở riêng lẻ', 2: 'Nhóm 2 — Nhà ở trong bảo tồn / CT khác', 3: 'Nhóm 3 — Công trình BCNCKT / BCKT-KT' };
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ width: 'min(100%, 580px)' }}>
+        <h3>{editItem ? 'Sửa' : 'Thêm'} {labels[tab]}</h3>
+        <form onSubmit={submit}>
+          {tab === 'loai-vi-pham' && <>
+            <label>Mã *<input required name="code" value={form.code} onChange={change} maxLength={30} placeholder="VD: N_AT_CT" /></label>
+            <label>Tên *<input required name="ten" value={form.ten} onChange={change} maxLength={300} placeholder="VD: Vi phạm về an toàn, vệ sinh công trường" /></label>
+            <label>Thứ tự hiển thị<input type="number" name="so_thu_tu" value={form.so_thu_tu} onChange={change} min="0" /></label>
+            <label>Mô tả<textarea name="mo_ta" value={form.mo_ta} onChange={change} placeholder="Mô tả chi tiết (tùy chọn)" /></label>
+          </>}
+          {tab === 'hanh-vi' && <>
+            <label>Loại vi phạm *<select required name="loai_vi_pham_id" value={form.loai_vi_pham_id} onChange={change}><option value="">-- Chọn loại vi phạm --</option>{loaiVP.map((l) => <option key={l.id} value={l.id}>{l.ten}</option>)}</select></label>
+            <label style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              <span style={{ gridColumn: '1 / -1' }}>Điều/Khoản/Điểm *</span>
+              <label style={{ fontWeight: 400 }}>Điều<input name="dieu" value={form.dieu} onChange={change} maxLength={10} /></label>
+              <label style={{ fontWeight: 400 }}>Khoản *<input required name="khoan" value={form.khoan} onChange={change} maxLength={10} placeholder="1..13" /></label>
+              <label style={{ fontWeight: 400 }}>Điểm<input name="diem" value={form.diem} onChange={change} maxLength={10} placeholder="a/b/c" /></label>
+            </label>
+            <label>Tên *<input required name="ten" value={form.ten} onChange={change} maxLength={500} placeholder="Mô tả ngắn hành vi vi phạm" /></label>
+            <label>Mô tả<textarea name="mo_ta" value={form.mo_ta} onChange={change} placeholder="Mô tả đầy đủ (tùy chọn)" /></label>
+            <label>Trạng thái<select name="is_active" value={String(form.is_active)} onChange={(e) => setForm({ ...form, is_active: e.target.value === 'true' })}><option value="true">Hoạt động</option><option value="false">Tắt</option></select></label>
+          </>}
+          {tab === 'muc-phat' && <>
+            <label>Hành vi vi phạm *<select required name="hanh_vi_id" value={form.hanh_vi_id} onChange={change}><option value="">-- Chọn hành vi --</option>{hanhVi.map((h) => <option key={h.id} value={h.id}>Khoản {h.khoan}: {h.ten}</option>)}</select></label>
+            <label>Nhóm công trình *<select required name="nhom_cong_trinh" value={form.nhom_cong_trinh} onChange={change}>{Object.entries(NHOM_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
+            <label>Mức phạt tối thiểu (VNĐ) *<input required type="number" name="muc_toi_thieu" value={form.muc_toi_thieu} onChange={change} min="0" step="100000" placeholder="VD: 3000000" /></label>
+            <label>Mức phạt tối đa (VNĐ) *<input required type="number" name="muc_toi_da" value={form.muc_toi_da} onChange={change} min="0" step="100000" placeholder="VD: 5000000" /></label>
+            <p className="hint" style={{ gridColumn: '1 / -1' }}>Mức phạt dành cho tổ chức. Mức dành cho cá nhân = 1/2.</p>
+          </>}
+          <div className="modal-actions"><button type="button" onClick={onClose}>Hủy</button><button type="submit" disabled={busy}>{busy ? 'Đang lưu…' : 'Lưu'}</button></div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function ProfilePage({ api, user, notify }) {
+  const [oldPass, setOldPass] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
+  const [busy, setBusy] = useState(false);
+  async function changePassword(e) {
+    e.preventDefault();
+    if (newPass !== confirmPass) { notify('Mật khẩu xác nhận không khớp', 'error'); return; }
+    setBusy(true);
+    try {
+      await api('/api/v1/auth/password', { method: 'PATCH', body: JSON.stringify({ old_password: oldPass, new_password: newPass }) });
+      notify('Đã đổi mật khẩu thành công', 'success');
+      setOldPass(''); setNewPass(''); setConfirmPass('');
+    } catch (e) { notify(errorText(e), 'error'); }
+    setBusy(false);
+  }
+  return (
+    <>
+      <div className="page-title"><div><p className="eyebrow">Hồ sơ</p><h2>{user.full_name}</h2></div></div>
+      <section className="panel"><h3>Thông tin tài khoản</h3><dl><dt>Tên đăng nhập</dt><dd>{user.username}</dd><dt>Email</dt><dd>{user.email || '—'}</dd><dt>Điện thoại</dt><dd>{user.phone || '—'}</dd><dt>Vai trò</dt><dd>{user.roles?.join(', ') || '—'}</dd></dl></section>
+      <section className="panel profile-card"><h3>Đổi mật khẩu</h3><form onSubmit={changePassword}><label>Mật khẩu cũ<input type="password" value={oldPass} onChange={(e) => setOldPass(e.target.value)} required /></label><label>Mật khẩu mới<input type="password" value={newPass} onChange={(e) => setNewPass(e.target.value)} required minLength={8} /></label><label>Xác nhận<input type="password" value={confirmPass} onChange={(e) => setConfirmPass(e.target.value)} required /></label><button disabled={busy}>{busy ? 'Đang lưu...' : 'Đổi mật khẩu'}</button></form></section>
+    </>
+  );
+}
+
+function ReportPage({ api, user, notify }) {
+  const [filters, setFilters] = useState({ trang_thai: '', quan_huyen_id: '', tu_ngay: '', den_ngay: '' });
+  const [districts, setDistricts] = useState([]);
+  const [data, setData] = useState(null);
+  const [downloading, setDownloading] = useState('');
+
+  useEffect(() => {
+    api('/api/v1/danh-muc/quan-huyen').then((r) => setDistricts(r.data || [])).catch(() => {});
+    api('/api/v1/thong-ke/tong-quan').then((r) => setData(r.data)).catch((e) => notify(errorText(e), 'error'));
+  }, []);
+
+  const set = (key, value) => setFilters((old) => ({ ...old, [key]: value }));
+
+  function applyFilters() {
+    const params = new URLSearchParams();
+    if (filters.trang_thai) params.set('trang_thai', filters.trang_thai);
+    if (filters.quan_huyen_id) params.set('quan_huyen_id', filters.quan_huyen_id);
+    if (filters.tu_ngay) params.set('tu_ngay', filters.tu_ngay);
+    if (filters.den_ngay) params.set('den_ngay', filters.den_ngay);
+    return params;
+  }
+
+  async function download(loai) {
+    setDownloading(loai);
+    try {
+      const params = applyFilters();
+      params.set('loai', loai);
+      const token = localStorage.getItem('qlttxd_token');
+      const url = `${API_BASE}/api/v1/thong-ke/xuat?${params}`;
+      const r = await fetch(url, { headers: { 'X-Auth-Token': token || '' } });
+      if (!r.ok) {
+        let msg = `Xuất ${loai.toUpperCase()} thất bại (${r.status})`;
+        try { const j = await r.json(); msg = j.error || msg; } catch {}
+        throw new Error(msg);
+      }
+      const blob = await r.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `bao-cao-${new Date().toISOString().slice(0, 10)}.${loai}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(a.href);
+      notify(`Đã tải file ${loai.toUpperCase()}.`, 'success');
+    } catch (e) { notify(errorText(e), 'error'); } finally { setDownloading(''); }
+  }
+
+  if (!data) return <Loading />;
+
+  return (
+    <>
+      <div className="page-title">
+        <div>
+          <p className="eyebrow">Thống kê</p>
+          <h2>Báo cáo tổng hợp</h2>
+          <p>Xem thống kê hồ sơ và xuất dữ liệu theo bộ lọc.</p>
+        </div>
+      </div>
+      <section className="panel">
+        <h3>Bộ lọc</h3>
+        <div className="report-filters">
+          <label>Trạng thái
+            <select value={filters.trang_thai} onChange={(e) => set('trang_thai', e.target.value)}>
+              <option value="">Tất cả</option>
+              {STATES.map((x) => <option key={x} value={x}>{STATE_LABELS[x]}</option>)}
+            </select>
+          </label>
+          <label>Quận/huyện
+            <select value={filters.quan_huyen_id} onChange={(e) => set('quan_huyen_id', e.target.value)}>
+              <option value="">Tất cả</option>
+              {districts.map((x) => <option key={x.id} value={x.id}>{x.ten}</option>)}
+            </select>
+          </label>
+          <label>Từ ngày<input type="date" value={filters.tu_ngay} onChange={(e) => set('tu_ngay', e.target.value)} /></label>
+          <label>Đến ngày<input type="date" value={filters.den_ngay} onChange={(e) => set('den_ngay', e.target.value)} /></label>
+        </div>
+        <div className="report-actions">
+          <button onClick={() => download('csv')} disabled={!!downloading}>{downloading === 'csv' ? 'Đang tải…' : '📥 Xuất CSV'}</button>
+          <button onClick={() => download('pdf')} disabled={!!downloading}>{downloading === 'pdf' ? 'Đang tải…' : '📄 Xuất PDF'}</button>
+        </div>
+      </section>
+      <section className="panel">
+        <h3>Thống kê theo trạng thái</h3>
+        <Chart title="" data={data.theo_trang_thai} label="trang_thai" />
+      </section>
+      <section className="panel">
+        <h3>Thống kê theo quận/huyện</h3>
+        <Chart title="" data={data.theo_quan} label="ten" />
+      </section>
+      <section className="panel">
+        <h3>Thống kê theo tháng</h3>
+        <Chart title="" data={data.theo_thang} label="thang" />
+      </section>
+    </>
+  );
+}
+
 function App() {
   const [user, setUser] = useState(() => { try { return JSON.parse(localStorage.getItem('qlttxd_user')); } catch { return null; } }); const [route, setRoute] = useState(() => ({ page: 'home', id: null })); const [notice, setNotice] = useState(null); const [needsSetup, setNeedsSetup] = useState(null);
   const notify = (text, type = 'info') => setNotice({ text, type });
@@ -384,6 +758,6 @@ function App() {
     return <Login onLogin={(value) => { setUser(value); setRoute({ page: can(value, 'case.view') ? 'dashboard' : 'citizen' }); }} notice={notice} />;
   }
   const nav = (page, id = null) => setRoute({ page, id }); const isOfficer = can(user, 'case.view');
-  return <div className="app-shell"><header><div className="logo" onClick={() => nav(isOfficer ? 'dashboard' : 'citizen')} role="button" tabIndex="0">QLTTXD</div><div className="user-menu"><span>{user.full_name || user.username}</span><small>{user.roles?.join(', ') || 'Người dùng'}</small><button className="logout" onClick={logout}>Đăng xuất</button></div></header><div className="body"><aside><nav>{!isOfficer && can(user, 'report.create') && <button className={route.page === 'citizen' ? 'selected' : ''} onClick={() => nav('citizen')}>⌖ Báo cáo vi phạm</button>}{isOfficer && <><button className={route.page === 'dashboard' ? 'selected' : ''} onClick={() => nav('dashboard')}>▦ Tổng quan</button><button className={route.page === 'cases' || route.page === 'case' ? 'selected' : ''} onClick={() => nav('cases')}>▤ Hồ sơ xử lý</button></>}{can(user, 'admin.users') && <><div className="nav-group">Quản trị</div><button className={route.page === 'admin-users' ? 'selected' : ''} onClick={() => nav('admin-users')}>👤 Người dùng</button><button className={route.page === 'admin-roles' ? 'selected' : ''} onClick={() => nav('admin-roles')}>🔑 Phân quyền</button></>}{can(user, 'admin.locations') && <button className={route.page === 'admin-locations' ? 'selected' : ''} onClick={() => nav('admin-locations')}>📍 Địa điểm</button>}<div className="permission">Quyền: {user.permissions?.join(', ') || '—'}</div></nav></aside><main className="content"><Notice notice={notice} onClose={() => setNotice(null)} />{route.page === 'citizen' && <CitizenPage api={api} notify={notify} />}{route.page === 'dashboard' && <Dashboard api={api} navigate={nav} notify={notify} />}{route.page === 'cases' && <CaseList api={api} navigate={nav} notify={notify} />}{route.page === 'case' && <CaseDetail id={route.id} api={api} user={user} navigate={nav} notify={notify} />}{route.page === 'admin-users' && <AdminUsersPage api={api} notify={notify} />}{route.page === 'admin-roles' && <AdminRolesPage api={api} notify={notify} />}{route.page === 'admin-locations' && <AdminLocationsPage api={api} notify={notify} />}</main></div></div>;
+  return <div className="app-shell"><header><div className="logo" onClick={() => nav(isOfficer ? 'dashboard' : 'citizen')} role="button" tabIndex="0">QLTTXD</div><div className="user-menu"><span>{user.full_name || user.username}</span><small>{user.roles?.join(', ') || 'Người dùng'}</small><button className="logout" onClick={logout}>Đăng xuất</button></div></header><div className="body"><aside><nav>{!isOfficer && can(user, 'report.create') && <button className={route.page === 'citizen' ? 'selected' : ''} onClick={() => nav('citizen')}>⌖ Báo cáo vi phạm</button>}{isOfficer && <><button className={route.page === 'dashboard' ? 'selected' : ''} onClick={() => nav('dashboard')}>▦ Tổng quan</button><button className={route.page === 'cases' || route.page === 'case' ? 'selected' : ''} onClick={() => nav('cases')}>▤ Hồ sơ xử lý</button></>}{can(user, 'admin.users') && <><div className="nav-group">Quản trị</div><button className={route.page === 'admin-users' ? 'selected' : ''} onClick={() => nav('admin-users')}>👤 Người dùng</button><button className={route.page === 'admin-roles' ? 'selected' : ''} onClick={() => nav('admin-roles')}>🔑 Phân quyền</button><button className={route.page === 'admin-audit' ? 'selected' : ''} onClick={() => nav('admin-audit')}>📋 Nhật ký hệ thống</button></>}{can(user, 'admin.locations') && <button className={route.page === 'admin-locations' ? 'selected' : ''} onClick={() => nav('admin-locations')}>📍 Địa điểm</button>}{can(user, 'admin.users') && <button className={route.page === 'admin-catalog' ? 'selected' : ''} onClick={() => nav('admin-catalog')}>📚 Danh mục</button>}{can(user, 'report.statistics') && <button className={route.page === 'report' ? 'selected' : ''} onClick={() => nav('report')}>📊 Báo cáo</button>}<button className={route.page === 'profile' ? 'selected' : ''} onClick={() => nav('profile')}>👤 Hồ sơ</button><div className="permission">Quyền: {user.permissions?.join(', ') || '—'}</div></nav></aside><main className="content"><Notice notice={notice} onClose={() => setNotice(null)} />{route.page === 'citizen' && <CitizenPage api={api} notify={notify} />}{route.page === 'dashboard' && <Dashboard api={api} navigate={nav} notify={notify} />}{route.page === 'cases' && <CaseList api={api} navigate={nav} notify={notify} />}{route.page === 'case' && <CaseDetail id={route.id} api={api} user={user} navigate={nav} notify={notify} />}{route.page === 'admin-users' && <AdminUsersPage api={api} notify={notify} />}{route.page === 'admin-roles' && <AdminRolesPage api={api} notify={notify} />}{route.page === 'admin-locations' && <AdminLocationsPage api={api} notify={notify} />}{route.page === 'admin-catalog' && <AdminCatalogPage api={api} notify={notify} />}{route.page === 'admin-audit' && <AdminAuditLogPage api={api} notify={notify} />}{route.page === 'report' && <ReportPage api={api} user={user} notify={notify} />}{route.page === 'profile' && <ProfilePage api={api} user={user} notify={notify} />}</main></div></div>;
 }
 createRoot(document.getElementById('root')).render(<App />);
