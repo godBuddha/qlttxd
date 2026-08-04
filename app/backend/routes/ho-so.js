@@ -9,7 +9,15 @@ module.exports = function hoSoRoutes({ pool, authenticate, authorize }) {
   const router = express.Router();
 
   router.post('/api/v1/ho-so', authenticate, authorize('case.update'), async (req, res, next) => {
-    const b = req.body || {}; const client = await pool.connect();
+    const b = req.body || {};
+    if (!b.bao_cao_id && !b.mo_ta?.trim()) return res.status(400).json({ error: 'Mô tả hoặc báo cáo liên kết là bắt buộc' });
+    if (b.loai_vi_pham_id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(b.loai_vi_pham_id))
+      return res.status(400).json({ error: 'loai_vi_pham_id không hợp lệ (cần UUID)' });
+    if (b.hanh_vi_id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(b.hanh_vi_id))
+      return res.status(400).json({ error: 'hanh_vi_id không hợp lệ (cần UUID)' });
+    if (b.bao_cao_id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(b.bao_cao_id))
+      return res.status(400).json({ error: 'bao_cao_id không hợp lệ (cần UUID)' });
+    const client = await pool.connect();
     try { await client.query('BEGIN'); let offender = null; if (b.nguoi_vi_pham?.ten && b.nguoi_vi_pham?.loai_chu_the) offender = (await client.query('INSERT INTO nguoi_vi_pham (loai_chu_the,ten,cmnd_cccd,dia_chi,sdt,email,nguoi_dai_dien) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id',[b.nguoi_vi_pham.loai_chu_the,b.nguoi_vi_pham.ten,b.nguoi_vi_pham.cmnd_cccd||null,b.nguoi_vi_pham.dia_chi||null,b.nguoi_vi_pham.sdt||null,b.nguoi_vi_pham.email||null,b.nguoi_vi_pham.nguoi_dai_dien||null])).rows[0].id;
       const code = await nextCode(client, 'HS'); const pos = coordinate(b);
       const r = await client.query(`INSERT INTO ho_so (ma_ho_so,bao_cao_id,loai_vi_pham_id,hanh_vi_id,nguoi_nop_id,nguoi_vi_pham_id,dia_chi,quan_huyen_id,phuong_xa_id,toa_do,thoi_gian_xay_ra,mo_ta,muc_phat_du_kien,dang_thi_cong,ghi_chu) SELECT $1,$2,$3,$4,$5,$6,COALESCE($7,bc.dia_chi),COALESCE($8,bc.quan_huyen_id),COALESCE($9,bc.phuong_xa_id),CASE WHEN $10::float IS NULL THEN bc.toa_do ELSE ST_SetSRID(ST_MakePoint($10,$11),4326) END,COALESCE($12,bc.thoi_gian_xay_ra),COALESCE($13,bc.mo_ta),$14,COALESCE($15,false),$16 FROM (SELECT 1) x LEFT JOIN bao_cao_vi_pham bc ON bc.id=$2 RETURNING id,ma_ho_so,trang_thai,${pointSelect()}`,[code,b.bao_cao_id||null,b.loai_vi_pham_id||null,b.hanh_vi_id||null,req.user.id,offender,b.dia_chi||null,b.quan_huyen_id||null,b.phuong_xa_id||null,pos?.lng||null,pos?.lat||null,b.thoi_gian_xay_ra||null,b.mo_ta||null,b.muc_phat_du_kien||null,b.dang_thi_cong,b.ghi_chu||null]);

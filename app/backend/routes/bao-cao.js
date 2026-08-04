@@ -10,7 +10,9 @@ module.exports = function baoCaoRoutes({ pool, authenticate, authorize }) {
   router.post('/api/v1/bao-cao', authenticate, authorize('report.create'), upload.array('anh', 5), async (req, res, next) => {
     if (!requirePool(pool, res)) return;
     if (!(req.files || []).every(hasSafeImageMagic)) { removeUploadedFiles(req.files); return res.status(400).json({ error: 'Tệp ảnh không hợp lệ theo chữ ký nội dung' }); }
-    const pos = coordinate(req.body); if (!req.body.mo_ta?.trim() || !pos) { removeUploadedFiles(req.files); return res.status(400).json({ error: 'Mô tả và tọa độ hợp lệ là bắt buộc' }); }
+    const pos = coordinate(req.body);
+    if (!req.body.mo_ta?.trim()) { removeUploadedFiles(req.files); return res.status(400).json({ error: 'Mô tả vi phạm là bắt buộc' }); }
+    if (!pos) { removeUploadedFiles(req.files); return res.status(400).json({ error: 'Tọa độ (lng, lat) hợp lệ là bắt buộc' }); }
     const client = await pool.connect();
     try { await client.query('BEGIN'); const code = await nextCode(client, 'BC');
       const r = await client.query(`WITH p AS (SELECT ST_SetSRID(ST_MakePoint($1,$2),4326) g) INSERT INTO bao_cao_vi_pham (ma_bao_cao,nguoi_gui_id,nguoi_gui_ten,nguoi_gui_sdt,nguoi_gui_email,mo_ta,dia_chi,quan_huyen_id,phuong_xa_id,toa_do,thoi_gian_xay_ra) SELECT $3,$4,$5,$6,$7,$8,$9,(SELECT id FROM quan_huyen,p WHERE boundary IS NOT NULL AND ST_Contains(boundary,p.g) LIMIT 1),(SELECT id FROM phuong_xa,p WHERE boundary IS NOT NULL AND ST_Contains(boundary,p.g) LIMIT 1),(SELECT g FROM p),$10 RETURNING id,ma_bao_cao,quan_huyen_id,phuong_xa_id,created_at,${pointSelect()}`,[pos.lng,pos.lat,code,req.user.id,req.body.nguoi_gui_ten||null,req.body.nguoi_gui_sdt||null,req.body.nguoi_gui_email||null,req.body.mo_ta.trim(),req.body.dia_chi||null,req.body.thoi_gian_xay_ra||null]);
