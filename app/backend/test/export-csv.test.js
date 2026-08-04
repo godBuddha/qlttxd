@@ -74,7 +74,8 @@ test.before(async () => {
 
   adminToken = await setupAdmin();
 
-  // Clean up test users from previous runs (keep admin)
+  // Clean up test data from previous runs (ho_so references users via nguoi_xu_ly_id)
+  await pool.query("UPDATE ho_so SET nguoi_xu_ly_id = NULL WHERE nguoi_xu_ly_id IN (SELECT id FROM users WHERE username != 'admin')");
   await pool.query("DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE username != 'admin')");
   await pool.query("DELETE FROM users WHERE username != 'admin'");
 
@@ -130,6 +131,9 @@ test.before(async () => {
 
 test.after(async () => {
   if (testCaseId) await pool.query('DELETE FROM ho_so WHERE id=$1', [testCaseId]).catch(() => {});
+  await pool.query("UPDATE ho_so SET nguoi_xu_ly_id = NULL WHERE nguoi_xu_ly_id IN (SELECT id FROM users WHERE username != 'admin')").catch(() => {});
+  await pool.query("DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE username != 'admin')").catch(() => {});
+  await pool.query("DELETE FROM users WHERE username != 'admin'").catch(() => {});
   await pool.query("DELETE FROM role_permissions WHERE role_id IN (SELECT id FROM roles WHERE code LIKE 'test_%')").catch(() => {});
   await pool.query("DELETE FROM roles WHERE code LIKE 'test_%'").catch(() => {});
   await new Promise((resolve) => server.close(resolve));

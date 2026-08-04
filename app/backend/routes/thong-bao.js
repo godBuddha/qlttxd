@@ -25,7 +25,7 @@ module.exports = function thongBaoRoutes({ pool, authenticate }) {
   router.get('/api/v1/thong-bao/unread-count', authenticate, async (req, res, next) => {
     try {
       const r = await pool.query(
-        "SELECT count(*)::int AS count FROM thong_bao WHERE nguoi_nhan_id=$1 AND trang_thai='chua_doc'",
+        "SELECT count(*)::int AS count FROM thong_bao WHERE nguoi_nhan_id=$1 AND trang_thai='da_gui'",
         [req.user.id]
       );
       res.json({ count: r.rows[0].count });
@@ -48,7 +48,7 @@ module.exports = function thongBaoRoutes({ pool, authenticate }) {
   router.post('/api/v1/thong-bao/mark-all-read', authenticate, async (req, res, next) => {
     try {
       await pool.query(
-        "UPDATE thong_bao SET trang_thai='da_doc' WHERE nguoi_nhan_id=$1 AND trang_thai='chua_doc'",
+        "UPDATE thong_bao SET trang_thai='da_doc' WHERE nguoi_nhan_id=$1 AND trang_thai='da_gui'",
         [req.user.id]
       );
       res.json({ message: 'Đã đánh dấu tất cả đã đọc' });

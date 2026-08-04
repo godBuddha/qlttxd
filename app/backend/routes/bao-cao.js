@@ -3,21 +3,31 @@
 const express = require('express');
 const { requirePool, coordinate, audit, nextCode, pointSelect, scopeWhere } = require('../utils/helpers');
 const { upload, hasSafeImageMagic, removeUploadedFiles } = require('../utils/upload');
+const { AUDIT_ACTIONS } = require('../utils/constants');
 
 module.exports = function baoCaoRoutes({ pool, authenticate, authorize }) {
   const router = express.Router();
 
+  function validateBaoCao(body) {
+    if (!body.mo_ta?.trim()) return 'Mô tả vi phạm là bắt buộc';
+    const pos = coordinate(body);
+    if (!pos) return 'Tọa độ (lng, lat) hợp lệ là bắt buộc';
+    if (body.nguoi_gui_sdt && !/^\d{9,11}$/.test(body.nguoi_gui_sdt)) return 'Số điện thoại người gửi phải 9-11 chữ số';
+    if (body.nguoi_gui_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.nguoi_gui_email)) return 'Email người gửi không hợp lệ';
+    return null;
+  }
+
   router.post('/api/v1/bao-cao', authenticate, authorize('report.create'), upload.array('anh', 5), async (req, res, next) => {
     if (!requirePool(pool, res)) return;
     if (!(req.files || []).every(hasSafeImageMagic)) { removeUploadedFiles(req.files); return res.status(400).json({ error: 'Tệp ảnh không hợp lệ theo chữ ký nội dung' }); }
+    const validationErr = validateBaoCao(req.body);
+    if (validationErr) { removeUploadedFiles(req.files); return res.status(400).json({ error: validationErr }); }
     const pos = coordinate(req.body);
-    if (!req.body.mo_ta?.trim()) { removeUploadedFiles(req.files); return res.status(400).json({ error: 'Mô tả vi phạm là bắt buộc' }); }
-    if (!pos) { removeUploadedFiles(req.files); return res.status(400).json({ error: 'Tọa độ (lng, lat) hợp lệ là bắt buộc' }); }
     const client = await pool.connect();
     try { await client.query('BEGIN'); const code = await nextCode(client, 'BC');
       const r = await client.query(`WITH p AS (SELECT ST_SetSRID(ST_MakePoint($1,$2),4326) g) INSERT INTO bao_cao_vi_pham (ma_bao_cao,nguoi_gui_id,nguoi_gui_ten,nguoi_gui_sdt,nguoi_gui_email,mo_ta,dia_chi,quan_huyen_id,phuong_xa_id,toa_do,thoi_gian_xay_ra) SELECT $3,$4,$5,$6,$7,$8,$9,(SELECT id FROM quan_huyen,p WHERE boundary IS NOT NULL AND ST_Contains(boundary,p.g) LIMIT 1),(SELECT id FROM phuong_xa,p WHERE boundary IS NOT NULL AND ST_Contains(boundary,p.g) LIMIT 1),(SELECT g FROM p),$10 RETURNING id,ma_bao_cao,quan_huyen_id,phuong_xa_id,created_at,${pointSelect()}`,[pos.lng,pos.lat,code,req.user.id,req.body.nguoi_gui_ten||null,req.body.nguoi_gui_sdt||null,req.body.nguoi_gui_email||null,req.body.mo_ta.trim(),req.body.dia_chi||null,req.body.thoi_gian_xay_ra||null]);
       for (const file of req.files || []) await client.query("INSERT INTO tep_dinh_kem (entity_type,entity_id,ten_goc,duong_dan,loai_file,kich_thuoc,nguoi_tai_id) VALUES ('bao_cao',$1,$2,$3,$4,$5,$6)",[r.rows[0].id,file.originalname,`/uploads/${file.filename}`,file.mimetype,file.size,req.user.id]);
-      await audit(client, req, 'create', 'bao_cao_vi_pham', r.rows[0].id); await client.query('COMMIT'); res.status(201).json({ data: r.rows[0] });
+      await audit(client, req, AUDIT_ACTIONS.REPORT_CREATE, 'bao_cao_vi_pham', r.rows[0].id); await client.query('COMMIT'); res.status(201).json({ data: r.rows[0] });
     } catch (e) { await client.query('ROLLBACK'); removeUploadedFiles(req.files); next(e); } finally { client.release(); }
   });
 
@@ -46,7 +56,7 @@ module.exports = function baoCaoRoutes({ pool, authenticate, authorize }) {
       for (const att of attachments) {
         await client.query("INSERT INTO tep_dinh_kem (entity_type, entity_id, ten_goc, duong_dan, loai_file, kich_thuoc, nguoi_tai_id) VALUES ('ho_so', $1, $2, $3, $4, $5, $6)", [hoSo.id, att.ten_goc, att.duong_dan, att.loai_file, att.kich_thuoc, req.user.id]);
       }
-      await audit(client, req, 'create', 'ho_so', hoSo.id, { from_bao_cao: bc.id, ma_bao_cao: bc.ma_bao_cao });
+      await audit(client, req, AUDIT_ACTIONS.CASE_CREATE, 'ho_so', hoSo.id, { from_bao_cao: bc.id, ma_bao_cao: bc.ma_bao_cao });
       await client.query('COMMIT');
       res.status(201).json({ data: { ...hoSo, anh_count: attachments.length } });
     } catch (e) { await client.query('ROLLBACK'); next(e); } finally { client.release(); }

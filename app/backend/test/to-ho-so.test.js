@@ -128,13 +128,13 @@ test('GET /api/v1/bao-cao/:id trả chi tiết báo cáo', async () => {
 
 // --- Audit log for create ho_so ---
 test('audit log ghi nhận tạo ho_so từ bao-cao', async () => {
-  const r = await fetch(`${base}/api/v1/admin/audit-log?bang=ho_so&hanh_dong=create&limit=10`, {
+  const r = await fetch(`${base}/api/v1/admin/audit-log?bang=ho_so&hanh_dong=case.create&limit=10`, {
     headers: { authorization: `Bearer ${token}` },
   });
   assert.equal(r.status, 200);
   const body = await r.json();
   const found = body.data.find(a => a.id_ban_ghi === hoSoId);
-  assert.ok(found, 'audit log should record create ho_so');
+  assert.ok(found, 'audit log should record case.create ho_so');
   assert.equal(found.bang_bi_tac_dong, 'ho_so');
-  assert.equal(found.hanh_dong, 'create');
+  assert.equal(found.hanh_dong, 'case.create');
 });

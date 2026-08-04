@@ -48,6 +48,10 @@ test.before(async () => {
 
 test.after(async () => {
   await pool.query('DELETE FROM thong_bao').catch(() => {});
+  // Clean up test users from status transition test
+  await pool.query("UPDATE ho_so SET nguoi_xu_ly_id = NULL WHERE nguoi_xu_ly_id IN (SELECT id FROM users WHERE username='notif_test_user')").catch(() => {});
+  await pool.query("DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE username='notif_test_user')").catch(() => {});
+  await pool.query("DELETE FROM users WHERE username='notif_test_user'").catch(() => {});
   delete process.env.SMTP_HOST;
   delete process.env.SMTP_PORT;
   delete process.env.SMTP_FROM;
@@ -246,7 +250,8 @@ test('Status transition tạo cả portal + email notification khi SMTP configur
   assert.ok(emailNotifs.length >= 1, 'Should have email notification');
   assert.equal(emailNotifs[0].trang_thai, 'cho_gui', 'Email should be cho_gui (queued)');
 
-  // Clean up test user
+  // Clean up test user (clear ho_so FK references first)
+  await pool.query('UPDATE ho_so SET nguoi_xu_ly_id = NULL WHERE nguoi_xu_ly_id=$1', [recipientId]);
   await pool.query('DELETE FROM user_roles WHERE user_id=$1', [recipientId]);
   await pool.query('DELETE FROM users WHERE id=$1', [recipientId]);
 });

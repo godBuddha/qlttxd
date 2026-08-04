@@ -141,11 +141,11 @@ test('PUT /api/v1/ho-so/:id/phan-cong with valid handler → 200 + audit', async
   assert.equal(result.body.data.nguoi_xu_ly_ten, 'Cán bộ xử lý kiểm thử');
 
   // Verify audit log
-  const audit = await json(`/api/v1/admin/audit-log?hanh_dong=assign`, { headers });
+  const audit = await json(`/api/v1/admin/audit-log?hanh_dong=case.assign`, { headers });
   assert.equal(audit.response.status, 200);
   const found = audit.body.data.find((a) => a.id_ban_ghi === createdCaseId);
-  assert.ok(found, 'audit log should have assign entry');
-  assert.equal(found.hanh_dong, 'assign');
+  assert.ok(found, 'audit log should have case.assign entry');
+  assert.equal(found.hanh_dong, 'case.assign');
 });
 
 test('GET /api/v1/ho-so/:id returns nguoi_xu_ly info', async () => {

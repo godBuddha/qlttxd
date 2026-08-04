@@ -620,7 +620,7 @@ const openApiSpec = {
     // ── Admin: Catalogs ─────────────────────────────────────────────────
     '/admin/loai-vi-pham': {
       get: { tags: ['Admin — Catalogs'], summary: 'List loại vi phạm', responses: { 200: { description: 'OK' } } },
-      post: { tags: ['Admin — Catalogs'], summary: 'Create loại vi phạm', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['code', 'ten'], properties: { code: { type: 'string' }, ten: { type: 'string' }, mo_ta: { type: 'string' }, so_thu_tu: { type: 'integer' } } } } }, responses: { 201: { description: 'Created' } } },
+      post: { tags: ['Admin — Catalogs'], summary: 'Create loại vi phạm', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['code', 'ten'], properties: { code: { type: 'string' }, ten: { type: 'string' }, mo_ta: { type: 'string' }, so_thu_tu: { type: 'integer' } } } } } }, responses: { 201: { description: 'Created' } } },
     },
     '/admin/loai-vi-pham/{id}': {
       patch: { tags: ['Admin — Catalogs'], summary: 'Update loại vi phạm', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }], responses: { 200: { description: 'Updated' } } },
@@ -628,7 +628,7 @@ const openApiSpec = {
     },
     '/admin/hanh-vi': {
       get: { tags: ['Admin — Catalogs'], summary: 'List hành vi vi phạm', parameters: [{ name: 'loai_vi_pham_id', in: 'query', schema: { type: 'string', format: 'uuid' } }], responses: { 200: { description: 'OK' } } },
-      post: { tags: ['Admin — Catalogs'], summary: 'Create hành vi vi phạm', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['loai_vi_pham_id', 'khoan', 'ten'], properties: { loai_vi_pham_id: { type: 'string', format: 'uuid' }, dieu: { type: 'string' }, khoan: { type: 'string' }, diem: { type: 'string' }, ten: { type: 'string' }, mo_ta: { type: 'string' }, is_active: { type: 'boolean' } } } } }, responses: { 201: { description: 'Created' } } },
+      post: { tags: ['Admin — Catalogs'], summary: 'Create hành vi vi phạm', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['loai_vi_pham_id', 'khoan', 'ten'], properties: { loai_vi_pham_id: { type: 'string', format: 'uuid' }, dieu: { type: 'string' }, khoan: { type: 'string' }, diem: { type: 'string' }, ten: { type: 'string' }, mo_ta: { type: 'string' }, is_active: { type: 'boolean' } } } } } }, responses: { 201: { description: 'Created' } } },
     },
     '/admin/hanh-vi/{id}': {
       patch: { tags: ['Admin — Catalogs'], summary: 'Update hành vi vi phạm', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }], responses: { 200: { description: 'Updated' } } },
@@ -636,7 +636,7 @@ const openApiSpec = {
     },
     '/admin/muc-phat': {
       get: { tags: ['Admin — Catalogs'], summary: 'List mức phạt', parameters: [{ name: 'hanh_vi_id', in: 'query', schema: { type: 'string', format: 'uuid' } }], responses: { 200: { description: 'OK' } } },
-      post: { tags: ['Admin — Catalogs'], summary: 'Create mức phạt', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['hanh_vi_id', 'nhom_cong_trinh', 'muc_toi_thieu', 'muc_toi_da'], properties: { hanh_vi_id: { type: 'string', format: 'uuid' }, nhom_cong_trinh: { type: 'integer', enum: [1, 2, 3] }, muc_toi_thieu: { type: 'number' }, muc_toi_da: { type: 'number' } } } } }, responses: { 201: { description: 'Created' } } },
+      post: { tags: ['Admin — Catalogs'], summary: 'Create mức phạt', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['hanh_vi_id', 'nhom_cong_trinh', 'muc_toi_thieu', 'muc_toi_da'], properties: { hanh_vi_id: { type: 'string', format: 'uuid' }, nhom_cong_trinh: { type: 'integer', enum: [1, 2, 3] }, muc_toi_thieu: { type: 'number' }, muc_toi_da: { type: 'number' } } } } } }, responses: { 201: { description: 'Created' } } },
     },
     '/admin/muc-phat/{id}': {
       patch: { tags: ['Admin — Catalogs'], summary: 'Update mức phạt', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }], responses: { 200: { description: 'Updated' } } },

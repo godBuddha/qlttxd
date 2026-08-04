@@ -35,10 +35,10 @@ function scopeWhere(user, vals, alias = '') {
   return ` AND ${p}nguoi_nop_id=$${vals.length}`;
 }
 
-async function createThongBao(clientOrPool, { nguoi_nhan_id, ho_so_id, loai, tieu_de, noi_dung }) {
+async function createThongBao(clientOrPool, { nguoi_nhan_id, ho_so_id, loai, tieu_de, noi_dung, kenh, trang_thai }) {
   await clientOrPool.query(
     'INSERT INTO thong_bao (nguoi_nhan_id, ho_so_id, loai, tieu_de, noi_dung, kenh, trang_thai) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-    [nguoi_nhan_id, ho_so_id || null, loai, tieu_de, noi_dung || null, 'in_app', 'chua_doc']
+    [nguoi_nhan_id, ho_so_id || null, loai, tieu_de, noi_dung || null, kenh || 'portal', trang_thai || 'da_gui']
   );
 }
 

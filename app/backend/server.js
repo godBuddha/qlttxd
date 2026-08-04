@@ -20,6 +20,7 @@ const adminLocationsRoutes = require('./routes/admin-locations');
 const adminCatalogsRoutes = require('./routes/admin-catalogs');
 const thongBaoRoutes = require('./routes/thong-bao');
 const banDoRoutes = require('./routes/ban-do');
+const docsRoutes = require('./routes/docs');
 
 function buildApp({ pool }) {
   if (!secret() || secret().length < 32) throw new Error('JWT_SECRET phải được cấu hình tối thiểu 32 ký tự');
@@ -71,6 +72,7 @@ function buildApp({ pool }) {
   app.use(adminCatalogsRoutes(deps));
   app.use(thongBaoRoutes(deps));
   app.use(banDoRoutes(deps));
+  app.use(docsRoutes(deps));
 
   app.use((error,_req,res,_next)=>{if(error instanceof (require('multer').MulterError))return res.status(400).json({error:`Tải tệp thất bại: ${error.message}`}); console.error(error); return res.status(500).json({error:'Lỗi máy chủ nội bộ'});});
   return app;
