@@ -1,13 +1,14 @@
 # Dependencies
-node_modules/
+app/*/node_modules/
 
 # Build output
-dist/
+app/*/dist/
 
 # Uploads / user data
-uploads/
+app/*/uploads/
 
 # Environment secrets
+app/*/.env
 .env
 
 # Logs
@@ -17,7 +18,7 @@ uploads/
 core.*
 
 # Backups
-backups/
+app/*/backups/
 
 # Test results / reports
 test-results/
@@ -25,13 +26,10 @@ playwright-report/
 blob-report/
 
 # E2E screenshots & artifacts
-e2e/
+app/*/e2e/
 
 # macOS
 .DS_Store
-
-# npm lockfile noise (keep package-lock.json for reproducible installs)
-# package-lock.json
 
 # Editor
 .vscode/
