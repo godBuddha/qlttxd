@@ -74,6 +74,15 @@ test.before(async () => {
   adminToken = await setupAdmin();
 
   // Clean up test users from previous test runs (keep admin)
+  // First clear FK references from tables without ON DELETE CASCADE
+  const nuke = "IN (SELECT id FROM users WHERE username != 'admin')";
+  await pool.query(`UPDATE ho_so SET nguoi_nop_id = NULL WHERE nguoi_nop_id ${nuke}`);
+  await pool.query(`UPDATE ho_so SET nguoi_xu_ly_id = NULL WHERE nguoi_xu_ly_id ${nuke}`);
+  await pool.query(`UPDATE bao_cao_vi_pham SET nguoi_gui_id = NULL WHERE nguoi_gui_id ${nuke}`);
+  await pool.query(`UPDATE khac_phuc SET nguoi_theo_doi_id = NULL WHERE nguoi_theo_doi_id ${nuke}`);
+  await pool.query(`UPDATE audit_log SET nguoi_dung_id = NULL WHERE nguoi_dung_id ${nuke}`);
+  await pool.query(`DELETE FROM quyet_dinh WHERE nguoi_ky_id ${nuke}`);
+  await pool.query(`DELETE FROM bien_ban WHERE nguoi_lap_id ${nuke}`);
   await pool.query("DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE username != 'admin')");
   await pool.query("DELETE FROM users WHERE username != 'admin'");
 

@@ -269,6 +269,7 @@ CREATE TABLE ho_so (
     loai_vi_pham_id     UUID REFERENCES loai_vi_pham(id),     -- phân loại nhóm (sau xác minh)
     hanh_vi_id          UUID REFERENCES hanh_vi_vi_pham(id),  -- hành vi cụ thể (sau xác minh)
     nguoi_nop_id        UUID REFERENCES users(id),            -- cán bộ thụ lý hồ sơ
+    nguoi_xu_ly_id      UUID REFERENCES users(id),            -- cán bộ được phân công xử lý
     trang_thai          trang_thai_ho_so NOT NULL DEFAULT 'cho_tiep_nhan',
     nguoi_vi_pham_id    UUID REFERENCES nguoi_vi_pham(id),    -- chủ thể bị xử lý (tạo trước, tham chiếu ở đây)
 
@@ -297,6 +298,7 @@ CREATE TRIGGER trg_ho_so_updated_at
 -- Chỉ mục hỗ trợ tra cứu, lọc theo trạng thái và GIS.
 CREATE INDEX idx_ho_so_trang_thai  ON ho_so (trang_thai);
 CREATE INDEX idx_ho_so_nguoi_nop   ON ho_so (nguoi_nop_id);
+CREATE INDEX idx_ho_so_nguoi_xu_ly ON ho_so (nguoi_xu_ly_id);
 CREATE INDEX idx_ho_so_huyen       ON ho_so (quan_huyen_id);
 CREATE INDEX idx_ho_so_xa          ON ho_so (phuong_xa_id);
 CREATE INDEX idx_ho_so_toa_do      ON ho_so USING GIST (toa_do);

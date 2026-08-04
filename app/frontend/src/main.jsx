@@ -71,6 +71,7 @@ function MapView({ point, points = [], polygons = [], onPick, height = '360px' }
 
 function Login({ onLogin, notice }) {
   const [username, setUsername] = useState(''); const [password, setPassword] = useState(''); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
+  const [showForgot, setShowForgot] = useState(false);
   async function submit(event) {
     event.preventDefault(); setBusy(true); setError('');
     try {
@@ -78,7 +79,8 @@ function Login({ onLogin, notice }) {
       localStorage.setItem('qlttxd_token', result.token); localStorage.setItem('qlttxd_user', JSON.stringify(result.user)); onLogin(result.user);
     } catch (err) { setError(errorText(err)); } finally { setBusy(false); }
   }
-  return <main className="login-shell"><section className="login-card"><div className="brand-mark">QL</div><h1>QLTTXD</h1><p>Hệ thống quản lý trật tự xây dựng</p><Notice notice={notice} onClose={() => {}} />{error && <div className="field-error">{error}</div>}<form onSubmit={submit}><label>Tên đăng nhập<input autoComplete="username" required value={username} onChange={(e) => setUsername(e.target.value)} /></label><label>Mật khẩu<input autoComplete="current-password" required type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></label><button disabled={busy}>{busy ? 'Đang đăng nhập…' : 'Đăng nhập'}</button></form></section></main>;
+  if (showForgot) return <ForgotPasswordPage onBack={() => setShowForgot(false)} />;
+  return <main className="login-shell"><section className="login-card"><div className="brand-mark">QL</div><h1>QLTTXD</h1><p>Hệ thống quản lý trật tự xây dựng</p><Notice notice={notice} onClose={() => {}} />{error && <div className="field-error">{error}</div>}<form onSubmit={submit}><label>Tên đăng nhập<input autoComplete="username" required value={username} onChange={(e) => setUsername(e.target.value)} /></label><label>Mật khẩu<input autoComplete="current-password" required type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></label><button disabled={busy}>{busy ? 'Đang đăng nhập…' : 'Đăng nhập'}</button></form><button className="forgot-password-link" onClick={() => setShowForgot(true)}>Quên mật khẩu?</button></section></main>;
 }
 
 function CitizenPage({ api, notify }) {
@@ -134,7 +136,7 @@ function EvidenceGallery({ images }) {
 }
 function Timeline({ item }) { return <div><h3>Tiến trình xử lý</h3><ol className="timeline"><li><b>Khởi tạo hồ sơ</b><span>{dateText(item.created_at)}</span></li><li className="current"><b>{STATE_LABELS[item.trang_thai]}</b><span>Cập nhật {dateText(item.updated_at)}</span></li></ol></div>; }
 function Minutes({ caseItem, api, allow, notify, refresh }) { const [noi_dung, setNoiDung] = useState(''); const [muc_phat_du_kien, setFine] = useState(''); async function submit(e) { e.preventDefault(); try { await api(`/api/v1/ho-so/${caseItem.id}/bien-ban`, { method: 'POST', body: JSON.stringify({ noi_dung, muc_phat_du_kien: muc_phat_du_kien || null }) }); notify('Đã lập biên bản.', 'success'); refresh(); } catch (x) { notify(errorText(x), 'error'); } } return <div className="tab-body"><h3>Biên bản</h3>{caseItem.bien_ban?.length ? <ul className="record-list">{caseItem.bien_ban.map((x) => <li key={x.id}><b>{x.ma_bien_ban}</b><span>{x.noi_dung || 'Không có nội dung'} — {money(x.muc_phat_du_kien)}</span></li>)}</ul> : <p className="empty">Chưa có biên bản.</p>}{allow && <form className="inline-form" onSubmit={submit}><h4>Lập biên bản</h4><label>Nội dung<textarea value={noi_dung} onChange={(e) => setNoiDung(e.target.value)} /></label><label>Mức phạt dự kiến<input type="number" min="0" value={muc_phat_du_kien} onChange={(e) => setFine(e.target.value)} /></label><button>Lập biên bản</button></form>}</div>; }
-function Decision({ caseItem, api, allow, notify, refresh }) { const [form, setForm] = useState({ bien_ban_id: '', nhom_cong_trinh: '1', can_cu_phap_ly: '', hinh_thuc_phat_bo_sung: '', bien_phap_khac_phuc_hau_qua: '', ngay_ban_hanh: '' }); const set = (e) => setForm({ ...form, [e.target.name]: e.target.value }); async function submit(e) { e.preventDefault(); try { await api(`/api/v1/ho-so/${caseItem.id}/quyet-dinh`, { method: 'POST', body: JSON.stringify({ ...form, bien_ban_id: form.bien_ban_id || null, nhom_cong_trinh: Number(form.nhom_cong_trinh) }) }); notify('Đã ban hành quyết định.', 'success'); refresh(); } catch (x) { notify(errorText(x), 'error'); } } return <div className="tab-body"><h3>Quyết định xử phạt</h3>{caseItem.quyet_dinh?.length ? <ul className="record-list">{caseItem.quyet_dinh.map((x) => <li key={x.id}><b>{x.ma_quyet_dinh}</b><span>{money(x.so_tien_phat)} · {dateText(x.ngay_ban_hanh)}</span></li>)}</ul> : <p className="empty">Chưa có quyết định.</p>}{allow && <form className="inline-form form-grid" onSubmit={submit}><h4 className="full">Ban hành quyết định</h4><label>Biên bản<select name="bien_ban_id" value={form.bien_ban_id} onChange={set}><option value="">Không chọn</option>{(caseItem.bien_ban || []).map((x) => <option key={x.id} value={x.id}>{x.ma_bien_ban}</option>)}</select></label><label>Nhóm công trình<input type="number" min="1" name="nhom_cong_trinh" value={form.nhom_cong_trinh} onChange={set} /></label><label>Căn cứ pháp lý<input name="can_cu_phap_ly" value={form.can_cu_phap_ly} onChange={set} /></label><label>Ngày ban hành<input type="date" name="ngay_ban_hanh" value={form.ngay_ban_hanh} onChange={set} /></label><label className="full">Hình thức phạt bổ sung<textarea name="hinh_thuc_phat_bo_sung" value={form.hinh_thuc_phat_bo_sung} onChange={set} /></label><label className="full">Biện pháp khắc phục hậu quả<textarea name="bien_phap_khac_phuc_hau_qua" value={form.bien_phap_khac_phuc_hau_qua} onChange={set} /></label><button className="full">Ban hành quyết định</button></form>}</div>; }
+function Decision({ caseItem, api, allow, notify, refresh }) { const [form, setForm] = useState({ bien_ban_id: '', nhom_cong_trinh: '1', can_cu_phap_ly: '', hinh_thuc_phat_bo_sung: '', bien_phap_khac_phuc_hau_qua: '' }); const [banBusy, setBanBusy] = useState(false); const set = (e) => setForm({ ...form, [e.target.name]: e.target.value }); async function submit(e) { e.preventDefault(); try { await api(`/api/v1/ho-so/${caseItem.id}/quyet-dinh`, { method: 'POST', body: JSON.stringify({ ...form, bien_ban_id: form.bien_ban_id || null, nhom_cong_trinh: Number(form.nhom_cong_trinh) }) }); notify('Đã tạo quyết định nháp.', 'success'); refresh(); } catch (x) { notify(errorText(x), 'error'); } } async function banHanh(qdId) { setBanBusy(true); try { await api(`/api/v1/ho-so/${caseItem.id}/quyet-dinh/ban-hanh`, { method: 'POST', body: JSON.stringify({}) }); notify('Đã ban hành quyết định.', 'success'); refresh(); } catch (x) { notify(errorText(x), 'error'); } finally { setBanBusy(false); } } return <div className="tab-body"><h3>Quyết định xử phạt</h3>{caseItem.quyet_dinh?.length ? <ul className="record-list">{caseItem.quyet_dinh.map((x) => <li key={x.id}><b>{x.ma_quyet_dinh}</b><span>{money(x.so_tien_phat)} · {x.trang_thai === 'draft' ? <span className="badge draft">Nháp</span> : <>{dateText(x.ngay_ban_hanh)} · <span className="badge da_ra_quyet_dinh">Đã ban hành</span></>}</span>{allow && x.trang_thai === 'draft' && <button className="text-button" disabled={banBusy} onClick={() => banHanh(x.id)}>{banBusy ? 'Đang ban hành…' : 'Ban hành'}</button>}</li>)}</ul> : <p className="empty">Chưa có quyết định.</p>}{allow && <form className="inline-form form-grid" onSubmit={submit}><h4 className="full">Tạo quyết định</h4><label>Biên bản<select name="bien_ban_id" value={form.bien_ban_id} onChange={set}><option value="">Không chọn</option>{(caseItem.bien_ban || []).map((x) => <option key={x.id} value={x.id}>{x.ma_bien_ban}</option>)}</select></label><label>Nhóm công trình<input type="number" min="1" name="nhom_cong_trinh" value={form.nhom_cong_trinh} onChange={set} /></label><label>Căn cứ pháp lý<input name="can_cu_phap_ly" value={form.can_cu_phap_ly} onChange={set} /></label><label className="full">Hình thức phạt bổ sung<textarea name="hinh_thuc_phat_bo_sung" value={form.hinh_thuc_phat_bo_sung} onChange={set} /></label><label className="full">Biện pháp khắc phục hậu quả<textarea name="bien_phap_khac_phuc_hau_qua" value={form.bien_phap_khac_phuc_hau_qua} onChange={set} /></label><button className="full">Ban hành quyết định</button></form>}</div>; }
 function Remedy({ caseItem, api, allow, notify, refresh }) { const [form, setForm] = useState({ quyet_dinh_id: '', bien_phap: '', mo_ta: '', han_thuc_hien: '' }); const [remedy, setRemedy] = useState(null); const [status, setStatus] = useState('dang_thuc_hien'); const set = (e) => setForm({ ...form, [e.target.name]: e.target.value }); async function submit(e) { e.preventDefault(); try { const r = await api(`/api/v1/ho-so/${caseItem.id}/khac-phuc`, { method: 'POST', body: JSON.stringify({ ...form, quyet_dinh_id: form.quyet_dinh_id || null }) }); setRemedy(r.data); notify('Đã đăng ký theo dõi khắc phục.', 'success'); refresh(); } catch (x) { notify(errorText(x), 'error'); } } async function update() { try { const r = await api(`/api/v1/khac-phuc/${remedy.id}`, { method: 'PATCH', body: JSON.stringify({ trang_thai: status }) }); setRemedy(r.data); notify('Đã cập nhật trạng thái khắc phục.', 'success'); refresh(); } catch (x) { notify(errorText(x), 'error'); } } return <div className="tab-body"><h3>Khắc phục hậu quả</h3><p className="hint">Sau khi đăng ký trong phiên hiện tại, có thể cập nhật trạng thái theo dõi. API chi tiết hồ sơ hiện chưa trả danh sách khắc phục đã có, nên cần chọn hồ sơ/tạo thông tin để thao tác tiếp.</p>{remedy && <div className="action-box"><b>Thông tin khắc phục vừa tạo</b><label>Trạng thái<select value={status} onChange={(e) => setStatus(e.target.value)}>{['chua_thuc_hien','dang_thuc_hien','da_thuc_hien','qua_han','cuong_che','da_kiem_tra'].map((x) => <option key={x} value={x}>{x.replaceAll('_', ' ')}</option>)}</select></label><button onClick={update}>Cập nhật trạng thái</button></div>}{allow && <form className="inline-form form-grid" onSubmit={submit}><label>Quyết định<select name="quyet_dinh_id" value={form.quyet_dinh_id} onChange={set}><option value="">Không chọn</option>{(caseItem.quyet_dinh || []).map((x) => <option key={x.id} value={x.id}>{x.ma_quyet_dinh}</option>)}</select></label><label>Hạn thực hiện<input type="date" name="han_thuc_hien" value={form.han_thuc_hien} onChange={set} /></label><label className="full">Biện pháp *<textarea required name="bien_phap" value={form.bien_phap} onChange={set} /></label><label className="full">Mô tả<textarea name="mo_ta" value={form.mo_ta} onChange={set} /></label><button className="full">Đăng ký khắc phục</button></form>}</div>; }
 
 function SetupAdminPage({ onSetup }) {
@@ -620,6 +622,30 @@ function CatalogModal({ tab, editItem, loaiVP, hanhVi, api, notify, onClose, onS
   );
 }
 
+function OfficerReportsPage({ api, user, navigate, notify }) {
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState(null);
+  const [selectedReport, setSelectedReport] = useState(null);
+  const load = () => { setLoading(true); api('/api/v1/bao-cao').then((r) => setReports(r.data || [])).catch((e) => notify(errorText(e), 'error')).finally(() => setLoading(false)); };
+  useEffect(() => { load(); }, []);
+  async function viewDetail(id) {
+    try { const r = await api(`/api/v1/bao-cao/${id}`); setSelectedReport(r.data); } catch (e) { notify(errorText(e), 'error'); }
+  }
+  async function convertToCase(report) {
+    if (!window.confirm(`Tạo hồ sơ xử lý từ báo cáo ${report.ma_bao_cao}?`)) return;
+    setBusyId(report.id);
+    try {
+      const r = await api(`/api/v1/bao-cao/${report.id}/to-ho-so`, { method: 'POST' });
+      notify(`Đã tạo hồ sơ ${r.data.ma_ho_so} từ báo cáo ${report.ma_bao_cao}.`, 'success');
+      setSelectedReport(null); load();
+      if (r.data?.id) navigate('case', r.data.id);
+    } catch (e) { notify(errorText(e), 'error'); } finally { setBusyId(null); }
+  }
+  if (loading) return <Loading />;
+  return <><div className="page-title"><div><p className="eyebrow">Quản trị nội bộ</p><h2>Danh sách báo cáo</h2><p>Xem báo cáo vi phạm và chuyển thành hồ sơ xử lý.</p></div></div><section className="panel"><div className="table-wrap"><table><thead><tr><th>Mã BC</th><th>Người gửi</th><th>Mô tả</th><th>Địa chỉ</th><th>Ảnh</th><th>Ngày tạo</th><th>Hồ sơ</th><th></th></tr></thead><tbody>{reports.length ? reports.map((r) => <tr key={r.id}><td>{r.ma_bao_cao}</td><td>{r.nguoi_gui_ten || '—'}</td><td style={{maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.mo_ta || '—'}</td><td>{r.dia_chi || '—'}</td><td>{r.anh_count ? `${r.anh_count} ảnh` : '—'}</td><td>{dateText(r.created_at)}</td><td>{r.ho_so ? <button className="text-button" onClick={() => navigate('case', r.ho_so.id)}>{r.ho_so.ma_ho_so}</button> : '—'}</td><td><button className="text-button" onClick={() => viewDetail(r.id)}>Chi tiết</button>{can(user, 'case.update') && <button className="text-button" onClick={() => convertToCase(r)} disabled={busyId === r.id}>{busyId === r.id ? 'Đang tạo…' : 'Tạo hồ sơ'}</button>}</td></tr>) : <tr><td colSpan="8" className="empty">Chưa có báo cáo nào.</td></tr>}</tbody></table></div></section>{selectedReport && <div className="modal-overlay" onClick={() => setSelectedReport(null)}><div className="modal" onClick={(e) => e.stopPropagation()} style={{maxWidth: 600}}><h3>Chi tiết báo cáo {selectedReport.ma_bao_cao}</h3><dl><dt>Người gửi</dt><dd>{selectedReport.nguoi_gui_ten || '—'}</dd>{selectedReport.nguoi_gui_sdt && <><dt>Điện thoại</dt><dd>{selectedReport.nguoi_gui_sdt}</dd></>}{selectedReport.nguoi_gui_email && <><dt>Email</dt><dd>{selectedReport.nguoi_gui_email}</dd></>}<dt>Mô tả</dt><dd>{selectedReport.mo_ta}</dd><dt>Địa chỉ</dt><dd>{selectedReport.dia_chi || '—'}</dd>{selectedReport.quan_huyen_ten && <><dt>Quận/Huyện</dt><dd>{selectedReport.quan_huyen_ten}</dd></>}{selectedReport.phuong_xa_ten && <><dt>Phường/Xã</dt><dd>{selectedReport.phuong_xa_ten}</dd></>}<dt>Tọa độ</dt><dd>{selectedReport.toa_do ? `${Number(selectedReport.toa_do.lat).toFixed(6)}, ${Number(selectedReport.toa_do.lng).toFixed(6)}` : '—'}</dd><dt>Thời gian xảy ra</dt><dd>{dateText(selectedReport.thoi_gian_xay_ra)}</dd><dt>Ngày tạo</dt><dd>{dateText(selectedReport.created_at)}</dd></dl>{selectedReport.anh?.length > 0 && <div style={{marginTop:12}}><h4>Ảnh minh chứng ({selectedReport.anh.length})</h4><div className="evidence-gallery">{selectedReport.anh.map((a) => <img key={a.id} src={`${API_BASE}${a.duong_dan}?token=${localStorage.getItem('qlttxd_token')}`} alt={a.ten_goc} className="evidence-img" loading="lazy" />)}</div></div>}{selectedReport.ho_so && <div className="action-box" style={{marginTop:12}}>Đã chuyển thành hồ sơ: <button className="text-button" onClick={() => { setSelectedReport(null); navigate('case', selectedReport.ho_so.id); }}>{selectedReport.ho_so.ma_ho_so}</button> ({STATE_LABELS[selectedReport.ho_so.trang_thai] || selectedReport.ho_so.trang_thai})</div>}<div className="modal-actions">{can(user, 'case.update') && !selectedReport.ho_so && <button onClick={() => convertToCase(selectedReport)} disabled={busyId === selectedReport.id}>{busyId === selectedReport.id ? 'Đang tạo…' : 'Tạo hồ sơ'}</button>}<button type="button" onClick={() => setSelectedReport(null)}>Đóng</button></div></div></div>}</>;
+}
+
 function ProfilePage({ api, user, notify }) {
   const [oldPass, setOldPass] = useState('');
   const [newPass, setNewPass] = useState('');
@@ -742,6 +768,120 @@ function ReportPage({ api, user, notify }) {
   );
 }
 
+// =========================================================================
+// T51: Quên mật khẩu — ForgotPasswordPage + ResetPasswordForm
+// =========================================================================
+function ForgotPasswordPage({ onBack }) {
+  const [identifier, setIdentifier] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState('');
+  async function submit(e) {
+    e.preventDefault(); setBusy(true); setError('');
+    try { await request('/api/v1/auth/forgot-password', { method: 'POST', body: JSON.stringify({ identifier }) }); setSent(true); }
+    catch (err) { setError(errorText(err)); } finally { setBusy(false); }
+  }
+  if (sent) return <main className="login-shell"><section className="login-card"><div className="brand-mark">QL</div><h1>Kiểm tra email</h1><p>Nếu tài khoản tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi. Token có hiệu lực trong 15 phút.</p><button className="forgot-password-link" onClick={onBack}>← Quay lại đăng nhập</button></section></main>;
+  return <main className="login-shell"><section className="login-card"><div className="brand-mark">QL</div><h1>Quên mật khẩu</h1><p>Nhập tên đăng nhập hoặc email để nhận hướng dẫn đặt lại mật khẩu.</p>{error && <div className="field-error">{error}</div>}<form onSubmit={submit}><label>Tên đăng nhập hoặc email<input required value={identifier} onChange={(e) => setIdentifier(e.target.value)} autoFocus /></label><button disabled={busy}>{busy ? 'Đang gửi…' : 'Gửi hướng dẫn'}</button></form><button className="forgot-password-link" onClick={onBack}>← Quay lại đăng nhập</button></section></main>;
+}
+
+// =========================================================================
+// T21: Chuông thông báo — BellNotification
+// =========================================================================
+function BellNotification({ api }) {
+  const [count, setCount] = useState(0);
+  const [items, setItems] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const ref = useRef(null);
+
+  const loadCount = () => api('/api/v1/thong-bao/unread-count').then((r) => setCount(r.count || 0)).catch(() => {});
+  useEffect(() => { loadCount(); const timer = setInterval(loadCount, 30000); return () => clearInterval(timer); }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    setLoading(true);
+    api('/api/v1/thong-bao?limit=15').then((r) => setItems(r.data || [])).catch(() => {}).finally(() => setLoading(false));
+  }, [open]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  async function markRead(id) {
+    try { await api(`/api/v1/thong-bao/${id}/mark-read`); setItems((old) => old.map((x) => x.id === id ? { ...x, trang_thai: 'da_doc' } : x)); setCount((c) => Math.max(0, c - 1)); } catch {}
+  }
+  async function markAll() {
+    try { await api('/api/v1/thong-bao/mark-all-read'); setItems((old) => old.map((x) => ({ ...x, trang_thai: 'da_doc' }))); setCount(0); } catch {}
+  }
+
+  return (
+    <div className="bell-wrapper" ref={ref}>
+      <button className="bell-btn" onClick={() => setOpen(!open)} aria-label="Thông báo">
+        🔔{count > 0 && <span className="bell-badge">{count > 99 ? '99+' : count}</span>}
+      </button>
+      {open && (
+        <div className="bell-dropdown">
+          <div className="bell-header"><strong>Thông báo</strong>{count > 0 && <button className="text-button" onClick={markAll}>Đọc tất cả</button>}</div>
+          {loading ? <p className="empty" style={{ padding: 16 }}>Đang tải…</p> : items.length === 0 ? <p className="empty" style={{ padding: 16 }}>Không có thông báo.</p> : (
+            <ul className="bell-list">{items.map((n) => (
+              <li key={n.id} className={n.trang_thai === 'chua_doc' ? 'unread' : ''} onClick={() => { if (n.trang_thai === 'chua_doc') markRead(n.id); }}>
+                <b>{n.tieu_de}</b>{n.noi_dung && <span>{n.noi_dung}</span>}<small>{dateText(n.created_at)}</small>
+              </li>
+            ))}</ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =========================================================================
+// T22: Trang bản đồ toàn cục — BanDoPage
+// =========================================================================
+function BanDoPage({ api, notify }) {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const mapNode = useRef(null);
+  const mapRef = useRef(null);
+  const markersRef = useRef(null);
+
+  useEffect(() => {
+    api('/api/v1/ban-do/vi-pham').then((r) => setData(r.data || [])).catch((e) => notify(errorText(e), 'error')).finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (!mapNode.current || mapRef.current) return;
+    mapRef.current = L.map(mapNode.current).setView(HOME, 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(mapRef.current);
+    markersRef.current = L.layerGroup().addTo(mapRef.current);
+    return () => { mapRef.current?.remove(); mapRef.current = null; };
+  }, []);
+
+  useEffect(() => {
+    if (!mapRef.current || !markersRef.current) return;
+    markersRef.current.clearLayers();
+    const valid = data.filter((p) => p.toa_do && Number.isFinite(Number(p.toa_do.lat)) && Number.isFinite(Number(p.toa_do.lng)));
+    if (!valid.length) return;
+    const colorMap = { cho_tiep_nhan: '#1f6feb', cho_xac_minh: '#6e40c9', dang_xac_minh: '#bf8700', cho_bo_sung: '#d4a72c', cho_lap_bien_ban: '#da3633', da_lap_bien_ban: '#e16f24', cho_ra_quyet_dinh: '#1a7f37', da_ra_quyet_dinh: '#12a55c', dang_khac_phuc: '#0969da', da_khac_phuc: '#2da44e', da_dong: '#57606a', da_huy: '#b42318' };
+    const markers = valid.map((p) => {
+      const color = colorMap[p.trang_thai] || '#1f6feb';
+      const m = L.circleMarker([Number(p.toa_do.lat), Number(p.toa_do.lng)], { radius: 9, color: '#fff', weight: 2, fillColor: color, fillOpacity: 1 });
+      m.bindPopup(`<b>${p.ma_ho_so}</b><br/>${STATE_LABELS[p.trang_thai] || p.trang_thai}<br/>${p.dia_chi || '—'}${p.mo_ta ? `<br/><small>${p.mo_ta.slice(0, 100)}</small>` : ''}`);
+      m.addTo(markersRef.current);
+      return m;
+    });
+    if (markers.length > 1) mapRef.current.fitBounds(L.featureGroup(markers).getBounds().pad(0.1));
+  }, [data]);
+
+  if (loading) return <Loading />;
+  return <><div className="page-title"><div><p className="eyebrow">GIS</p><h2>Bản đồ vi phạm toàn cục</h2><p>{data.length} hồ sơ có tọa độ trên bản đồ.</p></div></div><div ref={mapNode} className="map" style={{ height: 'calc(100vh - 200px)' }} aria-label="Bản đồ vi phạm toàn cục" /></>;
+}
+
 function App() {
   const [user, setUser] = useState(() => { try { return JSON.parse(localStorage.getItem('qlttxd_user')); } catch { return null; } }); const [route, setRoute] = useState(() => ({ page: 'home', id: null })); const [notice, setNotice] = useState(null); const [needsSetup, setNeedsSetup] = useState(null);
   const notify = (text, type = 'info') => setNotice({ text, type });
@@ -758,6 +898,6 @@ function App() {
     return <Login onLogin={(value) => { setUser(value); setRoute({ page: can(value, 'case.view') ? 'dashboard' : 'citizen' }); }} notice={notice} />;
   }
   const nav = (page, id = null) => setRoute({ page, id }); const isOfficer = can(user, 'case.view');
-  return <div className="app-shell"><header><div className="logo" onClick={() => nav(isOfficer ? 'dashboard' : 'citizen')} role="button" tabIndex="0">QLTTXD</div><div className="user-menu"><span>{user.full_name || user.username}</span><small>{user.roles?.join(', ') || 'Người dùng'}</small><button className="logout" onClick={logout}>Đăng xuất</button></div></header><div className="body"><aside><nav>{!isOfficer && can(user, 'report.create') && <button className={route.page === 'citizen' ? 'selected' : ''} onClick={() => nav('citizen')}>⌖ Báo cáo vi phạm</button>}{isOfficer && <><button className={route.page === 'dashboard' ? 'selected' : ''} onClick={() => nav('dashboard')}>▦ Tổng quan</button><button className={route.page === 'cases' || route.page === 'case' ? 'selected' : ''} onClick={() => nav('cases')}>▤ Hồ sơ xử lý</button></>}{can(user, 'admin.users') && <><div className="nav-group">Quản trị</div><button className={route.page === 'admin-users' ? 'selected' : ''} onClick={() => nav('admin-users')}>👤 Người dùng</button><button className={route.page === 'admin-roles' ? 'selected' : ''} onClick={() => nav('admin-roles')}>🔑 Phân quyền</button><button className={route.page === 'admin-audit' ? 'selected' : ''} onClick={() => nav('admin-audit')}>📋 Nhật ký hệ thống</button></>}{can(user, 'admin.locations') && <button className={route.page === 'admin-locations' ? 'selected' : ''} onClick={() => nav('admin-locations')}>📍 Địa điểm</button>}{can(user, 'admin.users') && <button className={route.page === 'admin-catalog' ? 'selected' : ''} onClick={() => nav('admin-catalog')}>📚 Danh mục</button>}{can(user, 'report.statistics') && <button className={route.page === 'report' ? 'selected' : ''} onClick={() => nav('report')}>📊 Báo cáo</button>}<button className={route.page === 'profile' ? 'selected' : ''} onClick={() => nav('profile')}>👤 Hồ sơ</button><div className="permission">Quyền: {user.permissions?.join(', ') || '—'}</div></nav></aside><main className="content"><Notice notice={notice} onClose={() => setNotice(null)} />{route.page === 'citizen' && <CitizenPage api={api} notify={notify} />}{route.page === 'dashboard' && <Dashboard api={api} navigate={nav} notify={notify} />}{route.page === 'cases' && <CaseList api={api} navigate={nav} notify={notify} />}{route.page === 'case' && <CaseDetail id={route.id} api={api} user={user} navigate={nav} notify={notify} />}{route.page === 'admin-users' && <AdminUsersPage api={api} notify={notify} />}{route.page === 'admin-roles' && <AdminRolesPage api={api} notify={notify} />}{route.page === 'admin-locations' && <AdminLocationsPage api={api} notify={notify} />}{route.page === 'admin-catalog' && <AdminCatalogPage api={api} notify={notify} />}{route.page === 'admin-audit' && <AdminAuditLogPage api={api} notify={notify} />}{route.page === 'report' && <ReportPage api={api} user={user} notify={notify} />}{route.page === 'profile' && <ProfilePage api={api} user={user} notify={notify} />}</main></div></div>;
+  return <div className="app-shell"><header><div className="logo" onClick={() => nav(isOfficer ? 'dashboard' : 'citizen')} role="button" tabIndex="0">QLTTXD</div><div className="user-menu"><BellNotification api={api} /><span>{user.full_name || user.username}</span><small>{user.roles?.join(', ') || 'Người dùng'}</small><button className="logout" onClick={logout}>Đăng xuất</button></div></header><div className="body"><aside><nav>{!isOfficer && can(user, 'report.create') && <button className={route.page === 'citizen' ? 'selected' : ''} onClick={() => nav('citizen')}>⌖ Báo cáo vi phạm</button>}{isOfficer && <><button className={route.page === 'dashboard' ? 'selected' : ''} onClick={() => nav('dashboard')}>▦ Tổng quan</button><button className={route.page === 'cases' || route.page === 'case' ? 'selected' : ''} onClick={() => nav('cases')}>▤ Hồ sơ xử lý</button><button className={route.page === 'officer-reports' ? 'selected' : ''} onClick={() => nav('officer-reports')}>📝 Báo cáo vi phạm</button>{can(user, 'case.view') && <button className={route.page === 'ban-do' ? 'selected' : ''} onClick={() => nav('ban-do')}>🗺️ Bản đồ</button>}</>}{can(user, 'admin.users') && <><div className="nav-group">Quản trị</div><button className={route.page === 'admin-users' ? 'selected' : ''} onClick={() => nav('admin-users')}>👤 Người dùng</button><button className={route.page === 'admin-roles' ? 'selected' : ''} onClick={() => nav('admin-roles')}>🔑 Phân quyền</button><button className={route.page === 'admin-audit' ? 'selected' : ''} onClick={() => nav('admin-audit')}>📋 Nhật ký hệ thống</button></>}{can(user, 'admin.locations') && <button className={route.page === 'admin-locations' ? 'selected' : ''} onClick={() => nav('admin-locations')}>📍 Địa điểm</button>}{can(user, 'admin.users') && <button className={route.page === 'admin-catalog' ? 'selected' : ''} onClick={() => nav('admin-catalog')}>📚 Danh mục</button>}{can(user, 'report.statistics') && <button className={route.page === 'report' ? 'selected' : ''} onClick={() => nav('report')}>📊 Báo cáo</button>}<button className={route.page === 'profile' ? 'selected' : ''} onClick={() => nav('profile')}>👤 Hồ sơ</button><div className="permission">Quyền: {user.permissions?.join(', ') || '—'}</div></nav></aside><main className="content"><Notice notice={notice} onClose={() => setNotice(null)} />{route.page === 'citizen' && <CitizenPage api={api} notify={notify} />}{route.page === 'dashboard' && <Dashboard api={api} navigate={nav} notify={notify} />}{route.page === 'cases' && <CaseList api={api} navigate={nav} notify={notify} />}{route.page === 'case' && <CaseDetail id={route.id} api={api} user={user} navigate={nav} notify={notify} />}{route.page === 'admin-users' && <AdminUsersPage api={api} notify={notify} />}{route.page === 'admin-roles' && <AdminRolesPage api={api} notify={notify} />}{route.page === 'admin-locations' && <AdminLocationsPage api={api} notify={notify} />}{route.page === 'admin-catalog' && <AdminCatalogPage api={api} notify={notify} />}{route.page === 'admin-audit' && <AdminAuditLogPage api={api} notify={notify} />}{route.page === 'report' && <ReportPage api={api} user={user} notify={notify} />}{route.page === 'officer-reports' && <OfficerReportsPage api={api} user={user} navigate={nav} notify={notify} />}{route.page === 'ban-do' && <BanDoPage api={api} notify={notify} />}{route.page === 'profile' && <ProfilePage api={api} user={user} notify={notify} />}</main></div></div>;
 }
 createRoot(document.getElementById('root')).render(<App />);

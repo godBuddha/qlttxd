@@ -151,6 +151,15 @@ test('luồng biên bản, quyết định, khắc phục và thống kê', asyn
   });
   assert.equal(result.response.status, 201);
   assert.ok(Number(result.body.data.so_tien_phat) > 0);
+  assert.equal(result.body.data.trang_thai, 'draft', 'quyết định mới tạo phải ở trạng thái nháp');
+
+  // Ban hành quyết định (draft → da_ban_hanh)
+  result = await json(`/api/v1/ho-so/${createdCaseId}/quyet-dinh/ban-hanh`, {
+    method: 'POST', headers, body: JSON.stringify({}),
+  });
+  assert.equal(result.response.status, 200);
+  assert.equal(result.body.data.trang_thai, 'da_ban_hanh');
+  assert.ok(result.body.data.ngay_ban_hanh, 'ngày ban hành phải được set');
 
   result = await json(`/api/v1/ho-so/${createdCaseId}/khac-phuc`, {
     method: 'POST', headers, body: JSON.stringify({ bien_phap: 'Khắc phục theo kiểm thử' }),

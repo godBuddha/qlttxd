@@ -33,7 +33,6 @@ function hasSafeImageMagic(file) {
 }
 function removeUploadedFiles(files = []) { for (const file of files) fs.rmSync(file.path, { force: true }); }
 const STATES = new Set(['cho_tiep_nhan', 'cho_xac_minh', 'dang_xac_minh', 'cho_bo_sung', 'cho_lap_bien_ban', 'da_lap_bien_ban', 'cho_ra_quyet_dinh', 'da_ra_quyet_dinh', 'dang_khac_phuc', 'cho_duyet_dieu_81', 'da_khac_phuc', 'da_dong', 'da_huy']);
-const STATE_LABELS = { cho_tiep_nhan: 'Chờ tiếp nhận', cho_xac_minh: 'Chờ xác minh', dang_xac_minh: 'Đang xác minh', cho_bo_sung: 'Chờ bổ sung', cho_lap_bien_ban: 'Chờ lập biên bản', da_lap_bien_ban: 'Đã lập biên bản', cho_ra_quyet_dinh: 'Chờ ra quyết định', da_ra_quyet_dinh: 'Đã ra quyết định', dang_khac_phuc: 'Đang khắc phục', cho_duyet_dieu_81: 'Chờ duyệt Điều 81', da_khac_phuc: 'Đã khắc phục', da_dong: 'Đã đóng', da_huy: 'Đã hủy' };
 const TRANSITIONS = {
   cho_tiep_nhan: ['cho_xac_minh', 'da_huy'], cho_xac_minh: ['dang_xac_minh', 'cho_bo_sung', 'da_huy'],
   dang_xac_minh: ['cho_bo_sung', 'cho_lap_bien_ban', 'da_huy'], cho_bo_sung: ['cho_xac_minh', 'da_huy'],
@@ -85,13 +84,6 @@ async function nextCode(pool, prefix) {
   return result.rows[0].code;
 }
 function pointSelect(alias = '') { const p = alias ? `${alias}.` : ''; return `CASE WHEN ${p}toa_do IS NULL THEN NULL ELSE json_build_object('lat', ST_Y(${p}toa_do), 'lng', ST_X(${p}toa_do)) END AS toa_do`; }
-function scopeWhere(user, vals, alias = '') {
-  if (!user) return '';
-  const p = alias ? `${alias}.` : '';
-  if (user.permissions?.includes('case.view')) return '';
-  vals.push(user.id);
-  return ` AND ${p}nguoi_nop_id=$${vals.length}`;
-}
 
 function buildApp({ pool }) {
   if (!secret() || secret().length < 32) throw new Error('JWT_SECRET phải được cấu hình tối thiểu 32 ký tự');
@@ -105,7 +97,7 @@ function buildApp({ pool }) {
     res.set({ 'X-Request-Id': requestId });
     next();
   });
-  app.use(cors(corsOrigin ? { origin: corsOrigin.split(',').map((x) => x.trim()), methods: ['GET', 'POST', 'PATCH', 'PUT'] } : { origin: false }));
+  app.use(cors(corsOrigin ? { origin: corsOrigin.split(',').map((x) => x.trim()), methods: ['GET', 'POST', 'PATCH'] } : { origin: false }));
   app.use(express.json({ limit: '1mb' }));
 
   // Security headers via helmet (replaces manual CSP/STS/header setting)
@@ -275,7 +267,6 @@ function buildApp({ pool }) {
   app.get('/api/v1/danh-muc/muc-phat', async (req, res, next) => { try { const q = req.query.hanh_vi_id ? [' WHERE hanh_vi_id=$1', [req.query.hanh_vi_id]] : ['', []]; res.json({ data: (await pool.query(`SELECT * FROM muc_phat${q[0]} ORDER BY nhom_cong_trinh`, q[1])).rows }); } catch (e) { next(e); } });
   app.get('/api/v1/danh-muc/quan-huyen', async (_req, res, next) => { try { res.json({ data: (await pool.query('SELECT id,ma,ten FROM quan_huyen ORDER BY ma')).rows }); } catch (e) { next(e); } });
   app.get('/api/v1/danh-muc/phuong-xa', async (req, res, next) => { try { const q = req.query.quan_huyen_id ? [' WHERE quan_huyen_id=$1', [req.query.quan_huyen_id]] : ['', []]; res.json({ data: (await pool.query(`SELECT id,ma,ten,quan_huyen_id FROM phuong_xa${q[0]} ORDER BY ma`, q[1])).rows }); } catch (e) { next(e); } });
-  app.get('/api/v1/danh-muc/can-bo', authenticateWithBlocklist, authorize('case.view'), async (_req, res, next) => { try { res.json({ data: (await pool.query(`SELECT u.id,u.full_name,u.username FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id WHERE r.code='case_handler' AND u.is_active=true ORDER BY u.full_name`)).rows }); } catch (e) { next(e); } });
 
   app.post('/api/v1/bao-cao', authenticateWithBlocklist, authorize('report.create'), upload.array('anh', 5), async (req, res, next) => {
     if (!requirePool(pool, res)) return;
@@ -290,58 +281,6 @@ function buildApp({ pool }) {
   });
   app.get('/api/v1/bao-cao', authenticateWithBlocklist, authorize('report.view_own'), async (req, res, next) => { try { const all = req.user.permissions.includes('case.view'); const r = await pool.query(`SELECT bc.id,bc.ma_bao_cao,bc.nguoi_gui_ten,bc.mo_ta,bc.dia_chi,bc.created_at,${pointSelect('bc')},(SELECT count(*)::int FROM tep_dinh_kem t WHERE t.entity_type='bao_cao' AND t.entity_id=bc.id) AS anh_count FROM bao_cao_vi_pham bc ${all ? '' : 'WHERE bc.nguoi_gui_id=$1'} ORDER BY bc.created_at DESC`, all ? [] : [req.user.id]); res.json({ data: r.rows }); } catch (e) { next(e); } });
 
-  // POST /api/v1/bao-cao/:id/to-ho-so — chuyển báo cáo vi phạm thành hồ sơ xử lý
-  app.post('/api/v1/bao-cao/:id/to-ho-so', authenticateWithBlocklist, authorize('case.update'), async (req, res, next) => {
-    if (!requirePool(pool, res)) return;
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      const bc = (await client.query('SELECT * FROM bao_cao_vi_pham WHERE id=$1', [req.params.id])).rows[0];
-      if (!bc) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Không tìm thấy báo cáo' }); }
-      const existing = (await client.query('SELECT id,ma_ho_so FROM ho_so WHERE bao_cao_id=$1 LIMIT 1', [bc.id])).rows[0];
-      if (existing) { await client.query('ROLLBACK'); return res.status(409).json({ error: 'Báo cáo đã được chuyển thành hồ sơ', data: existing }); }
-      const code = await nextCode(client, 'HS');
-      const r = await client.query(
-        `INSERT INTO ho_so (ma_ho_so, bao_cao_id, nguoi_nop_id, dia_chi, quan_huyen_id, phuong_xa_id, toa_do, thoi_gian_xay_ra, mo_ta)
-         SELECT $1, $2, $3, bc.dia_chi, bc.quan_huyen_id, bc.phuong_xa_id, bc.toa_do, bc.thoi_gian_xay_ra, bc.mo_ta
-         FROM bao_cao_vi_pham bc WHERE bc.id=$2
-         RETURNING id, ma_ho_so, trang_thai, ${pointSelect()}`,
-        [code, bc.id, req.user.id]
-      );
-      const hoSo = r.rows[0];
-      const attachments = (await client.query("SELECT ten_goc, duong_dan, loai_file, kich_thuoc FROM tep_dinh_kem WHERE entity_type='bao_cao' AND entity_id=$1", [bc.id])).rows;
-      for (const att of attachments) {
-        await client.query("INSERT INTO tep_dinh_kem (entity_type, entity_id, ten_goc, duong_dan, loai_file, kich_thuoc, nguoi_tai_id) VALUES ('ho_so', $1, $2, $3, $4, $5, $6)", [hoSo.id, att.ten_goc, att.duong_dan, att.loai_file, att.kich_thuoc, req.user.id]);
-      }
-      await audit(client, req, 'create', 'ho_so', hoSo.id, { from_bao_cao: bc.id, ma_bao_cao: bc.ma_bao_cao });
-      await client.query('COMMIT');
-      res.status(201).json({ data: { ...hoSo, anh_count: attachments.length } });
-    } catch (e) { await client.query('ROLLBACK'); next(e); } finally { client.release(); }
-  });
-
-  // GET /api/v1/bao-cao/:id — xem chi tiết báo cáo
-  app.get('/api/v1/bao-cao/:id', authenticateWithBlocklist, authorize('report.view_own'), async (req, res, next) => {
-    try {
-      const all = req.user.permissions.includes('case.view');
-      const bc = (await pool.query(
-        `SELECT bc.id, bc.ma_bao_cao, bc.nguoi_gui_id, bc.nguoi_gui_ten, bc.nguoi_gui_sdt, bc.nguoi_gui_email,
-                bc.mo_ta, bc.dia_chi, bc.quan_huyen_id, bc.phuong_xa_id, bc.thoi_gian_xay_ra, bc.created_at,
-                ${pointSelect('bc')},
-                q.ten AS quan_huyen_ten, p.ten AS phuong_xa_ten
-         FROM bao_cao_vi_pham bc
-         LEFT JOIN quan_huyen q ON q.id=bc.quan_huyen_id
-         LEFT JOIN phuong_xa p ON p.id=bc.phuong_xa_id
-         WHERE bc.id=$1 ${all ? '' : 'AND bc.nguoi_gui_id=$2'}`,
-        all ? [req.params.id] : [req.params.id, req.user.id]
-      )).rows[0];
-      if (!bc) return res.status(404).json({ error: 'Không tìm thấy báo cáo' });
-      const anh = (await pool.query("SELECT id, ten_goc, duong_dan, loai_file, kich_thuoc, created_at FROM tep_dinh_kem WHERE entity_type='bao_cao' AND entity_id=$1 ORDER BY created_at", [bc.id])).rows;
-      const hoSo = (await pool.query('SELECT id, ma_ho_so, trang_thai FROM ho_so WHERE bao_cao_id=$1 LIMIT 1', [bc.id])).rows[0];
-      res.json({ data: { ...bc, anh, ho_so: hoSo || null } });
-    } catch (e) { next(e); }
-  });
-
-
   app.post('/api/v1/ho-so', authenticateWithBlocklist, authorize('case.update'), async (req, res, next) => {
     const b = req.body || {}; const client = await pool.connect();
     try { await client.query('BEGIN'); let offender = null; if (b.nguoi_vi_pham?.ten && b.nguoi_vi_pham?.loai_chu_the) offender = (await client.query('INSERT INTO nguoi_vi_pham (loai_chu_the,ten,cmnd_cccd,dia_chi,sdt,email,nguoi_dai_dien) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id',[b.nguoi_vi_pham.loai_chu_the,b.nguoi_vi_pham.ten,b.nguoi_vi_pham.cmnd_cccd||null,b.nguoi_vi_pham.dia_chi||null,b.nguoi_vi_pham.sdt||null,b.nguoi_vi_pham.email||null,b.nguoi_vi_pham.nguoi_dai_dien||null])).rows[0].id;
@@ -352,26 +291,7 @@ function buildApp({ pool }) {
   });
   app.get('/api/v1/ho-so', authenticateWithBlocklist, authorize('case.view'), async (req, res, next) => { try { const vals=[]; const add=(sql,v)=>{vals.push(v);return `${sql}$${vals.length}`}; const w=['deleted_at IS NULL']; if(req.query.trang_thai)w.push(add('trang_thai=',req.query.trang_thai)); if(req.query.quan_huyen_id)w.push(add('quan_huyen_id=',req.query.quan_huyen_id)); if(req.query.tu_ngay)w.push(add('created_at>=',req.query.tu_ngay)); if(req.query.den_ngay)w.push(add('created_at<=',req.query.den_ngay)); if(req.query.q)w.push(add('(ma_ho_so ILIKE ',`%${req.query.q}%`) + ` OR mo_ta ILIKE $${vals.length})`); const limit=Math.min(Math.max(Number(req.query.limit)||20,1),100),page=Math.max(Number(req.query.page)||1,1); vals.push(limit,(page-1)*limit); const r=await pool.query(`SELECT id,ma_ho_so,trang_thai,dia_chi,created_at,updated_at,${pointSelect()} FROM ho_so WHERE ${w.join(' AND ')} ORDER BY created_at DESC LIMIT $${vals.length-1} OFFSET $${vals.length}`,vals); res.json({data:r.rows,page,limit}); } catch(e){next(e);} });
   app.get('/api/v1/ho-so/:id', authenticateWithBlocklist, authorize('case.view'), async (req,res,next)=>{try { const h=await pool.query(`SELECT h.*,${pointSelect('h')},row_to_json(bc) bao_cao,row_to_json(nvp) nguoi_vi_pham,row_to_json(uxl) nguoi_xu_ly FROM ho_so h LEFT JOIN bao_cao_vi_pham bc ON bc.id=h.bao_cao_id LEFT JOIN nguoi_vi_pham nvp ON nvp.id=h.nguoi_vi_pham_id LEFT JOIN (SELECT u.id,u.full_name,u.username FROM users u) uxl ON uxl.id=h.nguoi_xu_ly_id WHERE h.id=$1 AND h.deleted_at IS NULL`,[req.params.id]); if(!h.rows[0])return res.status(404).json({error:'Không tìm thấy hồ sơ'}); const [bb,qd,kp,anh]=await Promise.all([pool.query('SELECT * FROM bien_ban WHERE ho_so_id=$1 ORDER BY created_at',[req.params.id]),pool.query('SELECT * FROM quyet_dinh WHERE ho_so_id=$1 ORDER BY created_at',[req.params.id]),pool.query('SELECT * FROM khac_phuc WHERE ho_so_id=$1 ORDER BY created_at',[req.params.id]),h.rows[0].bao_cao_id ? pool.query('SELECT id,ten_goc,duong_dan,loai_file,kich_thuoc,created_at FROM tep_dinh_kem WHERE entity_type=$1 AND entity_id=$2 ORDER BY created_at',['bao_cao',h.rows[0].bao_cao_id]) : Promise.resolve({rows:[]})]); res.json({data:{...h.rows[0],bien_ban:bb.rows,quyet_dinh:qd.rows,khac_phuc:kp.rows,anh:anh.rows}});}catch(e){next(e);}});
-  app.patch('/api/v1/ho-so/:id/trang-thai', authenticateWithBlocklist, authorize('case.update'), async(req,res,next)=>{try {const nextState=req.body?.trang_thai;if(!STATES.has(nextState))return res.status(400).json({error:'Trạng thái hồ sơ không hợp lệ'});const old=(await pool.query('SELECT trang_thai FROM ho_so WHERE id=$1',[req.params.id])).rows[0];if(!old)return res.status(404).json({error:'Không tìm thấy hồ sơ'});if(!TRANSITIONS[old.trang_thai]?.includes(nextState))return res.status(400).json({error:'Chuyển trạng thái không hợp lệ'});const r=await pool.query('UPDATE ho_so SET trang_thai=$1 WHERE id=$2 RETURNING id,ma_ho_so,trang_thai,updated_at',[nextState,req.params.id]);await audit(pool,req,'update_status','ho_so',req.params.id,{from:old.trang_thai,to:nextState});try {const hs=await pool.query('SELECT nguoi_nop_id,nguoi_xu_ly_id FROM ho_so WHERE id=$1',[req.params.id]);const recipients=new Set([hs.rows[0]?.nguoi_nop_id,hs.rows[0]?.nguoi_xu_ly_id].filter(Boolean));for(const uid of recipients){if(uid!==req.user.id)await createThongBao(pool,{nguoi_nhan_id:uid,ho_so_id:req.params.id,loai:'trang_thai',tieu_de:`${r.rows[0].ma_ho_so}: chuyển trạng thái`,noi_dung:`Từ ${STATE_LABELS[old.trang_thai]||old.trang_thai} → ${STATE_LABELS[nextState]||nextState}`});}}catch(_n){/*notification failure should not block status update*/}res.json({data:r.rows[0]});}catch(e){next(e);}});
-
-  // PUT /api/v1/ho-so/:id/phan-cong — assign handler
-  app.put('/api/v1/ho-so/:id/phan-cong', authenticateWithBlocklist, authorize('case.assign'), async (req, res, next) => {
-    if (!requirePool(pool, res)) return;
-    try {
-      const { can_bo_id } = req.body || {};
-      if (!can_bo_id) return res.status(400).json({ error: 'can_bo_id là bắt buộc' });
-      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(can_bo_id))
-        return res.status(400).json({ error: 'can_bo_id không hợp lệ' });
-      const hoSo = await pool.query('SELECT id, ma_ho_so, nguoi_xu_ly_id FROM ho_so WHERE id=$1 AND deleted_at IS NULL', [req.params.id]);
-      if (!hoSo.rows[0]) return res.status(404).json({ error: 'Không tìm thấy hồ sơ' });
-      const handler = await pool.query(`SELECT u.id, u.full_name FROM users u JOIN user_roles ur ON ur.user_id = u.id JOIN roles r ON r.id = ur.role_id WHERE u.id = $1 AND u.is_active = true AND r.code = 'case_handler'`, [can_bo_id]);
-      if (!handler.rows[0]) return res.status(400).json({ error: 'Cán bộ không tồn tại hoặc không có vai trò xử lý hồ sơ' });
-      const oldAssigneeId = hoSo.rows[0].nguoi_xu_ly_id;
-      await pool.query('UPDATE ho_so SET nguoi_xu_ly_id=$1 WHERE id=$2', [can_bo_id, req.params.id]);
-      await audit(pool, req, 'assign', 'ho_so', req.params.id, { old_can_bo_id: oldAssigneeId || null, new_can_bo_id: can_bo_id, can_bo_ten: handler.rows[0].full_name });
-      res.json({ data: { id: hoSo.rows[0].id, ma_ho_so: hoSo.rows[0].ma_ho_so, nguoi_xu_ly_id: can_bo_id, nguoi_xu_ly_ten: handler.rows[0].full_name } });
-    } catch (e) { next(e); }
-  });
+  app.patch('/api/v1/ho-so/:id/trang-thai', authenticateWithBlocklist, authorize('case.update'), async(req,res,next)=>{try {const nextState=req.body?.trang_thai;if(!STATES.has(nextState))return res.status(400).json({error:'Trạng thái hồ sơ không hợp lệ'});const old=(await pool.query('SELECT trang_thai FROM ho_so WHERE id=$1',[req.params.id])).rows[0];if(!old)return res.status(404).json({error:'Không tìm thấy hồ sơ'});if(!TRANSITIONS[old.trang_thai]?.includes(nextState))return res.status(400).json({error:'Chuyển trạng thái không hợp lệ'});const r=await pool.query('UPDATE ho_so SET trang_thai=$1 WHERE id=$2 RETURNING id,ma_ho_so,trang_thai,updated_at',[nextState,req.params.id]);await audit(pool,req,'update_status','ho_so',req.params.id,{from:old.trang_thai,to:nextState});res.json({data:r.rows[0]});}catch(e){next(e);}});
 
   app.post('/api/v1/ho-so/:id/bien-ban',authenticateWithBlocklist,authorize('bien_ban.create'),async(req,res,next)=>{try{const h=(await pool.query('SELECT * FROM ho_so WHERE id=$1',[req.params.id])).rows[0];if(!h)return res.status(404).json({error:'Không tìm thấy hồ sơ'});if(h.trang_thai!=='cho_lap_bien_ban')return res.status(400).json({error:'Hồ sơ phải ở trạng thái chờ lập biên bản'});const code=await nextCode(pool,'BB');const r=await pool.query("INSERT INTO bien_ban (ma_bien_ban,ho_so_id,nguoi_lap_id,nguoi_vi_pham_id,hanh_vi_id,noi_dung,muc_phat_du_kien) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *",[code,h.id,req.user.id,h.nguoi_vi_pham_id,h.hanh_vi_id,req.body?.noi_dung||null,req.body?.muc_phat_du_kien||null]);await pool.query("UPDATE ho_so SET trang_thai='da_lap_bien_ban' WHERE id=$1",[h.id]);await audit(pool,req,'create','bien_ban',r.rows[0].id);res.status(201).json({data:r.rows[0]});}catch(e){next(e);}});
   app.post('/api/v1/ho-so/:id/quyet-dinh',authenticateWithBlocklist,authorize('quyet_dinh.issue'),async(req,res,next)=>{try{const h=(await pool.query('SELECT * FROM ho_so WHERE id=$1',[req.params.id])).rows[0];if(!h)return res.status(404).json({error:'Không tìm thấy hồ sơ'});if(h.trang_thai!=='cho_ra_quyet_dinh')return res.status(400).json({error:'Hồ sơ phải ở trạng thái chờ ra quyết định'});if(!req.body?.bien_ban_id)return res.status(400).json({error:'Biên bản là bắt buộc'});const bienBan=(await pool.query('SELECT id FROM bien_ban WHERE id=$1 AND ho_so_id=$2',[req.body.bien_ban_id,h.id])).rows[0];if(!bienBan)return res.status(400).json({error:'Biên bản không thuộc hồ sơ'});const mp=await pool.query('SELECT muc_toi_thieu,muc_toi_da FROM muc_phat WHERE hanh_vi_id=$1 AND nhom_cong_trinh=$2',[h.hanh_vi_id,req.body?.nhom_cong_trinh||1]);const amount=req.body?.so_tien_phat ?? (mp.rows[0] ? Math.round(Number(mp.rows[0].muc_toi_thieu)+(Number(mp.rows[0].muc_toi_da)-Number(mp.rows[0].muc_toi_thieu))/2) : null);const subject=(await pool.query('SELECT loai_chu_the FROM nguoi_vi_pham WHERE id=$1',[h.nguoi_vi_pham_id])).rows[0];const fine=subject?.loai_chu_the==='ca_nhan'&&amount!==null?Math.floor(amount/2):amount;const code=await nextCode(pool,'QD');const r=await pool.query("INSERT INTO quyet_dinh (ma_quyet_dinh,bien_ban_id,ho_so_id,nguoi_ky_id,so_tien_phat,can_cu_phap_ly,hinh_thuc_phat_bo_sung,bien_phap_khac_phuc_hau_qua,trang_thai) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'draft') RETURNING *",[code,bienBan.id,h.id,req.user.id,fine,req.body?.can_cu_phap_ly||null,req.body?.hinh_thuc_phat_bo_sung||null,req.body?.bien_phap_khac_phuc_hau_qua||null,]);await audit(pool,req,'create','quyet_dinh',r.rows[0].id);res.status(201).json({data:r.rows[0]});}catch(e){next(e);}});
@@ -1346,168 +1266,6 @@ function buildApp({ pool }) {
       await client.query('COMMIT');
       res.json({ message: 'Đã xóa mức phạt' });
     } catch (e) { await client.query('ROLLBACK'); next(e); } finally { client.release(); }
-  });
-
-  // =========================================================================
-  // T51: FORGOT PASSWORD / RESET PASSWORD
-  // =========================================================================
-  // Rate limit for forgot/reset password — separate from login limiter to avoid test collision
-  const forgotLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: Number(process.env.RATE_LIMIT_MAX || 200),
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' }
-  });
-  app.use('/api/v1/auth/forgot-password', forgotLimiter);
-  app.use('/api/v1/auth/reset-password', forgotLimiter);
-
-  app.post('/api/v1/auth/forgot-password', async (req, res, next) => {
-    if (!requirePool(pool, res)) return;
-    try {
-      const { identifier } = req.body || {};
-      if (!identifier?.trim()) return res.status(400).json({ error: 'Tên đăng nhập hoặc email là bắt buộc' });
-
-      // Look up user by username or email
-      const user = (await pool.query(
-        'SELECT id, username FROM users WHERE (username=$1 OR email=$1) AND is_active=true LIMIT 1',
-        [identifier.trim()]
-      )).rows[0];
-
-      // Always return success to prevent user enumeration
-      if (!user) return res.json({ message: 'Nếu tài khoản tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi.' });
-
-      // Generate token, hash it, store
-      const rawToken = crypto.randomBytes(32).toString('hex');
-      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
-      await pool.query(
-        'INSERT INTO reset_token (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
-        [user.id, tokenHash, expiresAt]
-      );
-
-      // Audit
-      await pool.query(
-        "INSERT INTO audit_log (nguoi_dung_id, hanh_dong, bang_bi_tac_dong, id_ban_ghi, chi_tiet, ip) VALUES ($1, 'forgot_password', 'users', $2, $3, $4)",
-        [user.id, user.id, JSON.stringify({ username: user.username }), req.ip]
-      );
-
-      res.json({ message: 'Nếu tài khoản tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi.' });
-    } catch (error) { next(error); }
-  });
-
-  app.post('/api/v1/auth/reset-password', async (req, res, next) => {
-    if (!requirePool(pool, res)) return;
-    try {
-      const { token, new_password } = req.body || {};
-      if (!token) return res.status(400).json({ error: 'Token là bắt buộc' });
-      if (!new_password || new_password.length < 8) return res.status(400).json({ error: 'Mật khẩu phải tối thiểu 8 ký tự' });
-      if (!/[a-zA-Z]/.test(new_password) || !/[0-9]/.test(new_password))
-        return res.status(400).json({ error: 'Mật khẩu phải chứa cả chữ và chữ số' });
-
-      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-      const result = await pool.query(
-        'SELECT id, user_id, expires_at, used FROM reset_token WHERE token_hash=$1',
-        [tokenHash]
-      );
-      const record = result.rows[0];
-      if (!record || record.used || new Date(record.expires_at) < new Date())
-        return res.status(400).json({ error: 'Token không hợp lệ hoặc đã hết hạn' });
-
-      // Update password
-      const passwordHash = await bcrypt.hash(new_password, 10);
-      await pool.query('UPDATE users SET password_hash=$1 WHERE id=$2', [passwordHash, record.user_id]);
-      // Mark token as used
-      await pool.query('UPDATE reset_token SET used=true WHERE id=$1', [record.id]);
-      // Audit
-      await pool.query(
-        "INSERT INTO audit_log (nguoi_dung_id, hanh_dong, bang_bi_tac_dong, id_ban_ghi, chi_tiet, ip) VALUES ($1, 'reset_password', 'users', $2, $3, $4)",
-        [record.user_id, record.user_id, JSON.stringify({}), req.ip]
-      );
-
-      res.json({ message: 'Đặt lại mật khẩu thành công' });
-    } catch (error) { next(error); }
-  });
-
-  // =========================================================================
-  // T21: THÔNG BÁO (Notifications)
-  // =========================================================================
-
-  // Helper: create notifications for users
-  async function createThongBao(clientOrPool, { nguoi_nhan_id, ho_so_id, loai, tieu_de, noi_dung }) {
-    await clientOrPool.query(
-      'INSERT INTO thong_bao (nguoi_nhan_id, ho_so_id, loai, tieu_de, noi_dung, kenh, trang_thai) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-      [nguoi_nhan_id, ho_so_id || null, loai, tieu_de, noi_dung || null, 'in_app', 'chua_doc']
-    );
-  }
-
-  // GET /api/v1/thong-bao — list notifications for current user (paginated)
-  app.get('/api/v1/thong-bao', authenticateWithBlocklist, async (req, res, next) => {
-    try {
-      const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
-      const page = Math.max(Number(req.query.page) || 1, 1);
-      const offset = (page - 1) * limit;
-      const r = await pool.query(
-        `SELECT id, ho_so_id, loai, tieu_de, noi_dung, trang_thai, created_at
-         FROM thong_bao WHERE nguoi_nhan_id=$1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
-        [req.user.id, limit, offset]
-      );
-      const count = await pool.query('SELECT count(*)::int AS total FROM thong_bao WHERE nguoi_nhan_id=$1', [req.user.id]);
-      res.json({ data: r.rows, total: count.rows[0].total, page, limit });
-    } catch (e) { next(e); }
-  });
-
-  // GET /api/v1/thong-bao/unread-count
-  app.get('/api/v1/thong-bao/unread-count', authenticateWithBlocklist, async (req, res, next) => {
-    try {
-      const r = await pool.query(
-        "SELECT count(*)::int AS count FROM thong_bao WHERE nguoi_nhan_id=$1 AND trang_thai='chua_doc'",
-        [req.user.id]
-      );
-      res.json({ count: r.rows[0].count });
-    } catch (e) { next(e); }
-  });
-
-  // POST /api/v1/thong-bao/:id/mark-read
-  app.post('/api/v1/thong-bao/:id/mark-read', authenticateWithBlocklist, async (req, res, next) => {
-    try {
-      const r = await pool.query(
-        "UPDATE thong_bao SET trang_thai='da_doc' WHERE id=$1 AND nguoi_nhan_id=$2 RETURNING id",
-        [req.params.id, req.user.id]
-      );
-      if (!r.rows[0]) return res.status(404).json({ error: 'Không tìm thấy thông báo' });
-      res.json({ message: 'Đã đánh dấu đã đọc' });
-    } catch (e) { next(e); }
-  });
-
-  // POST /api/v1/thong-bao/mark-all-read
-  app.post('/api/v1/thong-bao/mark-all-read', authenticateWithBlocklist, async (req, res, next) => {
-    try {
-      await pool.query(
-        "UPDATE thong_bao SET trang_thai='da_doc' WHERE nguoi_nhan_id=$1 AND trang_thai='chua_doc'",
-        [req.user.id]
-      );
-      res.json({ message: 'Đã đánh dấu tất cả đã đọc' });
-    } catch (e) { next(e); }
-  });
-
-  // Auto-notify on status transition — helper callable from route handlers above
-
-  // =========================================================================
-  // T22: BẢN ĐỒ TOÀN CỤC (Global Map)
-  // =========================================================================
-  app.get('/api/v1/ban-do/vi-pham', authenticateWithBlocklist, authorize('case.view'), async (req, res, next) => {
-    try {
-      const r = await pool.query(
-        `SELECT h.id, h.ma_ho_so, h.trang_thai, h.dia_chi, h.mo_ta, ${pointSelect('h')},
-                lvp.ten AS loai_vi_pham_ten
-         FROM ho_so h
-         LEFT JOIN loai_vi_pham lvp ON lvp.id=h.loai_vi_pham_id
-         WHERE h.deleted_at IS NULL AND h.toa_do IS NOT NULL
-         ORDER BY h.created_at DESC`
-      );
-      res.json({ data: r.rows });
-    } catch (e) { next(e); }
   });
 
   app.use((error,_req,res,_next)=>{if(error instanceof multer.MulterError)return res.status(400).json({error:`Tải tệp thất bại: ${error.message}`}); console.error(error); return res.status(500).json({error:'Lỗi máy chủ nội bộ'});});
