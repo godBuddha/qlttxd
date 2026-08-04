@@ -56,6 +56,20 @@
 |---|---|
 | ![Citizen Dashboard](docs/screenshots/v0.2.0-full/citizen-dashboard.png) | ![Báo cáo](docs/screenshots/v0.2.0-full/citizen-Báo-cáo.png) |
 
+### 🆕 Tính năng mới v0.2.1
+
+| Nhật ký hệ thống (Audit Log) | Danh mục quản lý |
+|---|---|
+| ![Audit Log](docs/screenshots/v0.2.1/audit-log.png) | ![Danh mục](docs/screenshots/v0.2.1/catalog.png) |
+
+| Hồ sơ cá nhân + Đổi mật khẩu | Báo cáo & Xuất dữ liệu |
+|---|---|
+| ![Profile](docs/screenshots/v0.2.1/profile.png) | ![Report](docs/screenshots/v0.2.1/report.png) |
+
+| Ảnh minh chứng | Security Headers |
+|---|---|
+| ![Ảnh](docs/screenshots/v0.2.1/images.png) | ![Security](docs/screenshots/v0.2.1/security.png) |
+
 ---
 
 ## ✨ Tính năng v0.2.1
@@ -148,13 +162,14 @@ Truy cập http://localhost → Đăng ký admin → Dashboard.
 
 | Module | Endpoints | Ghi chú |
 |---|---|---|
-| Auth | `setup-status`, `setup-admin`, `login`, `logout` | JWT + token blocklist |
+| Auth | `setup-status`, `setup-admin`, `login`, `logout`, `password` | JWT + rate-limit + đổi mật khẩu |
 | Admin Users | CRUD người dùng, vai trò, phân quyền | Cần `admin.users` |
-| Admin Locations | CRUD quận/huyện, phường/xã + boundary GeoJSON | Cần `admin.locations` (v0.2.0) |
+| Admin Locations | CRUD quận/huyện, phường/xã + boundary GeoJSON | Cần `admin.locations` |
+| Audit Log | `GET /api/v1/admin/audit-log` + filter + phân trang | Cần `admin.audit` (v0.2.1) |
 | Hồ sơ | CRUD hồ sơ, chuyển trạng thái, biên bản, quyết định, khắc phục | 13 trạng thái |
 | Báo cáo | Tạo + theo dõi báo cáo vi phạm | Công dân |
-| Thống kê | Tổng quan, xuất CSV/PDF | Cần `report.statistics` (v0.2.0) |
-| Health | `/health` | DB ping + uptime |
+| Thống kê | Tổng quan, xuất CSV/PDF + PII masking | Cần `report.statistics` |
+| Health | `/health` | DB ping + uptime + version |
 
 > Danh sách đầy đủ: [app/README.md § API Endpoints](app/README.md#api-endpoints)
 
@@ -166,9 +181,12 @@ Truy cập http://localhost → Đăng ký admin → Dashboard.
 qlttxd/
 ├── README.md                    ← Bạn đang đọc
 ├── BRIEF.md                     # Tóm tắt dự án
+├── CHANGELOG.md                 # Lịch sử thay đổi
 ├── app/                         # Ứng dụng self-host
 │   ├── docker-compose.yml
 │   ├── backend/                 # Node.js + Express API
+│   │   ├── server.js            # Main app (helmet, rate-limit, audit)
+│   │   └── test/                # 91 tests (hardening, reporting, export)
 │   ├── frontend/                # React 19 + Vite SPA
 │   ├── db/init/                 # Schema + seed SQL
 │   └── scripts/                 # Backup, update
@@ -178,10 +196,12 @@ qlttxd/
 │   ├── 10..11-*.md              # Kế hoạch v0.2.0
 │   ├── screenshots/             # Ảnh demo UI
 │   │   ├── v0.2.0-full/         # 24 ảnh toàn bộ UI v0.2.0
+│   │   ├── v0.2.1/              # 26 ảnh UI v0.2.1
 │   │   └── README.md            # Index + mô tả ảnh
+│   ├── specs/v0.2.1/            # 15 task specs v0.2.1
 │   └── BOM-v0.2.0.md           # Bill of Materials
 ├── sql/                         # Database (schema, seed, migrations, verify)
-├── scripts/                     # Staging scripts
+├── scripts/                     # Staging + screenshot scripts
 └── taplieu/                     # Văn bản pháp luật (NĐ15, NĐ16, NĐ50, NĐ62)
 ```
 
@@ -196,10 +216,10 @@ npm test        # 70 unit/integration test
 
 | Kiểm tra | Kết quả |
 |---|---|
-| Backend unit tests | 70/70 PASS |
+| Backend unit tests | 91/91 PASS |
 | Frontend build | ✅ |
 | verify-db.sql | 18/18 PASS |
-| Security smoke | No HIGH findings |
+| Security smoke | 0 HIGH findings (7 checks) |
 
 ---
 
