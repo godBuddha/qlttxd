@@ -75,6 +75,7 @@ test('POST /api/v1/auth/forgot-password trả 200 cho user không tồn tại (c
   });
   assert.equal(response.status, 200);
   assert.ok(body.message);
+  assert.equal(body.dev_token, undefined, 'dev_token must NOT be returned for non-existent user');
 });
 
 test('POST /api/v1/auth/forgot-password tạo token cho user hợp lệ', async () => {
@@ -85,6 +86,7 @@ test('POST /api/v1/auth/forgot-password tạo token cho user hợp lệ', async 
   });
   assert.equal(response.status, 200);
   assert.ok(body.message);
+  assert.ok(body.dev_token, 'dev_token should be returned in dev mode (no SMTP_HOST)');
 
   // Verify token was stored in DB
   const tokens = await pool.query('SELECT * FROM reset_token WHERE user_id=$1 AND used=false', [userId]);
@@ -101,6 +103,41 @@ test('POST /api/v1/auth/forgot-password cũng hoạt động với email', async
   });
   assert.equal(response.status, 200);
   assert.ok(body.message);
+  assert.ok(body.dev_token, 'dev_token should be returned via email lookup too');
+});
+
+test('E2E: forgot → dùng dev_token reset → đăng nhập', async () => {
+  // Step 1: forgot-password → get dev_token
+  const { body: forgotBody } = await json('/api/v1/auth/forgot-password', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ identifier: TEST_ADMIN_USERNAME }),
+  });
+  assert.ok(forgotBody.dev_token, 'Should get dev_token');
+
+  // Step 2: reset password with dev_token
+  const newPassword = 'DevTokenReset1';
+  const { response: resetRes, body: resetBody } = await json('/api/v1/auth/reset-password', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ token: forgotBody.dev_token, new_password: newPassword }),
+  });
+  assert.equal(resetRes.status, 200);
+  assert.match(resetBody.message, /thành công/);
+
+  // Step 3: login with new password
+  const { response: loginRes, body: loginBody } = await json('/api/v1/auth/login', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ username: TEST_ADMIN_USERNAME, password: newPassword }),
+  });
+  assert.equal(loginRes.status, 200);
+  assert.ok(loginBody.token, 'Should get JWT after dev_token reset');
+
+  // Restore original password
+  const bcrypt = require('bcryptjs');
+  const originalHash = await bcrypt.hash(TEST_ADMIN_PASSWORD, 10);
+  await pool.query('UPDATE users SET password_hash=$1 WHERE id=$2', [originalHash, userId]);
 });
 
 test('POST /api/v1/auth/forgot-password ghi audit log', async () => {

@@ -50,21 +50,21 @@ function coordinate(body) {
 }
 function secret() { return process.env.JWT_SECRET; }
 function makeAuthenticate(blocklist) {
-  return function authenticate(req, res, next) {
+  return async function authenticate(req, res, next) {
     const value = req.get('authorization') || ''; const bearerToken = value.startsWith('Bearer ') ? value.slice(7) : null;
     const xAuthToken = req.get('x-auth-token');
     const token = bearerToken || xAuthToken;
     if (!token) return res.status(401).json({ error: 'Thiếu mã xác thực' });
     try {
       const decoded = jwt.verify(token, secret());
-      if (blocklist.has(decoded.jti)) return res.status(401).json({ error: 'Mã xác thực đã bị thu hồi' });
+      if (await blocklist.has(decoded.jti)) return res.status(401).json({ error: 'Mã xác thực đã bị thu hồi' });
       req.user = decoded;
       return next();
     } catch { return res.status(401).json({ error: 'Mã xác thực không hợp lệ hoặc đã hết hạn' }); }
   };
 }
 // backward-compatible default (no blocklist) for tests that import authenticate directly
-const authenticate = makeAuthenticate({ has() { return false; } });
+const authenticate = makeAuthenticate({ async has() { return false; } });
 function authorize(...permissions) {
   return (req, res, next) => permissions.some((p) => req.user.permissions.includes(p))
     ? next() : res.status(403).json({ error: 'Bạn không có quyền thực hiện thao tác này' });
@@ -95,7 +95,7 @@ function scopeWhere(user, vals, alias = '') {
 
 function buildApp({ pool }) {
   if (!secret() || secret().length < 32) throw new Error('JWT_SECRET phải được cấu hình tối thiểu 32 ký tự');
-  const tokenBlocklist = new TokenBlocklist();
+  const tokenBlocklist = new TokenBlocklist({ pool });
   const authenticateWithBlocklist = makeAuthenticate(tokenBlocklist);
   const app = express();
   const corsOrigin = process.env.CORS_ORIGIN;
@@ -105,7 +105,7 @@ function buildApp({ pool }) {
     res.set({ 'X-Request-Id': requestId });
     next();
   });
-  app.use(cors(corsOrigin ? { origin: corsOrigin.split(',').map((x) => x.trim()), methods: ['GET', 'POST', 'PATCH', 'PUT'] } : { origin: false }));
+  app.use(cors(corsOrigin ? { origin: corsOrigin.split(',').map((x) => x.trim()), methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'] } : { origin: false }));
   app.use(express.json({ limit: '1mb' }));
 
   // Security headers via helmet (replaces manual CSP/STS/header setting)
@@ -231,8 +231,8 @@ function buildApp({ pool }) {
       return res.json({ token: jwt.sign(claims, secret(), { expiresIn: '8h', jwtid: crypto.randomUUID() }), user: { id: user.id, username: user.username, full_name: user.full_name, email: user.email, phone: user.phone, roles: claims.roles, permissions: claims.permissions } });
     } catch (error) { next(error); }
   });
-  app.post('/api/v1/auth/logout', authenticateWithBlocklist, (req, res) => {
-    if (req.user.jti) tokenBlocklist.add(req.user.jti);
+  app.post('/api/v1/auth/logout', authenticateWithBlocklist, async (req, res) => {
+    if (req.user.jti) await tokenBlocklist.add(req.user.jti);
     return res.json({ message: 'Đăng xuất thành công' });
   });
   app.get('/api/v1/auth/me', authenticateWithBlocklist, (req, res) => res.json({ user: req.user }));
@@ -262,7 +262,7 @@ function buildApp({ pool }) {
       if (!token) return res.status(401).json({ error: 'Thiếu mã xác thực' });
       let user;
       try { user = jwt.verify(token, secret()); } catch { return res.status(401).json({ error: 'Mã xác thực không hợp lệ hoặc đã hết hạn' }); }
-      if (tokenBlocklist.has(user.jti)) return res.status(401).json({ error: 'Mã xác thực đã bị thu hồi' });
+      if (await tokenBlocklist.has(user.jti)) return res.status(401).json({ error: 'Mã xác thực đã bị thu hồi' });
       const attachment = await pool.query("SELECT b.nguoi_gui_id FROM tep_dinh_kem t JOIN bao_cao_vi_pham b ON t.entity_type='bao_cao' AND b.id=t.entity_id WHERE t.duong_dan=$1", [`/uploads/${filename}`]);
       if (!attachment.rows[0]) return res.status(404).json({ error: 'Không tìm thấy tệp' });
       if (!user.permissions.includes('case.view') && attachment.rows[0].nguoi_gui_id !== user.id) return res.status(403).json({ error: 'Bạn không có quyền xem tệp này' });
@@ -439,7 +439,90 @@ function buildApp({ pool }) {
     } catch (e) { next(e); }
   });
 
-  app.get('/api/v1/thong-ke/tong-quan',authenticateWithBlocklist,authorize('report.statistics'),async(_req,res,next)=>{try{const [status,district,month]=await Promise.all([pool.query('SELECT trang_thai,count(*)::int AS so_luong FROM ho_so WHERE deleted_at IS NULL GROUP BY trang_thai ORDER BY trang_thai'),pool.query('SELECT q.id,q.ten,count(h.id)::int AS so_luong FROM quan_huyen q LEFT JOIN ho_so h ON h.quan_huyen_id=q.id AND h.deleted_at IS NULL GROUP BY q.id,q.ten ORDER BY q.ten'),pool.query("SELECT to_char(date_trunc('month',created_at),'YYYY-MM') thang,count(*)::int AS so_luong FROM ho_so WHERE deleted_at IS NULL GROUP BY 1 ORDER BY 1 DESC")]);res.json({data:{theo_trang_thai:status.rows,theo_quan:district.rows,theo_thang:month.rows}});}catch(e){next(e);}});
+  // --- Per-case PDF export (Vietnamese font) ---
+  function vnFont(doc) {
+    const fontRegular = path.resolve(__dirname, 'fonts', 'NotoSans-Regular.ttf');
+    const fontBold = path.resolve(__dirname, 'fonts', 'NotoSans-Bold.ttf');
+    doc.registerFont('VN', fontRegular);
+    doc.registerFont('VN-Bold', fontBold);
+  }
+
+  app.get('/api/v1/ho-so/:id/xuat-bien-ban.pdf', authenticateWithBlocklist, authorize('case.update'), async (req, res, next) => {
+    try {
+      const data = await fetchHoSoDocxData(req.params.id);
+      if (!data) return res.status(404).json({ error: 'Kh\u00f4ng t\u00ecm th\u1ea5y h\u1ed3 s\u01a1' });
+      if (!data.bien_ban) return res.status(400).json({ error: 'H\u1ed3 s\u01a1 ch\u01b0a c\u00f3 bi\u00ean b\u1ea3n' });
+      const PDFDocument = require('pdfkit');
+      const doc = new PDFDocument({ size: 'A4', margin: 50 });
+      vnFont(doc);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename="' + (data.bien_ban.ma_bien_ban || 'bien-ban') + '.pdf"');
+      doc.pipe(res);
+      doc.fontSize(14).font('VN-Bold').text('C\u1ed8NG H\u00d2A X\u00c3 H\u1ed8I CH\u1ee6 NGH\u0128A VI\u1ec6T NAM', { align: 'center' });
+      doc.fontSize(11).font('VN').text('\u0110\u1ed9c l\u1eadp - T\u1ef1 do - H\u1ea1nh ph\u00fac', { align: 'center' });
+      doc.moveDown(1);
+      doc.fontSize(16).font('VN-Bold').text('BI\u00caN B\u1ea2N VI PH\u1ea0M H\u00c0NH CH\u00cdNH', { align: 'center' });
+      doc.moveDown(0.3);
+      doc.fontSize(11).font('VN').text('S\u1ed1: ' + (data.bien_ban.ma_bien_ban || '\2026'), { align: 'center' });
+      doc.moveDown(1);
+      const diaChiVP = [data.ho_so.dia_chi, data.phuong_xa && data.phuong_xa.ten, data.quan_huyen && data.quan_huyen.ten].filter(Boolean).join(', ') || '\2026';
+      doc.fontSize(10).font('VN');
+      doc.text('\u0110\u1ecba ch\u1ec9 vi ph\u1ea1m: ' + diaChiVP);
+      doc.text('Ng\u01b0\u1eddi vi ph\u1ea1m: ' + (data.nguoi_vi_pham && data.nguoi_vi_pham.ten || '\2026'));
+      doc.text('H\u00e0nh vi vi ph\u1ea1m: ' + (data.hanh_vi && data.hanh_vi.ten || '\2026'));
+      doc.text('M\u00f4 t\u1ea3: ' + (data.ho_so.mo_ta || data.bien_ban.noi_dung || '\2026'));
+      doc.text('M\u1ee9c ph\u1ea1t d\u1ef1 ki\u1ebfn: ' + (data.bien_ban.muc_phat_du_kien != null ? Number(data.bien_ban.muc_phat_du_kien).toLocaleString('vi-VN') + ' \u0111\u1ed3ng' : '\2026'));
+      if (data.bien_ban.noi_dung) doc.text('Ghi ch\u00fa: ' + data.bien_ban.noi_dung);
+      doc.moveDown(2);
+      doc.font('VN').text('Bi\u00ean b\u1ea3n \u0111\u01b0\u1ee3c l\u1eadp th\u00e0nh 02 b\u1ea3n, 01 b\u1ea3n giao cho ng\u01b0\u1eddi vi ph\u1ea1m, 01 b\u1ea3n l\u01b0u t\u1ea1i c\u01a1 quan.', { align: 'justify' });
+      doc.end();
+      await audit(pool, req, 'export_pdf', 'bien_ban', data.bien_ban.id);
+    } catch (e) { next(e); }
+  });
+
+  app.get('/api/v1/ho-so/:id/xuat-quyet-dinh.pdf', authenticateWithBlocklist, authorize('case.update'), async (req, res, next) => {
+    try {
+      const data = await fetchHoSoDocxData(req.params.id);
+      if (!data) return res.status(404).json({ error: 'Kh\u00f4ng t\u00ecm th\u1ea5y h\u1ed3 s\u01a1' });
+      if (!data.quyet_dinh) return res.status(400).json({ error: 'H\u1ed3 s\u01a1 ch\u01b0a c\u00f3 quy\u1ebft \u0111\u1ecbnh' });
+      const PDFDocument = require('pdfkit');
+      const doc = new PDFDocument({ size: 'A4', margin: 50 });
+      vnFont(doc);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename="' + (data.quyet_dinh.ma_quyet_dinh || 'quyet-dinh') + '.pdf"');
+      doc.pipe(res);
+      doc.fontSize(14).font('VN-Bold').text('C\u1ed8NG H\u00d2A X\u00c3 H\u1ed8I CH\u1ee6 NGH\u0128A VI\u1ec6T NAM', { align: 'center' });
+      doc.fontSize(11).font('VN').text('\u0110\u1ed9c l\u1eadp - T\u1ef1 do - H\u1ea1nh ph\u00fac', { align: 'center' });
+      doc.moveDown(1);
+      doc.fontSize(14).font('VN-Bold').text('CH\u1ee6 T\u1ecaCH \u1ee8Y BAN NH\u00c2N D\u00c2N ' + (data.quan_huyen && data.quan_huyen.ten ? data.quan_huyen.ten.toUpperCase() : '\2026'), { align: 'center' });
+      doc.moveDown(0.3);
+      doc.fontSize(11).font('VN-Bold').text('S\u1ed1: ' + (data.quyet_dinh.ma_quyet_dinh || '\2026'), { align: 'center' });
+      doc.moveDown(0.5);
+      doc.fontSize(16).font('VN-Bold').text('QUY\u1ebeT \u0110\u1ecaNH', { align: 'center' });
+      doc.fontSize(13).font('VN-Bold').text('X\u1eec PH\u1ea0T VI PH\u1ea0M H\u00c0NH CH\u00cdNH', { align: 'center' });
+      doc.moveDown(1);
+      doc.fontSize(10).font('VN');
+      doc.text('X\u1eed ph\u1ea1t vi ph\u1ea1m h\u00e0nh ch\u00ednh \u0111\u1ed1i v\u1edbi:');
+      doc.text('T\u00ean ng\u01b0\u1eddi vi ph\u1ea1m: ' + (data.nguoi_vi_pham && data.nguoi_vi_pham.ten || '\2026'));
+      doc.text('CMND/CCCD: ' + (data.nguoi_vi_pham && data.nguoi_vi_pham.cmnd_cccd || '\2026'));
+      doc.text('H\u00e0nh vi: ' + (data.hanh_vi && data.hanh_vi.ten || '\2026'));
+      const dieuKhoan = data.hanh_vi ? '\u0110i\u1ec1u ' + (data.hanh_vi.dieu || '16') + ', Kho\u1ea3n ' + (data.hanh_vi.khoan || '\2026') : '\2026';
+      doc.text('\u0110i\u1ec1u/Kho\u1ea3n: ' + dieuKhoan + ' N\u0110 16/2022/N\u0110-CP');
+      const diaChiVP = [data.ho_so.dia_chi, data.phuong_xa && data.phuong_xa.ten, data.quan_huyen && data.quan_huyen.ten].filter(Boolean).join(', ') || '\2026';
+      doc.text('\u0110\u1ecba ch\u1ec9 vi ph\u1ea1m: ' + diaChiVP);
+      doc.moveDown(0.5);
+      doc.fontSize(11).font('VN-Bold').text('H\u00ecnh th\u1ee9c x\u1eed ph\u1ea1t:');
+      doc.fontSize(10).font('VN').text('Ph\u1ea1t ti\u1ec1n: ' + (data.quyet_dinh.so_tien_phat != null ? Number(data.quyet_dinh.so_tien_phat).toLocaleString('vi-VN') + ' \u0111\u1ed3ng' : '\2026'));
+      if (data.quyet_dinh.hinh_thuc_phat_bo_sung) doc.text('Ph\u1ea1t b\u1ed5 sung: ' + data.quyet_dinh.hinh_thuc_phat_bo_sung);
+      if (data.quyet_dinh.bien_phap_khac_phuc_hau_qua) doc.text('Kh\u1eafc ph\u1ee5c h\u1eadu qu\u1ea3: ' + data.quyet_dinh.bien_phap_khac_phuc_hau_qua);
+      doc.moveDown(1);
+      doc.font('VN').text('Quy\u1ebft \u0111\u1ecbnh n\u00e0y c\u00f3 hi\u1ec7u l\u1ee9c k\u1ec3 t\u1eeb ng\u00e0y k\u00fd. Ng\u01b0\u1eddi vi ph\u1ea1m ph\u1ea3i ch\u1ea5p h\u00e0nh trong th\u1eddi h\u1ea1n 10 ng\u00e0y.', { align: 'justify' });
+      doc.end();
+      await audit(pool, req, 'export_pdf', 'quyet_dinh', data.quyet_dinh.id);
+    } catch (e) { next(e); }
+  });
+
+  app.get('/api/v1/thong-ke/tong-quan' ,authenticateWithBlocklist,authorize('report.statistics'),async(_req,res,next)=>{try{const [status,district,month]=await Promise.all([pool.query('SELECT trang_thai,count(*)::int AS so_luong FROM ho_so WHERE deleted_at IS NULL GROUP BY trang_thai ORDER BY trang_thai'),pool.query('SELECT q.id,q.ten,count(h.id)::int AS so_luong FROM quan_huyen q LEFT JOIN ho_so h ON h.quan_huyen_id=q.id AND h.deleted_at IS NULL GROUP BY q.id,q.ten ORDER BY q.ten'),pool.query("SELECT to_char(date_trunc('month',created_at),'YYYY-MM') thang,count(*)::int AS so_luong FROM ho_so WHERE deleted_at IS NULL GROUP BY 1 ORDER BY 1 DESC")]);res.json({data:{theo_trang_thai:status.rows,theo_quan:district.rows,theo_thang:month.rows}});}catch(e){next(e);}});
 
   app.get('/api/v1/thong-ke/xuat', authenticateWithBlocklist, authorize('report.statistics'), async (req, res, next) => {
     try {
@@ -481,22 +564,27 @@ function buildApp({ pool }) {
       } else if (loai === 'pdf') {
         const PDFDocument = require('pdfkit');
         const doc = new PDFDocument({ size: 'A4', margin: 40 });
+        // Register Vietnamese-capable font (Noto Sans)
+        const fontRegular = path.resolve(__dirname, 'fonts', 'NotoSans-Regular.ttf');
+        const fontBold = path.resolve(__dirname, 'fonts', 'NotoSans-Bold.ttf');
+        doc.registerFont('VN', fontRegular);
+        doc.registerFont('VN-Bold', fontBold);
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="bao-cao-${new Date().toISOString().slice(0,10)}.pdf"`);
         doc.pipe(res);
 
-        doc.fontSize(16).text('Báo cáo thống kê hồ sơ vi phạm', { align: 'center' });
+        doc.fontSize(16).font('VN-Bold').text('Báo cáo thống kê hồ sơ vi phạm', { align: 'center' });
         doc.moveDown(0.5);
-        doc.fontSize(10).text(`Ngày xuất: ${new Date().toLocaleDateString('vi-VN')}`);
+        doc.fontSize(10).font('VN').text(`Ngày xuất: ${new Date().toLocaleDateString('vi-VN')}`);
         doc.moveDown(1);
 
         // Table header
         const cols = [50, 120, 200, 300, 400, 480];
         const headers = ['Mã HS', 'Trạng thái', 'Địa chỉ', 'Quận', 'Phường', 'Ngày tạo'];
-        doc.fontSize(8).font('Helvetica-Bold');
+        doc.fontSize(8).font('VN-Bold');
         headers.forEach((h, i) => doc.text(h, cols[i], doc.y, { continued: i < headers.length - 1 }));
         doc.moveDown(0.5);
-        doc.font('Helvetica');
+        doc.font('VN');
 
         rows.forEach(row => {
           if (doc.y > 750) doc.addPage();
@@ -1392,7 +1480,32 @@ function buildApp({ pool }) {
         [user.id, user.id, JSON.stringify({ username: user.username }), req.ip]
       );
 
-      res.json({ message: 'Nếu tài khoản tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi.' });
+      // Production: send email with reset link
+      if (process.env.SMTP_HOST) {
+        const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+        const resetLink = `${frontendUrl}/reset-password?token=${rawToken}`;
+        try {
+          const nodemailer = require('nodemailer');
+          const transporter = nodemailer.createTransport({
+            host: process.env.SMTP_HOST,
+            port: Number(process.env.SMTP_PORT || 587),
+            secure: Number(process.env.SMTP_PORT || 587) === 465,
+            auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
+          });
+          await transporter.sendMail({
+            from: process.env.SMTP_FROM || `QLTTXD <no-reply@${process.env.SMTP_HOST}>`,
+            to: user.email || identifier.trim(),
+            subject: 'Đặt lại mật khẩu QLTTXD',
+            html: `<p>Xin chào ${user.username},</p><p>Bạn đã yêu cầu đặt lại mật khẩu. Nhấp vào liên kết sau (có hiệu lực 15 phút):</p><p><a href="${resetLink}">${resetLink}</a></p><p>Nếu bạn không yêu cầu, bỏ qua email này.</p>`,
+          });
+        } catch (mailErr) {
+          console.error('[forgot-password] Gửi email thất bại:', mailErr.message);
+        }
+        return res.json({ message: 'Nếu tài khoản tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi.' });
+      }
+
+      // Dev/Test: return token for manual testing
+      res.json({ message: 'Nếu tài khoản tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi.', dev_token: rawToken });
     } catch (error) { next(error); }
   });
 
