@@ -28,6 +28,23 @@ const AdminCatalogPage = lazy(() => import('./admin/AdminCatalogPage.jsx').then(
 function App() {
   const [user, setUser] = useState(() => { try { return JSON.parse(localStorage.getItem('qlttxd_user')); } catch { return null; } }); const [route, setRoute] = useState(() => ({ page: 'home', id: null })); const [notice, setNotice] = useState(null); const [needsSetup, setNeedsSetup] = useState(null);
   const notify = (text, type = 'info') => setNotice({ text, type });
+  // Register service worker for offline fallback
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+  }, []);
+
+  // Online/offline detection
+  useEffect(() => {
+    const goOffline = () => notify('Mất kết nối mạng. Một số tính năng có thể không hoạt động.', 'error');
+    const goOnline = () => notify('Đã khôi phục kết nối mạng.', 'success');
+    if (!navigator.onLine) goOffline();
+    window.addEventListener('offline', goOffline);
+    window.addEventListener('online', goOnline);
+    return () => { window.removeEventListener('offline', goOffline); window.removeEventListener('online', goOnline); };
+  }, []);
+
   useEffect(() => {
     if (!user) {
       request('/api/v1/auth/setup-status').then((r) => setNeedsSetup(r.needsSetup)).catch(() => setNeedsSetup(false));

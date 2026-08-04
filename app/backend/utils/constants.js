@@ -16,4 +16,39 @@ const BUSINESS_CODE_SEQUENCES = Object.freeze({
   QD: 'code_quyet_dinh_seq',
 });
 
-module.exports = { STATES, STATE_LABELS, TRANSITIONS, BUSINESS_CODE_SEQUENCES };
+const AUDIT_ACTIONS = Object.freeze({
+  // Case actions
+  CASE_CREATE: 'case.create',
+  CASE_UPDATE: 'case.update',
+  CASE_TRANSFER: 'case.transfer',
+  CASE_ASSIGN: 'case.assign',
+  CASE_STATUS_CHANGE: 'case.status_change',
+  // Report actions
+  REPORT_CREATE: 'report.create',
+  REPORT_UPDATE: 'report.update',
+  // Bien ban / Quyet dinh actions
+  BIENBAN_CREATE: 'bien_ban.create',
+  QUYETDINH_CREATE: 'quyet_dinh.create',
+  QUYETDINH_ISSUE: 'quyet_dinh.issue',
+  KHACPHUC_CREATE: 'khac_phuc.create',
+  KHACPHUC_UPDATE: 'khac_phuc.update',
+  // Location actions
+  LOCATION_CREATE: 'location.create',
+  LOCATION_UPDATE: 'location.update',
+  LOCATION_DELETE: 'location.delete',
+  // Catalog actions
+  CATALOG_CREATE: 'catalog.create',
+  CATALOG_UPDATE: 'catalog.update',
+  CATALOG_DELETE: 'catalog.delete',
+  // Export actions
+  EXPORT_DOCX: 'export.docx',
+  EXPORT_PDF: 'export.pdf',
+  // User/auth actions
+  USER_CREATE: 'user.create',
+  USER_UPDATE: 'user.update',
+  ROLE_UPDATE: 'role.update',
+  AUTH_LOGIN: 'auth.login',
+  AUTH_CHANGE_PASSWORD: 'auth.change_password',
+});
+
+module.exports = { STATES, STATE_LABELS, TRANSITIONS, BUSINESS_CODE_SEQUENCES, AUDIT_ACTIONS };
