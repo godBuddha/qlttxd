@@ -1,0 +1,16 @@
+{
+  "name": "qlttxd",
+  "version": "0.3.2",
+  "private": true,
+  "description": "Hệ thống Quản lý Trật tự Xây dựng",
+  "scripts": {
+    "lint": "eslint . --ignore-pattern node_modules",
+    "lint:fix": "eslint . --ignore-pattern node_modules --fix",
+    "format": "prettier --write '**/*.{js,jsx,json,md}' --ignore-path .prettierignore",
+    "test": "cd app/backend && node --test --test-concurrency=1"
+  },
+  "devDependencies": {
+    "eslint": "^10.8.0",
+    "prettier": "^3.9.6"
+  }
+}

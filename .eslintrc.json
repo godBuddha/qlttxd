@@ -1,0 +1,23 @@
+{
+  "env": { "node": true, "es2024": true },
+  "parserOptions": { "ecmaVersion": 2024, "sourceType": "commonjs" },
+  "rules": {
+    "no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+    "no-constant-condition": "error",
+    "no-dupe-keys": "error",
+    "eqeqeq": ["error", "always"],
+    "no-var": "error",
+    "prefer-const": "error",
+    "curly": ["error", "multi-line"]
+  },
+  "overrides": [
+    {
+      "files": ["app/frontend/src/**/*.{js,jsx}"],
+      "env": { "browser": true, "node": false, "es2024": true },
+      "parserOptions": { "ecmaVersion": 2024, "sourceType": "module", "ecmaFeatures": { "jsx": true } },
+      "rules": {
+        "no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_|^[A-Z]" }]
+      }
+    }
+  ]
+}

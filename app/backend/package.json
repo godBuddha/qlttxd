@@ -7,7 +7,10 @@
   "scripts": {
     "dev": "node --watch server.js",
     "start": "node server.js",
-    "test": "node --test --test-concurrency=1"
+    "test": "node --test --test-concurrency=1",
+    "lint": "eslint . --ignore-pattern node_modules",
+    "lint:fix": "eslint . --ignore-pattern node_modules --fix",
+    "format": "prettier --write '**/*.{js,jsx,json,md}' --ignore-path .prettierignore"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
