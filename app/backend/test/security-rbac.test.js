@@ -162,10 +162,14 @@ test('upload giả MIME bị từ chối bằng magic-byte và CORS không mở 
   assert.equal(result.response.headers.get('access-control-allow-origin'), null);
 });
 
-test('JWT_SECRET không được fallback mặc định', () => {
+test('JWT_SECRET fallback khi chưa cấu hình', () => {
   const old = process.env.JWT_SECRET;
   delete process.env.JWT_SECRET;
-  assert.throws(() => buildApp({ pool }), /JWT_SECRET/);
+  // With Phase 2 fallback, buildApp no longer throws — it uses a random secret
+  assert.doesNotThrow(() => buildApp({ pool }));
+  // Verify fallback generated a secret
+  assert.ok(process.env.JWT_SECRET);
+  assert.ok(process.env.JWT_SECRET.length >= 32);
   process.env.JWT_SECRET = old;
 });
 

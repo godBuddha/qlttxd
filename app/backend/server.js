@@ -108,6 +108,36 @@ function buildApp({ pool }) {
   return app;
 }
 
-function createPool() { return new Pool({ host: process.env.PGHOST, port: process.env.PGPORT ? Number(process.env.PGPORT) : undefined, database: process.env.PGDATABASE, user: process.env.PGUSER, password: process.env.PGPASSWORD || undefined }); }
-if (require.main === module) { const pool=createPool(); const port=Number(process.env.PORT||3000); const host=process.env.HOST||'0.0.0.0'; buildApp({pool}).listen(port,host,()=>console.log(`QLTTXD API đang nghe tại http://${host}:${port}`)); }
+function createPool() {
+  return new Pool({
+    host: process.env.PGHOST,
+    port: process.env.PGPORT ? Number(process.env.PGPORT) : undefined,
+    database: process.env.PGDATABASE,
+    user: process.env.PGUSER,
+    password: process.env.PGPASSWORD || undefined,
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000
+  });
+}
+if (require.main === module) {
+  const pool = createPool();
+  const port = Number(process.env.PORT || 3000);
+  const host = process.env.HOST || '0.0.0.0';
+  const app = buildApp({ pool });
+  const server = app.listen(port, host, () => console.log(`QLTTXD API đang nghe tại http://${host}:${port}`));
+  const shutdown = (signal) => {
+    console.log(`[server] Received ${signal}, shutting down gracefully...`);
+    server.close(() => {
+      console.log('[server] HTTP server closed');
+      pool.end().then(() => {
+        console.log('[server] Pool drained');
+        process.exit(0);
+      }).catch(() => process.exit(1));
+    });
+    setTimeout(() => { console.error('[server] Forced shutdown after 10s'); process.exit(1); }, 10000);
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+}
 module.exports={buildApp,createPool,authenticate,authorize,coordinate:require('./utils/helpers').coordinate,TokenBlocklist};

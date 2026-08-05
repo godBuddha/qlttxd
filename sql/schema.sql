@@ -562,4 +562,14 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
     applied_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Token tracking for invalidation
+CREATE TABLE IF NOT EXISTS user_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    jti VARCHAR(100) NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_user_tokens_user ON user_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_tokens_jti ON user_tokens(jti);
+
 COMMIT;

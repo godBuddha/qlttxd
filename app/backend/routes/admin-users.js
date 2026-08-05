@@ -2,7 +2,7 @@
 
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const { requirePool, audit } = require('../utils/helpers');
+const { requirePool, audit, invalidateUserTokens } = require('../utils/helpers');
 
 module.exports = function adminUsersRoutes({ pool, authenticate, authorize }) {
   const router = express.Router();
@@ -128,6 +128,7 @@ module.exports = function adminUsersRoutes({ pool, authenticate, authorize }) {
               [userId, roles]
             );
           }
+          await invalidateUserTokens(client, userId);
         }
 
         const result = await client.query(

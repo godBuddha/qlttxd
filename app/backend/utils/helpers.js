@@ -6,7 +6,16 @@ const jwt = require('jsonwebtoken');
 const { BUSINESS_CODE_SEQUENCES } = require('./constants');
 const { sanitizeObject } = require('./sanitize');
 
-function secret() { return process.env.JWT_SECRET; }
+function secret() {
+  const s = process.env.JWT_SECRET;
+  if (!s) {
+    const fallback = require('node:crypto').randomBytes(32).toString('hex');
+    console.warn('[helpers] JWT_SECRET not set — using random fallback (tokens will not survive restart)');
+    process.env.JWT_SECRET = fallback;
+    return fallback;
+  }
+  return s;
+}
 
 function requirePool(pool, res) { if (!pool) { res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng' }); return false; } return true; }
 
@@ -68,6 +77,19 @@ async function fetchHoSoDocxData(pool, hoSoId) {
   };
 }
 
+async function invalidateUserTokens(pool, userId) {
+  try {
+    await pool.query(
+      "INSERT INTO token_blocklist (jti, expires_at) SELECT jti::uuid, now() + interval '8 hours' FROM user_tokens WHERE user_id = $1 ON CONFLICT (jti) DO NOTHING",
+      [userId]
+    );
+    await pool.query('DELETE FROM user_tokens WHERE user_id = $1', [userId]);
+  } catch (e) {
+    // If user_tokens table doesn't exist, silently skip
+    console.warn('[helpers] Could not invalidate tokens:', e.message);
+  }
+}
+
 function vnFont(doc) {
   const fontRegular = path.resolve(__dirname, '..', 'fonts', 'NotoSans-Regular.ttf');
   const fontBold = path.resolve(__dirname, '..', 'fonts', 'NotoSans-Bold.ttf');
@@ -75,4 +97,4 @@ function vnFont(doc) {
   doc.registerFont('VN-Bold', fontBold);
 }
 
-module.exports = { secret, requirePool, coordinate, audit, nextCode, pointSelect, scopeWhere, createThongBao, fetchHoSoDocxData, vnFont };
+module.exports = { secret, requirePool, coordinate, audit, nextCode, pointSelect, scopeWhere, createThongBao, fetchHoSoDocxData, vnFont, invalidateUserTokens };

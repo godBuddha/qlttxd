@@ -91,6 +91,7 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
         await client.query('COMMIT');
         const claims = { id: user.id, username: user.username, roles: ['admin'], permissions };
         const token = jwt.sign(claims, secret(), { expiresIn: '8h', jwtid: crypto.randomUUID() });
+        await pool.query('INSERT INTO user_tokens (user_id, jti) VALUES ($1, $2) ON CONFLICT (jti) DO NOTHING', [user.id, claims.jti]).catch(() => {});
         res.status(201).json({ token, user: { id: user.id, username: user.username, full_name: user.full_name, email: user.email, phone: user.phone, roles: ['admin'], permissions } });
       } catch (e) { await client.query('ROLLBACK'); next(e); } finally { client.release(); }
     } catch (error) { next(error); }
@@ -107,7 +108,9 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
       const claims = { id: user.id, username: user.username, roles: user.roles || [], permissions: user.permissions || [] };
       await pool.query('UPDATE users SET last_login_at=now() WHERE id=$1', [user.id]);
       await audit(pool, { user: claims, ip: req.ip }, 'login', 'users', user.id);
-      return res.json({ token: jwt.sign(claims, secret(), { expiresIn: '8h', jwtid: crypto.randomUUID() }), user: { id: user.id, username: user.username, full_name: user.full_name, email: user.email, phone: user.phone, roles: claims.roles, permissions: claims.permissions } });
+      const token = jwt.sign(claims, secret(), { expiresIn: '8h', jwtid: crypto.randomUUID() });
+      await pool.query('INSERT INTO user_tokens (user_id, jti) VALUES ($1, $2) ON CONFLICT (jti) DO NOTHING', [user.id, claims.jti]).catch(() => {});
+      return res.json({ token, user: { id: user.id, username: user.username, full_name: user.full_name, email: user.email, phone: user.phone, roles: claims.roles, permissions: claims.permissions } });
     } catch (error) { next(error); }
   });
 
