@@ -28,13 +28,31 @@ function buildApp({ pool }) {
   const authenticateWithBlocklist = makeAuthenticate(tokenBlocklist);
   const app = express();
   const corsOrigin = process.env.CORS_ORIGIN;
+  const allowedOrigins = corsOrigin ? corsOrigin.split(',').map((x) => x.trim()) : [];
+
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+
+    if (origin && allowedOrigins.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE,OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Request-Id');
+      res.setHeader('Access-Control-Max-Age', '86400');
+    }
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      return res.end();
+    }
+    next();
+  });
   app.use((req, res, next) => {
     const requestId = req.get('X-Request-Id') || (require('node:crypto').randomUUID)();
     req.requestId = requestId;
     res.set({ 'X-Request-Id': requestId });
     next();
   });
-  app.use(cors(corsOrigin ? { origin: corsOrigin.split(',').map((x) => x.trim()), methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'] } : { origin: false }));
   app.use(express.json({ limit: '1mb' }));
 
   // Security headers via helmet
@@ -50,7 +68,9 @@ function buildApp({ pool }) {
         styleSrc: ["'self'", "'unsafe-inline'"],
       }
     },
-    hsts: { maxAge: 31536000, includeSubDomains: true }
+    crossOriginResourcePolicy: false,
+    crossOriginOpenerPolicy: false,
+    hsts: false,
   }));
 
   // Shared deps for route modules
