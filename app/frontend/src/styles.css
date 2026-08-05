@@ -97,3 +97,12 @@ button { border: 0; border-radius: var(--border-radius); padding: 10px 14px; bac
 .bell-list li small { font-size: .75rem; color: #98a2b3; }
 @media (max-width: 1000px) { .chart-grid { grid-template-columns: 1fr 1fr; }.chart-grid > :last-child { grid-column: 1 / -1; }.two-col, .detail-grid { grid-template-columns: 1fr; } }
 @media (max-width: 767px) { header { padding: 10px 14px; }.user-menu > span { display: none; }.user-menu small { max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.body { display: block; }aside { width: 100%; padding: 6px 8px; border-bottom: 1px solid var(--border-light); border-right: 0; }nav { display: flex; overflow-x: auto; }nav > button { white-space: nowrap; }.permission { display: none; }.content { padding: 16px; }.page-title { align-items: flex-start; }.page-title > button { margin-top: 8px; }.form-grid, .filters, .report-filters, fieldset { grid-template-columns: 1fr; }.stat-grid { grid-template-columns: 1fr; }.chart-grid { grid-template-columns: 1fr; }.chart-grid > :last-child { grid-column: auto; }.map { min-height: 300px; }.tabs { margin-left: -20px; margin-right: -20px; }.login-card { padding: 25px; }.modal-overlay { place-items: end center; }.modal { width: 100%; border-radius: 14px 14px 0 0; max-height: 90vh; padding: 20px; }.modal form { gap: 12px; }.tabs button { min-height: 44px; padding: 12px 10px; } }
+@media print {
+  header, aside, .bell-wrapper, .logout, .pagination, button, .notice { display: none !important; }
+  .body { display: block !important; }
+  .content { max-width: 100% !important; padding: 0 !important; }
+  .panel { box-shadow: none !important; border: 1px solid #ccc !important; break-inside: avoid; }
+  .badge { border: 1px solid #666 !important; }
+  table { font-size: 10pt !important; }
+  .lightbox-overlay { display: none !important; }
+}

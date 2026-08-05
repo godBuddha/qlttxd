@@ -1,0 +1,565 @@
+openapi: 3.0.3
+info:
+  title: QLTTXD API
+  description: >-
+    API Hệ thống quản lý trật tự xây dựng — Quản lý hồ sơ vi phạm,
+    biên bản, quyết định, khắc phục và báo cáo.
+  version: 0.3.2
+  contact:
+    name: QLTTXD Team
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:3000
+    description: Local dev
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Health
+    description: Service health
+  - name: Auth
+    description: Authentication & authorization
+  - name: Hồ sơ
+    description: Violation case management
+  - name: Báo cáo
+    description: Citizen violation reports
+
+paths:
+  # ── Health ──────────────────────────────────────────────
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      operationId: getHealth
+      security: []
+      responses:
+        '200':
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  uptime:
+                    type: number
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  # ── Auth ────────────────────────────────────────────────
+  /api/v1/auth/setup-status:
+    get:
+      tags: [Auth]
+      summary: Check if admin account exists
+      operationId: getSetupStatus
+      security: []
+      responses:
+        '200':
+          description: Setup status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adminExists:
+                    type: boolean
+
+  /api/v1/auth/setup-admin:
+    post:
+      tags: [Auth]
+      summary: Create first admin account
+      operationId: setupAdmin
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password, full_name]
+              properties:
+                username:
+                  type: string
+                  minLength: 3
+                password:
+                  type: string
+                  minLength: 6
+                full_name:
+                  type: string
+      responses:
+        '201':
+          description: Admin created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Admin already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login with username & password
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout current session
+      operationId: logout
+      responses:
+        '200':
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Đăng xuất thành công
+
+  /api/v1/auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user profile
+      operationId: getMe
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/auth/password:
+    put:
+      tags: [Auth]
+      summary: Change current user password
+      operationId: changePassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [oldPassword, newPassword]
+              properties:
+                oldPassword:
+                  type: string
+                newPassword:
+                  type: string
+                  minLength: 6
+      responses:
+        '200':
+          description: Password changed
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Request password reset token
+      operationId: forgotPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Reset link sent (always 200 to prevent enumeration)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  /api/v1/auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Reset password with token
+      operationId: resetPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, newPassword]
+              properties:
+                token:
+                  type: string
+                newPassword:
+                  type: string
+                  minLength: 6
+      responses:
+        '200':
+          description: Password reset successful
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  # ── Hồ sơ ──────────────────────────────────────────────
+  /api/v1/ho-so:
+    get:
+      tags: [Hồ sơ]
+      summary: List violation cases (paginated)
+      operationId: listHoSo
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: trang_thai
+          in: query
+          description: Filter by status
+          schema:
+            type: string
+            enum: [moi_tiep_nhan, cho_lap_bien_ban, da_lap_bien_ban, cho_ra_quyet_dinh, da_ra_quyet_dinh, dang_khac_phuc, da_khac_phuc, da_dong]
+        - name: quan_huyen_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: q
+          in: query
+          description: Full-text search (ma_ho_so, mo_ta, dia_chi, loai_vi_pham)
+          schema:
+            type: string
+        - name: tu_ngay
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: den_ngay
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Paginated case list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedHoSo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      tags: [Hồ sơ]
+      summary: Create a new violation case
+      operationId: createHoSo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dia_chi, quan_huyen_id, phuong_xa_id, loai_vi_pham_id]
+              properties:
+                dia_chi:
+                  type: string
+                quan_huyen_id:
+                  type: string
+                  format: uuid
+                phuong_xa_id:
+                  type: string
+                  format: uuid
+                loai_vi_pham_id:
+                  type: string
+                  format: uuid
+                mo_ta:
+                  type: string
+                bao_cao_id:
+                  type: string
+                  format: uuid
+                nguoi_vi_pham_id:
+                  type: string
+                  format: uuid
+                hanh_vi_id:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Case created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/HoSo'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ── Báo cáo ────────────────────────────────────────────
+  /api/v1/bao-cao:
+    get:
+      tags: [Báo cáo]
+      summary: List violation reports
+      operationId: listBaoCao
+      responses:
+        '200':
+          description: Report list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BaoCao'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Báo cáo]
+      summary: Submit a violation report (multipart with optional images)
+      operationId: createBaoCao
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [dia_chi, quan_huyen_id, phuong_xa_id]
+              properties:
+                dia_chi:
+                  type: string
+                quan_huyen_id:
+                  type: string
+                  format: uuid
+                phuong_xa_id:
+                  type: string
+                  format: uuid
+                mo_ta:
+                  type: string
+                kinh_do:
+                  type: number
+                  format: double
+                vi_do:
+                  type: number
+                  format: double
+                nguoi_vi_pham_ten:
+                  type: string
+                anh:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  maxItems: 5
+      responses:
+        '201':
+          description: Report created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/BaoCao'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        full_name:
+          type: string
+        role:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        quan_huyen_id:
+          type: string
+          format: uuid
+          nullable: true
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+
+    HoSo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ma_ho_so:
+          type: string
+          example: HS-2024-00001
+        trang_thai:
+          type: string
+          enum: [moi_tiep_nhan, cho_lap_bien_ban, da_lap_bien_ban, cho_ra_quyet_dinh, da_ra_quyet_dinh, dang_khac_phuc, da_khac_phuc, da_dong]
+        dia_chi:
+          type: string
+        mo_ta:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    BaoCao:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ma_bao_cao:
+          type: string
+        nguoi_gui_ten:
+          type: string
+        mo_ta:
+          type: string
+          nullable: true
+        dia_chi:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        anh_count:
+          type: integer
+
+    PaginatedHoSo:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/HoSo'
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+  responses:
+    BadRequest:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Missing or invalid token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
