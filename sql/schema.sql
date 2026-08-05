@@ -562,6 +562,13 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
     applied_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Token blocklist for revocation
+CREATE TABLE IF NOT EXISTS token_blocklist (
+    jti         VARCHAR(100) PRIMARY KEY,
+    expires_at  TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_token_blocklist_expires ON token_blocklist(expires_at);
+
 -- Token tracking for invalidation
 CREATE TABLE IF NOT EXISTS user_tokens (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -571,5 +578,16 @@ CREATE TABLE IF NOT EXISTS user_tokens (
 );
 CREATE INDEX IF NOT EXISTS idx_user_tokens_user ON user_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_tokens_jti ON user_tokens(jti);
+
+-- Refresh tokens for token rotation
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    jti VARCHAR(100) NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_jti ON refresh_tokens(jti);
 
 COMMIT;
