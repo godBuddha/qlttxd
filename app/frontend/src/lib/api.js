@@ -1,5 +1,23 @@
 export const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
+let _refreshing = null;
+
+async function doRefresh() {
+  const rt = localStorage.getItem('qlttxd_refresh_token');
+  if (!rt) throw new Error('No refresh token');
+  const resp = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken: rt })
+  });
+  if (!resp.ok) throw new Error('Refresh failed');
+  const data = await resp.json();
+  localStorage.setItem('qlttxd_token', data.token);
+  if (data.refreshToken) localStorage.setItem('qlttxd_refresh_token', data.refreshToken);
+  if (data.user) localStorage.setItem('qlttxd_user', JSON.stringify(data.user));
+  return data;
+}
+
 export async function request(path, options = {}, onUnauthorized) {
   const token = localStorage.getItem('qlttxd_token');
   const headers = new Headers(options.headers || {});
@@ -10,7 +28,28 @@ export async function request(path, options = {}, onUnauthorized) {
   catch { throw new Error('Không thể kết nối API. Kiểm tra máy chủ và VITE_API_BASE_URL.'); }
   let body = {};
   try { body = await response.json(); } catch { /* API may not return JSON */ }
-  if (response.status === 401) { onUnauthorized?.(); throw new Error(body.error || 'Phiên đăng nhập đã hết hạn.'); }
+  if (response.status === 401) {
+    try {
+      if (!_refreshing) _refreshing = doRefresh();
+      const refreshed = await _refreshing;
+      _refreshing = null;
+      const retryHeaders = new Headers(options.headers || {});
+      retryHeaders.set('X-Auth-Token', refreshed.token);
+      if (options.body && !(options.body instanceof FormData) && !retryHeaders.has('Content-Type')) retryHeaders.set('Content-Type', 'application/json');
+      let retryResp;
+      try { retryResp = await fetch(`${API_BASE}${path}`, { ...options, headers: retryHeaders }); }
+      catch { throw new Error('Không thể kết nối API.'); }
+      let retryBody = {};
+      try { retryBody = await retryResp.json(); } catch {}
+      if (retryResp.status === 401) { onUnauthorized?.(); throw new Error(retryBody.error || 'Phiên đăng nhập đã hết hạn.'); }
+      if (!retryResp.ok) throw new Error(retryBody.error || `Yêu cầu thất bại (${retryResp.status})`);
+      return retryBody;
+    } catch {
+      _refreshing = null;
+      onUnauthorized?.();
+      throw new Error(body.error || 'Phiên đăng nhập đã hết hạn.');
+    }
+  }
   if (!response.ok) throw new Error(body.error || `Yêu cầu thất bại (${response.status})`);
   return body;
 }

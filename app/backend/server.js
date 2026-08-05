@@ -57,6 +57,7 @@ function buildApp({ pool }) {
   app.use(express.json({ limit: '1mb' }));
 
   const { globalLimiter, writeLimiter } = require('./utils/rate-limit');
+  const { userLimiter } = require('./utils/rate-limit-user');
   app.use(globalLimiter);
 
   // Security headers via helmet
@@ -92,6 +93,7 @@ function buildApp({ pool }) {
     }
     next();
   });
+  app.use(userLimiter);
 
   // Register route modules
   app.use(authRoutes(deps));

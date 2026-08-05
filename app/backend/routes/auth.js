@@ -14,14 +14,16 @@ const startTime = Date.now();
 module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, authorize }) {
   const router = express.Router();
 
-  // Rate limit for login/auth endpoints
-  const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 10,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' }
-  });
+  // Rate limit for login/auth endpoints (disabled in test/debug mode)
+  const authLimiter = (process.env.NODE_ENV === 'test' || process.env.RATE_LIMIT_DISABLED === 'true' || process.env.QLTTXD_DEBUG_TOKENS === 'true')
+    ? ((_req, _res, next) => next())
+    : rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: 10,
+        standardHeaders: true,
+        legacyHeaders: false,
+        message: { error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' }
+      });
 
   router.get('/health', async (_req, res) => {
     try {
@@ -92,9 +94,12 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
         );
         await client.query('COMMIT');
         const claims = { id: user.id, username: user.username, roles: ['admin'], permissions };
-        const token = jwt.sign(claims, secret(), { expiresIn: '8h', jwtid: crypto.randomUUID() });
+        const token = jwt.sign(claims, secret(), { expiresIn: '15m', jwtid: crypto.randomUUID() });
         await pool.query('INSERT INTO user_tokens (user_id, jti) VALUES ($1, $2) ON CONFLICT (jti) DO NOTHING', [user.id, claims.jti]).catch(() => {});
-        res.status(201).json({ token, user: { id: user.id, username: user.username, full_name: user.full_name, email: user.email, phone: user.phone, roles: ['admin'], permissions } });
+        const refreshToken = jwt.sign({ id: user.id, type: 'refresh' }, secret(), { expiresIn: '7d', jwtid: crypto.randomUUID() });
+        const rtDecoded = jwt.decode(refreshToken);
+        await pool.query('INSERT INTO refresh_tokens (user_id, jti, expires_at) VALUES ($1, $2, now() + interval \'7 days\')', [user.id, rtDecoded.jti]).catch(() => {});
+        res.status(201).json({ token, refreshToken, user: { id: user.id, username: user.username, full_name: user.full_name, email: user.email, phone: user.phone, roles: ['admin'], permissions } });
       } catch (e) { await client.query('ROLLBACK'); next(e); } finally { client.release(); }
     } catch (error) { next(error); }
   });
@@ -110,15 +115,42 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
       const claims = { id: user.id, username: user.username, roles: user.roles || [], permissions: user.permissions || [] };
       await pool.query('UPDATE users SET last_login_at=now() WHERE id=$1', [user.id]);
       await audit(pool, { user: claims, ip: req.ip }, 'login', 'users', user.id);
-      const token = jwt.sign(claims, secret(), { expiresIn: '8h', jwtid: crypto.randomUUID() });
+      const token = jwt.sign(claims, secret(), { expiresIn: '15m', jwtid: crypto.randomUUID() });
       await pool.query('INSERT INTO user_tokens (user_id, jti) VALUES ($1, $2) ON CONFLICT (jti) DO NOTHING', [user.id, claims.jti]).catch(() => {});
-      return res.json({ token, user: { id: user.id, username: user.username, full_name: user.full_name, email: user.email, phone: user.phone, roles: claims.roles, permissions: claims.permissions } });
+      const refreshToken = jwt.sign({ id: user.id, type: 'refresh' }, secret(), { expiresIn: '7d', jwtid: crypto.randomUUID() });
+      const rtDecoded = jwt.decode(refreshToken);
+      await pool.query('INSERT INTO refresh_tokens (user_id, jti, expires_at) VALUES ($1, $2, now() + interval \'7 days\')', [user.id, rtDecoded.jti]).catch(() => {});
+      return res.json({ token, refreshToken, user: { id: user.id, username: user.username, full_name: user.full_name, email: user.email, phone: user.phone, roles: claims.roles, permissions: claims.permissions } });
     } catch (error) { next(error); }
   });
 
   router.post('/api/v1/auth/logout', authenticate, async (req, res) => {
     if (req.user.jti) await tokenBlocklist.add(req.user.jti);
     return res.json({ message: 'Đăng xuất thành công' });
+  });
+
+  router.post('/api/v1/auth/refresh', async (req, res, next) => {
+    if (!requirePool(pool, res)) return;
+    try {
+      const { refreshToken } = req.body || {};
+      if (!refreshToken) return res.status(400).json({ error: 'Thiếu refresh token' });
+      let decoded;
+      try { decoded = jwt.verify(refreshToken, secret()); } catch { return res.status(401).json({ error: 'Refresh token không hợp lệ hoặc đã hết hạn' }); }
+      if (decoded.type !== 'refresh') return res.status(401).json({ error: 'Token không hợp lệ' });
+      const stored = await pool.query('SELECT id FROM refresh_tokens WHERE jti=$1 AND expires_at > now()', [decoded.jti]);
+      if (!stored.rows[0]) return res.status(401).json({ error: 'Refresh token đã bị thu hồi hoặc hết hạn' });
+      await pool.query('DELETE FROM refresh_tokens WHERE jti=$1', [decoded.jti]);
+      const userResult = await pool.query(`SELECT u.id,u.username,u.full_name,u.email,u.phone, array_remove(array_agg(DISTINCT r.code),NULL) roles, array_remove(array_agg(DISTINCT p.code),NULL) permissions FROM users u LEFT JOIN user_roles ur ON ur.user_id=u.id LEFT JOIN roles r ON r.id=ur.role_id LEFT JOIN role_permissions rp ON rp.role_id=r.id LEFT JOIN permissions p ON p.id=rp.permission_id WHERE u.id=$1 AND u.is_active=true GROUP BY u.id`, [decoded.id]);
+      const user = userResult.rows[0];
+      if (!user) return res.status(401).json({ error: 'Người dùng không tồn tại' });
+      const claims = { id: user.id, username: user.username, roles: user.roles || [], permissions: user.permissions || [] };
+      const token = jwt.sign(claims, secret(), { expiresIn: '15m', jwtid: crypto.randomUUID() });
+      await pool.query('INSERT INTO user_tokens (user_id, jti) VALUES ($1, $2) ON CONFLICT (jti) DO NOTHING', [user.id, claims.jti]).catch(() => {});
+      const newRefreshToken = jwt.sign({ id: user.id, type: 'refresh' }, secret(), { expiresIn: '7d', jwtid: crypto.randomUUID() });
+      const newRtDecoded = jwt.decode(newRefreshToken);
+      await pool.query('INSERT INTO refresh_tokens (user_id, jti, expires_at) VALUES ($1, $2, now() + interval \'7 days\')', [user.id, newRtDecoded.jti]).catch(() => {});
+      return res.json({ token, refreshToken: newRefreshToken, user: { id: user.id, username: user.username, full_name: user.full_name, email: user.email, phone: user.phone, roles: claims.roles, permissions: claims.permissions } });
+    } catch (error) { next(error); }
   });
 
   router.get('/api/v1/auth/me', authenticate, (req, res) => res.json({ user: req.user }));
@@ -159,13 +191,15 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
   // =========================================================================
   // T51: FORGOT PASSWORD / RESET PASSWORD
   // =========================================================================
-  const forgotLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: Number(process.env.RATE_LIMIT_MAX || 200),
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' }
-  });
+  const forgotLimiter = (process.env.NODE_ENV === 'test' || process.env.RATE_LIMIT_DISABLED === 'true' || process.env.QLTTXD_DEBUG_TOKENS === 'true')
+    ? ((_req, _res, next) => next())
+    : rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: Number(process.env.RATE_LIMIT_MAX || 200),
+        standardHeaders: true,
+        legacyHeaders: false,
+        message: { error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' }
+      });
 
   router.post('/api/v1/auth/forgot-password', forgotLimiter, async (req, res, next) => {
     if (!requirePool(pool, res)) return;

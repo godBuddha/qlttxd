@@ -16,6 +16,7 @@ export function SetupAdminPage({ onSetup }) {
         body: JSON.stringify({ username: form.username, password: form.password, full_name: form.full_name, email: form.email || undefined, phone: form.phone || undefined })
       });
       localStorage.setItem('qlttxd_token', result.token);
+      if (result.refreshToken) localStorage.setItem('qlttxd_refresh_token', result.refreshToken);
       localStorage.setItem('qlttxd_user', JSON.stringify(result.user));
       onSetup(result.user);
     } catch (err) { setError(errorText(err)); } finally { setBusy(false); }

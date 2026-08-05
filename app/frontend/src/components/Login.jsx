@@ -12,7 +12,7 @@ export function Login({ onLogin, notice }) {
     event.preventDefault(); setBusy(true); setError('');
     try {
       const result = await request('/api/v1/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
-      localStorage.setItem('qlttxd_token', result.token); localStorage.setItem('qlttxd_user', JSON.stringify(result.user)); onLogin(result.user);
+      localStorage.setItem('qlttxd_token', result.token); if (result.refreshToken) localStorage.setItem('qlttxd_refresh_token', result.refreshToken); localStorage.setItem('qlttxd_user', JSON.stringify(result.user)); onLogin(result.user);
     } catch (err) { setError(errorText(err)); } finally { setBusy(false); }
   }
   if (resetToken) return <ResetPasswordPage initialToken={resetToken} onBack={goLogin} />;
