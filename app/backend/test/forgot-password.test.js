@@ -1,5 +1,8 @@
 // Set rate limit before any requires so it's picked up by buildApp()
 process.env.RATE_LIMIT_MAX = '200';
+// Enable dev_token in tests (no SMTP configured)
+process.env.NODE_ENV = 'development';
+process.env.QLTTXD_DEBUG_TOKENS = 'true';
 
 const test = require('node:test');
 const assert = require('node:assert/strict');

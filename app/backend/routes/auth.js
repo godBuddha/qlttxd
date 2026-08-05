@@ -137,7 +137,7 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
   router.get('/uploads/:filename', async (req, res, next) => {
     try {
       const filename = req.params.filename;
-      if (!/^\d{13}-[0-9a-f-]{36}\.(?:jpe?g|png|gif|webp)$/i.test(filename)) return res.status(404).json({ error: 'Không tìm thấy tệp' });
+      if (!/^\d{13}-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:jpe?g|png|gif|webp)$/i.test(filename)) return res.status(404).json({ error: 'Không tìm thấy tệp' });
       const token = req.query.token || req.get('authorization')?.replace(/^Bearer /, '') || req.get('x-auth-token');
       if (!token) return res.status(401).json({ error: 'Thiếu mã xác thực' });
       let user;
@@ -211,7 +211,9 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
         return res.json({ message: 'Nếu tài khoản tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi.' });
       }
 
-      res.json({ message: 'Nếu tài khoản tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi.', dev_token: rawToken });
+      const resp = { message: 'Nếu tài khoản tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi.' };
+      if (process.env.NODE_ENV === 'development' && process.env.QLTTXD_DEBUG_TOKENS === 'true') resp.dev_token = rawToken;
+      res.json(resp);
     } catch (error) { next(error); }
   });
 

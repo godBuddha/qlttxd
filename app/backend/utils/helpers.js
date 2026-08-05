@@ -4,6 +4,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const jwt = require('jsonwebtoken');
 const { BUSINESS_CODE_SEQUENCES } = require('./constants');
+const { sanitizeObject } = require('./sanitize');
 
 function secret() { return process.env.JWT_SECRET; }
 
@@ -15,7 +16,7 @@ function coordinate(body) {
 }
 
 async function audit(pool, req, action, table, id, detail = {}) {
-  await pool.query('INSERT INTO audit_log (nguoi_dung_id, hanh_dong, bang_bi_tac_dong, id_ban_ghi, chi_tiet, ip, request_id) VALUES ($1,$2,$3,$4,$5,$6,$7)', [req.user?.id || null, action, table, id || null, JSON.stringify(detail), req.ip, req.requestId || null]);
+  await pool.query('INSERT INTO audit_log (nguoi_dung_id, hanh_dong, bang_bi_tac_dong, id_ban_ghi, chi_tiet, ip, request_id) VALUES ($1,$2,$3,$4,$5,$6,$7)', [req.user?.id || null, action, table, id || null, JSON.stringify(sanitizeObject(detail)), req.ip, req.requestId || null]);
 }
 
 async function nextCode(pool, prefix) {

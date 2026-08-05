@@ -1,7 +1,6 @@
 require('dotenv').config();
 
 const express = require('express');
-const cors = require('cors');
 const helmet = require('helmet');
 const { Pool } = require('pg');
 const { TokenBlocklist } = require('./token-blocklist');
@@ -55,6 +54,9 @@ function buildApp({ pool }) {
   });
   app.use(express.json({ limit: '1mb' }));
 
+  const { globalLimiter, writeLimiter } = require('./utils/rate-limit');
+  app.use(globalLimiter);
+
   // Security headers via helmet
   app.use(helmet({
     contentSecurityPolicy: {
@@ -70,7 +72,7 @@ function buildApp({ pool }) {
     },
     crossOriginResourcePolicy: false,
     crossOriginOpenerPolicy: false,
-    hsts: false,
+    hsts: { maxAge: 31536000, includeSubDomains: true },
   }));
 
   // Shared deps for route modules
@@ -80,6 +82,14 @@ function buildApp({ pool }) {
     authenticate: authenticateWithBlocklist,
     authorize,
   };
+
+  // Write rate limiter for state-changing methods
+  app.use((req, res, next) => {
+    if (['POST','PATCH','PUT','DELETE'].includes(req.method)) {
+      return writeLimiter(req, res, next);
+    }
+    next();
+  });
 
   // Register route modules
   app.use(authRoutes(deps));
