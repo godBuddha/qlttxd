@@ -1,5 +1,10 @@
 'use strict';
 
+// Rate limit test needs authLimiter ACTIVE — must not be in NODE_ENV=test
+process.env.NODE_ENV = 'development';
+process.env.RATE_LIMIT_DISABLED = 'false';
+process.env.QLTTXD_DEBUG_TOKENS = 'false';
+
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { buildApp, createPool } = require('../server');
@@ -11,6 +16,10 @@ const base = `http://127.0.0.1:${PORT}`;
 let server, pool, token;
 
 test.before(async () => {
+  // Ensure authLimiter is active for rate limit test
+  process.env.NODE_ENV = 'development';
+  process.env.RATE_LIMIT_DISABLED = 'false';
+  process.env.QLTTXD_DEBUG_TOKENS = 'false';
   process.env.PGHOST = '/tmp';
   process.env.PGPORT = '5432';
   process.env.PGDATABASE = 'qlttxd';

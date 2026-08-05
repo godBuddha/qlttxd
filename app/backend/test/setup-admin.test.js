@@ -1,15 +1,16 @@
+process.env.NODE_ENV = 'test';
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { buildApp, createPool } = require('../server');
 const { TEST_ADMIN_PASSWORD } = require('./test-config');
 
-const PORT = 3103;
+const PORT = 0;
 const base = `http://127.0.0.1:${PORT}`;
 let server;
 let pool;
 
 async function json(path, options = {}) {
-  const response = await fetch(`${base}${path}`, options);
+  const response = await fetch(`http://127.0.0.1:${server.address().port}${path}`, options);
   return { response, body: await response.json() };
 }
 
@@ -32,7 +33,11 @@ test.before(async () => {
   await pool.query('DELETE FROM audit_log');
   try { await pool.query('DELETE FROM token_blocklist'); } catch (_) { /* table may not exist */ }
   await pool.query('DELETE FROM users');
-  server = buildApp({ pool }).listen(PORT, '127.0.0.1');
+  await new Promise((resolve, reject) => {
+    server = buildApp({ pool }).listen(PORT, '127.0.0.1');
+    server.on('listening', resolve);
+    server.on('error', reject);
+  });
 });
 
 test.after(async () => {
@@ -58,6 +63,8 @@ test('tạo admin đầu tiên thành công + auto-login', async () => {
       phone: '0901000001'
     })
   });
+  console.error('[DEBUG] setup-admin response:', result.response.status, JSON.stringify(result.body));
+  console.error('[DEBUG] setup-admin response:', result.response.status, JSON.stringify(result.body));
   assert.equal(result.response.status, 201);
   assert.ok(result.body.token);
   assert.equal(result.body.user.username, 'admin');

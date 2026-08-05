@@ -18,13 +18,24 @@ test.before(async () => {
   pool = createPool();
   server = buildApp({ pool }).listen(PORT, '127.0.0.1');
 
-  const r = await fetch(`${base}/api/v1/auth/login`, {
+  // Ensure admin exists (setup-admin or login fallback)
+  const setup = await fetch(`${base}/api/v1/auth/setup-admin`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ username: TEST_ADMIN_USERNAME, password: TEST_ADMIN_PASSWORD }),
+    body: JSON.stringify({ username: TEST_ADMIN_USERNAME, password: TEST_ADMIN_PASSWORD, full_name: 'Admin', email: 'admin@qlttxd.local', phone: '0900000000' }),
   });
-  const body = await r.json();
-  token = body.token;
+  if (setup.status === 201) {
+    const body = await setup.json();
+    token = body.token;
+  } else {
+    const r = await fetch(`${base}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username: TEST_ADMIN_USERNAME, password: TEST_ADMIN_PASSWORD }),
+    });
+    const body = await r.json();
+    token = body.token;
+  }
 });
 
 test.after(async () => {
