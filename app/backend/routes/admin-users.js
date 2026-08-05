@@ -32,6 +32,7 @@ module.exports = function adminUsersRoutes({ pool, authenticate, authorize }) {
       if (!password || password.length < 8) return res.status(400).json({ error: 'Mật khẩu phải tối thiểu 8 ký tự' });
       if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) return res.status(400).json({ error: 'Mật khẩu phải chứa cả chữ và chữ số' });
       if (!full_name?.trim()) return res.status(400).json({ error: 'Họ tên là bắt buộc' });
+      if (full_name && full_name.length > 200) return res.status(400).json({ error: 'Họ tên không được vượt quá 200 ký tự' });
       if (!email && !phone) return res.status(400).json({ error: 'Email hoặc số điện thoại là bắt buộc' });
       if (roles && !Array.isArray(roles)) return res.status(400).json({ error: 'Danh sách vai trò không hợp lệ' });
 
@@ -70,6 +71,7 @@ module.exports = function adminUsersRoutes({ pool, authenticate, authorize }) {
       const userId = req.params.id;
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) return res.status(400).json({ error: 'ID người dùng không hợp lệ' });
       if (password && (password.length < 8 || !/[a-zA-Z]/.test(password) || !/[0-9]/.test(password))) return res.status(400).json({ error: 'Mật khẩu phải tối thiểu 8 ký tự, chứa cả chữ và chữ số' });
+      if (full_name && full_name.length > 200) return res.status(400).json({ error: 'Họ tên không được vượt quá 200 ký tự' });
       if (roles && !Array.isArray(roles)) return res.status(400).json({ error: 'Danh sách vai trò không hợp lệ' });
 
       const client = await pool.connect();

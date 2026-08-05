@@ -52,6 +52,8 @@ function buildApp({ pool }) {
     res.set({ 'X-Request-Id': requestId });
     next();
   });
+  const { requestLogger } = require('./utils/logger');
+  app.use(requestLogger);
   app.use(express.json({ limit: '1mb' }));
 
   const { globalLimiter, writeLimiter } = require('./utils/rate-limit');

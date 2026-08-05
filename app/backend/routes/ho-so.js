@@ -32,6 +32,8 @@ module.exports = function hoSoRoutes({ pool, authenticate, authorize }) {
     const b = req.body || {};
     const hoSoErr = validateHoSo(b);
     if (hoSoErr) return res.status(400).json({ error: hoSoErr });
+    if (b.mo_ta && b.mo_ta.length > 10000) return res.status(400).json({ error: 'Mô tả không được vượt quá 10000 ký tự' });
+    if (b.ghi_chu && b.ghi_chu.length > 5000) return res.status(400).json({ error: 'Ghi chú không được vượt quá 5000 ký tự' });
     const nvpErr = validateNguoiViPham(b.nguoi_vi_pham);
     if (nvpErr) return res.status(400).json({ error: nvpErr });
     const client = await pool.connect();

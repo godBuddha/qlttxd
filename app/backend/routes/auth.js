@@ -30,7 +30,9 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
         status: 'ok',
         db: dbResult.rows[0]?.ok === 1 ? 'connected' : 'error',
         uptime: Math.floor((Date.now() - startTime) / 1000),
-        version: process.env.npm_package_version || '0.2.1',
+        version: process.env.npm_package_version || '0.3.2',
+        pool: { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount },
+        process: { pid: process.pid, memory: Math.round(process.memoryUsage().rss / 1024 / 1024) + 'MB' }
       });
     } catch (e) {
       res.status(503).json({ status: 'error', db: 'disconnected', error: e.message });

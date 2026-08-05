@@ -22,6 +22,7 @@ module.exports = function baoCaoRoutes({ pool, authenticate, authorize }) {
     if (!(req.files || []).every(hasSafeImageMagic)) { removeUploadedFiles(req.files); return res.status(400).json({ error: 'Tệp ảnh không hợp lệ theo chữ ký nội dung' }); }
     const validationErr = validateBaoCao(req.body);
     if (validationErr) { removeUploadedFiles(req.files); return res.status(400).json({ error: validationErr }); }
+    if (req.body.mo_ta && req.body.mo_ta.length > 10000) { removeUploadedFiles(req.files); return res.status(400).json({ error: 'Mô tả không được vượt quá 10000 ký tự' }); }
     const pos = coordinate(req.body);
     const client = await pool.connect();
     try { await client.query('BEGIN'); const code = await nextCode(client, 'BC');
