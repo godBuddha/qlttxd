@@ -93,6 +93,39 @@ describe('request()', () => {
     expect(data).toEqual({ done: true });
     expect(localStorage.getItem('qlttxd_token')).toBe('tok-2');
   });
+
+  it('10 request 401 đồng thời → chỉ refresh 1 lần, tất cả retry với token mới', async () => {
+    let refreshCalls = 0;
+    let reqCount = 0;
+    stubFetch((url) => {
+      if (String(url).includes('/auth/refresh')) {
+        refreshCalls += 1;
+        return Promise.resolve(jsonResponse(200, { token: 'tok-new' }));
+      }
+      reqCount += 1;
+      if (reqCount <= 10) return Promise.resolve(jsonResponse(401, {}));
+      return Promise.resolve(jsonResponse(200, { done: true }));
+    });
+    const results = await Promise.all(
+      Array.from({ length: 10 }, () => request('/api/v1/cases'))
+    );
+    expect(refreshCalls).toBe(1); // chỉ 1 lần gọi /auth/refresh
+    expect(reqCount).toBe(20); // 10 lần đầu 401 + 10 lần retry
+    expect(results.every((r) => r.done === true)).toBe(true);
+    expect(localStorage.getItem('qlttxd_token')).toBe('tok-new');
+  });
+
+  it('nếu refresh fail → tất cả request fail và gọi onUnauthorized', async () => {
+    const onUnauth = vi.fn();
+    stubFetch((url) => {
+      if (String(url).includes('/auth/refresh')) return Promise.resolve(jsonResponse(401, {}));
+      return Promise.resolve(jsonResponse(401, {}));
+    });
+    await expect(
+      Promise.all(Array.from({ length: 5 }, () => request('/api/v1/cases', {}, onUnauth)))
+    ).rejects.toThrow('Phiên đăng nhập đã hết hạn');
+    expect(onUnauth).toHaveBeenCalledTimes(5);
+  });
 });
 
 describe('can()', () => {

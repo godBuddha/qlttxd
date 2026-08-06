@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { buildApp, createPool } = require('../server');
 const { TEST_ADMIN_PASSWORD, TEST_ADMIN_USERNAME } = require('./test-config');
+const { ensureTestAdmin, cleanupNonAdminUsers } = require('./helpers/test-db');
 
 const PORT = 3102;
 const base = `http://127.0.0.1:${PORT}`;
@@ -68,25 +69,15 @@ test.before(async () => {
   process.env.UPLOAD_DIR = '/tmp/qlttxd-security-review-uploads';
   delete process.env.CORS_ORIGIN;
   pool = createPool();
+  await ensureTestAdmin(pool);
   server = buildApp({ pool }).listen(PORT, '127.0.0.1');
 
   // Setup admin (create or login)
   adminToken = await setupAdmin();
 
-  // Clean up test users from previous test runs (keep admin)
-  // First clear FK references from tables without ON DELETE CASCADE
-  const nuke = "IN (SELECT id FROM users WHERE username != 'admin')";
-  await pool.query(`UPDATE ho_so SET nguoi_nop_id = NULL WHERE nguoi_nop_id ${nuke}`);
-  await pool.query(`UPDATE ho_so SET nguoi_xu_ly_id = NULL WHERE nguoi_xu_ly_id ${nuke}`);
-  await pool.query(`UPDATE bao_cao_vi_pham SET nguoi_gui_id = NULL WHERE nguoi_gui_id ${nuke}`);
-  await pool.query(`UPDATE khac_phuc SET nguoi_theo_doi_id = NULL WHERE nguoi_theo_doi_id ${nuke}`);
-  await pool.query(`UPDATE audit_log SET nguoi_dung_id = NULL WHERE nguoi_dung_id ${nuke}`);
-  await pool.query(`DELETE FROM quyet_dinh WHERE nguoi_ky_id ${nuke}`);
-  await pool.query(`DELETE FROM bien_ban WHERE nguoi_lap_id ${nuke}`);
-  await pool.query(
-    "DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE username != 'admin')"
-  );
-  await pool.query("DELETE FROM users WHERE username != 'admin'");
+  // Clean up test users from previous test runs (keep admin) — clears every FK
+  // reference (incl. tep_dinh_kem) so the DELETE can't violate constraints.
+  await cleanupNonAdminUsers(pool);
 
   // Reset citizen role permissions to original (remove case.view if added by admin-roles test)
   const citizenRole = await pool.query("SELECT id FROM roles WHERE code='citizen'");

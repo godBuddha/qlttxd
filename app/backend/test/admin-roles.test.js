@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { buildApp, createPool } = require('../server');
 const { TEST_ADMIN_PASSWORD, TEST_ADMIN_USERNAME } = require('./test-config');
+const { ensureTestAdmin } = require('./helpers/test-db');
 
 const PORT = 3105;
 const base = `http://127.0.0.1:${PORT}`;
@@ -45,6 +46,7 @@ test.before(async () => {
   process.env.JWT_SECRET = 'test-secret-that-is-long-enough-for-jwt';
   process.env.UPLOAD_DIR = '/tmp/qlttxd-admin-roles-test-uploads';
   pool = createPool();
+  await ensureTestAdmin(pool);
   server = buildApp({ pool }).listen(PORT, '127.0.0.1');
   adminToken = await setupAdmin();
 });

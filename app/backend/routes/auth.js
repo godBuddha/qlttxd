@@ -10,7 +10,7 @@ const { secret, requirePool, audit, invalidateUserTokens } = require('../utils/h
 
 const startTime = Date.now();
 
-module.exports = function authRoutes({ pool, tokenBlocklist, authenticate }) {
+module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, authorize }) {
   const router = express.Router();
 
   // Rate limit for login/auth endpoints (disabled in test/debug mode)
@@ -27,12 +27,28 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate }) {
           message: { error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' },
         });
 
+  // Public liveness probe — lightweight, no memory/pool info leaked
   router.get('/health', async (_req, res) => {
     try {
-      const dbResult = await pool.query('SELECT 1 AS ok');
+      await pool.query('SELECT 1 AS ok');
       res.json({
         status: 'ok',
-        db: dbResult.rows[0]?.ok === 1 ? 'connected' : 'error',
+        db: 'connected',
+        uptime: Math.floor((Date.now() - startTime) / 1000),
+        version: process.env.npm_package_version || '0.3.2',
+      });
+    } catch (e) {
+      res.status(503).json({ status: 'error', db: 'disconnected', error: e.message });
+    }
+  });
+
+  // Detailed health — pool stats + process memory (admin only)
+  router.get('/health/detailed', authenticate, authorize('admin.users'), async (_req, res) => {
+    try {
+      await pool.query('SELECT 1 AS ok');
+      res.json({
+        status: 'ok',
+        db: 'connected',
         uptime: Math.floor((Date.now() - startTime) / 1000),
         version: process.env.npm_package_version || '0.3.2',
         pool: { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount },
@@ -115,7 +131,7 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate }) {
         await pool
           .query(
             'INSERT INTO user_tokens (user_id, jti) VALUES ($1, $2) ON CONFLICT (jti) DO NOTHING',
-            [user.id, claims.jti]
+            [user.id, jwt.decode(token).jti]
           )
           .catch(() => {});
         const refreshToken = jwt.sign({ id: user.id, type: 'refresh' }, secret(), {
@@ -187,7 +203,7 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate }) {
       await pool
         .query(
           'INSERT INTO user_tokens (user_id, jti) VALUES ($1, $2) ON CONFLICT (jti) DO NOTHING',
-          [user.id, claims.jti]
+          [user.id, jwt.decode(token).jti]
         )
         .catch(() => {});
       const refreshToken = jwt.sign({ id: user.id, type: 'refresh' }, secret(), {
@@ -270,7 +286,7 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate }) {
       await pool
         .query(
           'INSERT INTO user_tokens (user_id, jti) VALUES ($1, $2) ON CONFLICT (jti) DO NOTHING',
-          [user.id, claims.jti]
+          [user.id, jwt.decode(token).jti]
         )
         .catch(() => {});
       const newRefreshToken = jwt.sign({ id: user.id, type: 'refresh' }, secret(), {
@@ -484,7 +500,9 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate }) {
       }
 
       const resp = { message: 'Nếu tài khoản tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi.' };
-      if (process.env.NODE_ENV === 'development' && process.env.QLTTXD_DEBUG_TOKENS === 'true') {
+      // Chỉ trả dev_token ở môi trường KHÔNG production (dev/staging/test) khi có debug flag.
+      // Tuyệt đối không lộ dev_token trong production.
+      if (process.env.NODE_ENV !== 'production' && process.env.QLTTXD_DEBUG_TOKENS === 'true') {
         resp.dev_token = rawToken;
       }
       res.json(resp);

@@ -1,6 +1,6 @@
 {
   "name": "qlttxd-backend",
-  "version": "0.1.0",
+  "version": "0.3.2",
   "private": true,
   "description": "API khởi đầu cho Hệ thống Quản lý Trật tự Xây dựng",
   "main": "server.js",
@@ -15,7 +15,6 @@
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "compression": "^1.8.1",
-    "cors": "^2.8.5",
     "csv-stringify": "^6.8.2",
     "docx": "^9.7.1",
     "dotenv": "^16.6.1",

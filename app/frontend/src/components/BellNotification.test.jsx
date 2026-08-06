@@ -73,7 +73,7 @@ describe('BellNotification', () => {
     await waitFor(() => expect(screen.getByText('1')).toBeInTheDocument());
   });
 
-  it('fallback sang polling (setInterval) khi SSE fail', async () => {
+  it('reconnect 3 lần với backoff rồi fallback sang polling khi SSE hỏng', async () => {
     vi.useFakeTimers();
     const api = stubApi();
     render(<BellNotification api={api} />);
@@ -81,13 +81,26 @@ describe('BellNotification', () => {
       await vi.runOnlyPendingTimersAsync();
     });
     expect(FakeEventSource.instances.length).toBe(1);
-    const es = FakeEventSource.instances[0];
 
-    // SSE error -> EventSource closed, poll timer installed
-    act(() => es.fail());
-    expect(es.closed).toBe(true);
+    // Lần fail 1 và 2 → đóng EventSource hiện tại và reconnect theo backoff (1s, 2s)
+    for (let i = 0; i < 2; i++) {
+      const es = FakeEventSource.instances[i];
+      await act(async () => {
+        es.fail();
+        // chạy reconnect timeout → tạo instance EventSource mới
+        await vi.runOnlyPendingTimersAsync();
+      });
+      expect(es.closed).toBe(true);
+    }
 
-    // Advance 31s under fake timers; polling fallback should call unread-count again
+    // Lần fail 3 → mới fallback sang polling
+    const es3 = FakeEventSource.instances[2];
+    act(() => es3.fail());
+    expect(es3.closed).toBe(true);
+    // Đã thử 3 kết nối; không reconnect thêm mà chuyển polling
+    expect(FakeEventSource.instances.length).toBeLessThanOrEqual(3);
+
+    // Advance 31s: polling fallback (30s interval) phải gọi unread-count lần nữa
     const callsBefore = unreadCalls(api);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(31000);

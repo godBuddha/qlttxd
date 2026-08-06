@@ -6,6 +6,7 @@ const { buildApp, createPool } = require('../server');
 const { NotificationWorker } = require('../lib/notification-worker');
 const { isSmtpConfigured, createTransporter } = require('../lib/email');
 const { TEST_ADMIN_PASSWORD, TEST_ADMIN_USERNAME } = require('./test-config');
+const { ensureTestAdmin } = require('./helpers/test-db');
 
 const PORT = 3121;
 const base = `http://127.0.0.1:${PORT}`;
@@ -27,6 +28,7 @@ test.before(async () => {
   process.env.SMTP_FROM = 'QLTTXD Test <test@test.local>';
 
   pool = createPool();
+  await ensureTestAdmin(pool);
   server = buildApp({ pool }).listen(PORT, '127.0.0.1');
 
   // Login as admin

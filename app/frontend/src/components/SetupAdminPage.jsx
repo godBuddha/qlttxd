@@ -30,7 +30,6 @@ export function SetupAdminPage({ onSetup }) {
         }),
       });
       localStorage.setItem('qlttxd_token', result.token);
-      if (result.refreshToken) localStorage.setItem('qlttxd_refresh_token', result.refreshToken);
       localStorage.setItem('qlttxd_user', JSON.stringify(result.user));
       onSetup(result.user);
     } catch (err) {

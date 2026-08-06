@@ -24,9 +24,23 @@ export function BellNotification({ api }) {
 
     let es = null;
     let pollTimer = null;
+    let reconnectTimer = null;
+    let retrySseTimer = null;
+    let attempts = 0;
     let disposed = false;
 
     // Fallback to classic polling if SSE cannot be established.
+    const stopPolling = () => {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+      if (retrySseTimer) {
+        clearInterval(retrySseTimer);
+        retrySseTimer = null;
+      }
+    };
+
     const startPolling = () => {
       if (pollTimer || disposed) return;
       loadCount();
@@ -34,34 +48,55 @@ export function BellNotification({ api }) {
         loadCount();
         if (open) loadLatest();
       }, 30000);
+      // Trong khi polling, thử khôi phục lại SSE mỗi 5 phút.
+      retrySseTimer = setInterval(() => {
+        if (disposed) return;
+        attempts = 0;
+        connectSse();
+      }, 300000); // 5 phút
     };
 
-    try {
-      const token = localStorage.getItem('qlttxd_token');
-      const streamUrl = `${API_BASE}/api/v1/thong-bao/stream?token=${encodeURIComponent(token || '')}`;
-      es = new EventSource(streamUrl);
-      es.onmessage = (e) => {
-        let notif;
-        try {
-          notif = JSON.parse(e.data);
-        } catch {
-          return;
-        }
-        if (!notif || !notif.id) return;
-        setCount((c) => c + 1);
-        setItems((old) => [notif, ...old.filter((x) => x.id !== notif.id)].slice(0, 15));
-      };
-      es.onerror = () => {
-        // SSE failed (e.g. proxy buffering / auth / network) -> fall back to polling.
-        try {
-          es?.close();
-        } catch {}
-        es = null;
+    const connectSse = () => {
+      if (disposed) return;
+      try {
+        const token = localStorage.getItem('qlttxd_token');
+        const streamUrl = `${API_BASE}/api/v1/thong-bao/stream?token=${encodeURIComponent(token || '')}`;
+        const source = new EventSource(streamUrl);
+        es = source;
+        source.onmessage = (e) => {
+          let notif;
+          try {
+            notif = JSON.parse(e.data);
+          } catch {
+            return;
+          }
+          if (!notif || !notif.id) return;
+          // SSE hoạt động trở lại → tắt polling.
+          attempts = 0;
+          stopPolling();
+          setCount((c) => c + 1);
+          setItems((old) => [notif, ...old.filter((x) => x.id !== notif.id)].slice(0, 15));
+        };
+        source.onerror = () => {
+          // SSE failed (proxy buffering / auth / network) → thử lại với exponential backoff.
+          try {
+            source.close();
+          } catch {}
+          if (es === source) es = null;
+          attempts += 1;
+          if (attempts < 3) {
+            const delay = [1000, 2000, 4000][attempts - 1] || 4000; // 1s, 2s, 4s
+            reconnectTimer = setTimeout(connectSse, delay);
+          } else {
+            startPolling();
+          }
+        };
+      } catch {
         startPolling();
-      };
-    } catch {
-      startPolling();
-    }
+      }
+    };
+
+    connectSse();
 
     return () => {
       disposed = true;
@@ -69,6 +104,8 @@ export function BellNotification({ api }) {
         es?.close();
       } catch {}
       if (pollTimer) clearInterval(pollTimer);
+      if (retrySseTimer) clearInterval(retrySseTimer);
+      if (reconnectTimer) clearTimeout(reconnectTimer);
     };
   }, [open]);
 

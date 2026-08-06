@@ -201,3 +201,62 @@ npm run test    # 36/36 PASS
 - Bộ `test/server.test.js` + `test/request-timeout.test.js` chạy riêng: **8/8 PASS**.
 - Toàn bộ suite chạy chung đạt **142 PASS / 12 FAIL**. Các FAIL không thuộc thay đổi này: nhiễu cross-file đã biết — `hardening.test.js` (thứ tự alphabet) bắn 12 lần login sai cùng IP `127.0.0.1` làm cạn `authLimiter` (max 10) → các test sau login bị 429 → cascade fail (xem `T7` mục test isolation). Baseline trước thay đổi cũng fail 13.
 - `requestTimeout` tương thích SSE thông báo: callback chỉ trả 408 khi `!res.headersSent`; SSE gọi `flushHeaders()` ngay nên không bị chặn, heartbeat 30s giữ socket sống.
+
+---
+
+## AUDIT-R3-H1 (task t_fe62171b) — CORS + dev_token + server.js.bak cleanup
+
+Ngày: 2026-08-06
+
+### Thay đổi
+- `server.js`: `Access-Control-Allow-Headers` bổ sung `X-Auth-Token` → `Content-Type,Authorization,X-Auth-Token,X-Request-Id`.
+- `routes/auth.js`: forgot-password chỉ trả `dev_token` khi `NODE_ENV !== 'production' && QLTTXD_DEBUG_TOKENS==='true'`. Không bao giờ lộ dev_token trong production.
+- Xóa `server.js.bak` (git rm) + thêm `*.bak` vào `.gitignore`.
+- Version sync cả 3 package.json về `0.3.2` (gốc, backend, frontend).
+- `npm uninstall cors` (package thực sự không được import trong source — chỉ middleware tự viết).
+
+### Lệnh chạy
+```sh
+cd app/backend && npm test          # 159 PASS / 0 FAIL (bản chạy sạch)
+cd app/frontend && npm run build    # PASS, version 0.3.2
+npx eslint routes/auth.js server.js # 0 lỗi
+```
+
+### Kiểm chứng dev_token (buildApp thật)
+- `NODE_ENV=production` + `QLTTXD_DEBUG_TOKENS=true` → forgot-password KHÔNG trả `dev_token` ✓
+- `NODE_ENV=development` + debug flag → CÓ trả `dev_token` ✓
+
+### Known risks / ghi chú
+- DB dev đang chạy có password admin lệch baseline test (`Qlttxd@2026`) → reset lại để suite chạy được; không đổi schema/seed.
+- Lưu ý: working tree có các file đang được worker khác sửa (Dockerfile, admin-users.js, frontend BellNotification/SetupAdmin/api, user-tokens-cleanup, probe.cjs) — không thuộc phạm vi task này, không đụng tới.
+
+---
+
+## AUDIT-R3-M1 (task t_0696d1ee) — Medium fixes batch
+
+Ngày: 2026-08-06
+
+### Thay đổi
+- `server.js` (#5): global error handler dùng `logger.error('unhandled', { request_id, error, stack })` thay vì `console.error(error)`.
+- `server.js` + `user-tokens-cleanup.js` + `test/user-tokens-cleanup.test.js` (#9): class `UserTokensCleanup` xóa `user_tokens` cũ hơn 30 ngày mỗi giờ (timer unref), wire vào `buildApp` và export.
+- `routes/auth.js` (#10): tách `/health` (chỉ `{status, db, uptime, version}`) và `/health/detailed` (thêm `pool` + `process.memory`, yêu cầu JWT + `authorize('admin.users')`). `/health` không còn leak memory/pool.
+- `routes/admin-users.js` (#11): `GET /api/v1/admin/users` thêm `limit` (default 50, max 200) + `page`; trả `{data, total, page, limit}`.
+- `BellNotification.jsx` (#8): SSE reconnect với exponential backoff 1s/2s/4s; sau 3 lần fail → fallback polling; khi polling thử lại SSE mỗi 5 phút.
+- `SetupAdminPage.jsx` (#15): bỏ `localStorage.setItem('qlttxd_refresh_token', …)`.
+- `Dockerfile` (#13): multi-stage, chạy user non-root (uid 1001), HEALTHCHECK `/health`, EXPOSE 3001.
+
+### Lệnh chạy & kết quả
+```sh
+cd app/backend && npm test          # 159 PASS / 0 FAIL (bản chạy sạch sau reset-db)
+cd app/frontend && npm run build    # PASS
+cd app/backend && npm run lint      # CLEAN
+# 24/24 PASS: user-tokens-cleanup + server + hardening + admin-users
+```
+
+### Kiểm chứng live (buildApp thật)
+- `GET /health` → keys `status,db,uptime,version`, KHÔNG có `pool`/`process` ✓
+- `GET /health/detailed` không token → 401; admin token → 200 có `pool` + `process` ✓
+- `GET /api/v1/admin/users?limit=1&page=1` → `{data:[1], total, page:1, limit:1}`; `limit=9999` bị cap về 200 ✓
+
+### Known risks / ghi chú
+- Workspace dir dùng chung giữa nhiều worker song song (test/helpers/test-db.js, probe.cjs, `ensureTestAdmin` trong ~9 file test, api.js — do worker khác). Full-suite chạy chữa khi worker khác đang reset/mutate DB shared → kết quả không tái lập được (đôi khi hang/fail 41-103, không liên quan thay đổi này). Reset-db + chạy sạch một mình → 159/159 PASS.

@@ -12,18 +12,24 @@ module.exports = function adminUsersRoutes({ pool, authenticate, authorize }) {
     '/api/v1/admin/users',
     authenticate,
     authorize('admin.users'),
-    async (_req, res, next) => {
+    async (req, res, next) => {
       if (!requirePool(pool, res)) return;
       try {
+        const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200);
+        const page = Math.max(Number(req.query.page) || 1, 1);
+        const offset = (page - 1) * limit;
+        const countResult = await pool.query('SELECT count(*)::int AS total FROM users');
+        const total = countResult.rows[0].total;
         const result = await pool.query(
           `SELECT u.id, u.username, u.full_name, u.email, u.phone, u.is_active, u.last_login_at, u.created_at,
                 array_remove(array_agg(DISTINCT r.code), NULL) AS roles
          FROM users u
          LEFT JOIN user_roles ur ON ur.user_id=u.id
          LEFT JOIN roles r ON r.id=ur.role_id
-         GROUP BY u.id ORDER BY u.created_at DESC`
+         GROUP BY u.id ORDER BY u.created_at DESC LIMIT $1 OFFSET $2`,
+          [limit, offset]
         );
-        res.json({ data: result.rows });
+        res.json({ data: result.rows, total, page, limit });
       } catch (error) {
         next(error);
       }

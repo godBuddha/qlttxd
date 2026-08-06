@@ -1,6 +1,8 @@
 export const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
-let _refreshing = null;
+// Singleton promise so concurrent 401s share a single refresh instead of each
+// calling doRefresh() and racing on the old token.
+let _refreshPromise = null;
 
 async function doRefresh() {
   // Refresh token is now in HttpOnly cookie, no need to read from localStorage
@@ -16,15 +18,22 @@ async function doRefresh() {
   return data;
 }
 
-export async function request(path, options = {}, onUnauthorized) {
-  const token = localStorage.getItem('qlttxd_token');
+function buildHeaders(options, token) {
   const headers = new Headers(options.headers || {});
   if (token) headers.set('X-Auth-Token', token);
   if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type'))
     headers.set('Content-Type', 'application/json');
+  return headers;
+}
+
+async function execute(path, options, token) {
   let response;
   try {
-    response = await fetch(`${API_BASE}${path}`, { ...options, headers, credentials: 'include' });
+    response = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers: buildHeaders(options, token),
+      credentials: 'include',
+    });
   } catch {
     throw new Error('Không thể kết nối API. Kiểm tra máy chủ và VITE_API_BASE_URL.');
   }
@@ -34,38 +43,38 @@ export async function request(path, options = {}, onUnauthorized) {
   } catch {
     /* API may not return JSON */
   }
+  return { response, body };
+}
+
+export async function request(path, options = {}, onUnauthorized) {
+  const token = localStorage.getItem('qlttxd_token');
+  let { response, body } = await execute(path, options, token);
+
   if (response.status === 401) {
+    // Get the fresh token from a single shared refresh. If a refresh is already
+    // in flight, await it instead of starting a second one.
+    let refreshed;
     try {
-      if (!_refreshing) _refreshing = doRefresh();
-      const refreshed = await _refreshing;
-      _refreshing = null;
-      const retryHeaders = new Headers(options.headers || {});
-      retryHeaders.set('X-Auth-Token', refreshed.token);
-      if (options.body && !(options.body instanceof FormData) && !retryHeaders.has('Content-Type'))
-        retryHeaders.set('Content-Type', 'application/json');
-      let retryResp;
-      try {
-        retryResp = await fetch(`${API_BASE}${path}`, { ...options, headers: retryHeaders, credentials: 'include' });
-      } catch {
-        throw new Error('Không thể kết nối API.');
-      }
-      let retryBody = {};
-      try {
-        retryBody = await retryResp.json();
-      } catch {}
-      if (retryResp.status === 401) {
-        onUnauthorized?.();
-        throw new Error(retryBody.error || 'Phiên đăng nhập đã hết hạn.');
-      }
-      if (!retryResp.ok)
-        throw new Error(retryBody.error || `Yêu cầu thất bại (${retryResp.status})`);
-      return retryBody;
+      if (!_refreshPromise) _refreshPromise = doRefresh();
+      refreshed = await _refreshPromise;
     } catch {
-      _refreshing = null;
+      _refreshPromise = null;
       onUnauthorized?.();
       throw new Error(body.error || 'Phiên đăng nhập đã hết hạn.');
     }
+    _refreshPromise = null;
+
+    // Retry with the new token — never the stale one.
+    const retry = await execute(path, options, refreshed.token);
+    if (retry.response.status === 401) {
+      onUnauthorized?.();
+      throw new Error(retry.body.error || 'Phiên đăng nhập đã hết hạn.');
+    }
+    if (!retry.response.ok)
+      throw new Error(retry.body.error || `Yêu cầu thất bại (${retry.response.status})`);
+    return retry.body;
   }
+
   if (!response.ok) throw new Error(body.error || `Yêu cầu thất bại (${response.status})`);
   return body;
 }

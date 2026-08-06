@@ -5,6 +5,7 @@ const helmet = require('helmet');
 const { Pool } = require('pg');
 const { TokenBlocklist } = require('./token-blocklist');
 const { ResetTokenCleanup } = require('./reset-token-cleanup');
+const { UserTokensCleanup } = require('./user-tokens-cleanup');
 
 const { secret } = require('./utils/helpers');
 const { makeAuthenticate, authenticate, authorize } = require('./utils/middleware');
@@ -43,6 +44,8 @@ function buildApp({ pool }) {
   const tokenBlocklist = new TokenBlocklist({ pool });
   // H-11: dọn reset_token định kỳ (timer unref không giữ process sống)
   new ResetTokenCleanup({ pool });
+  // #9: dọn user_tokens cũ hơn 30 ngày định kỳ
+  new UserTokensCleanup({ pool });
   const authenticateWithBlocklist = makeAuthenticate(tokenBlocklist);
   const app = express();
   // Tin cậy proxy để req.ip trả về IP thật qua X-Forwarded-For khi behind proxy (C-03)
@@ -151,11 +154,16 @@ function buildApp({ pool }) {
   app.use(banDoRoutes(deps));
   app.use(docsRoutes(deps));
 
-  app.use((error, _req, res, _next) => {
+  app.use((error, req, res, _next) => {
     if (error instanceof require('multer').MulterError) {
       return res.status(400).json({ error: `Tải tệp thất bại: ${error.message}` });
     }
-    console.error(error);
+    const { logger } = require('./utils/logger');
+    logger.error('unhandled', {
+      request_id: req.requestId,
+      error: error.message,
+      stack: error.stack,
+    });
     return res.status(500).json({ error: 'Lỗi máy chủ nội bộ' });
   });
   return app;
@@ -210,4 +218,5 @@ module.exports = {
   coordinate: require('./utils/helpers').coordinate,
   TokenBlocklist,
   ResetTokenCleanup,
+  UserTokensCleanup,
 };

@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { buildApp, createPool } = require('../server');
 const { TEST_ADMIN_PASSWORD, TEST_ADMIN_USERNAME } = require('./test-config');
+const { ensureTestAdmin, cleanupNonAdminUsers } = require('./helpers/test-db');
 
 const PORT = 3110;
 const base = `http://127.0.0.1:${PORT}`;
@@ -73,18 +74,13 @@ test.before(async () => {
   process.env.UPLOAD_DIR = '/tmp/qlttxd-export-csv-uploads';
   delete process.env.CORS_ORIGIN;
   pool = createPool();
+  await ensureTestAdmin(pool);
   server = buildApp({ pool }).listen(PORT, '127.0.0.1');
 
   adminToken = await setupAdmin();
 
-  // Clean up test data from previous runs (ho_so references users via nguoi_xu_ly_id)
-  await pool.query(
-    "UPDATE ho_so SET nguoi_xu_ly_id = NULL WHERE nguoi_xu_ly_id IN (SELECT id FROM users WHERE username != 'admin')"
-  );
-  await pool.query(
-    "DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE username != 'admin')"
-  );
-  await pool.query("DELETE FROM users WHERE username != 'admin'");
+  // Clean up test data from previous runs (keep admin)
+  await cleanupNonAdminUsers(pool);
 
   // Clean up test roles from previous runs
   await pool.query(
