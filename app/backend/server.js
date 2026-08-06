@@ -55,6 +55,8 @@ function buildApp({ pool }) {
   const { requestLogger } = require('./utils/logger');
   app.use(requestLogger);
   app.use(express.json({ limit: '1mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+  app.use(require('compression')());
 
   const { globalLimiter, writeLimiter } = require('./utils/rate-limit');
   const { userLimiter } = require('./utils/rate-limit-user');
