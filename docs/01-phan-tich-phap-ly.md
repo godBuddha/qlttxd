@@ -79,22 +79,23 @@ Căn cứ Điều 16 Nghị định 16/2022/NĐ-CP, mức phạt tiền được
 
 ### 3.1. Bảng tổng hợp mức phạt tiền theo từng khoản Điều 16
 
-| Khoản | Hành vi vi phạm | Nhóm 1: Nhà ở riêng lẻ (đồng) | Nhóm 2: Nhà ở riêng lẻ trong khu bảo tồn / khu di tích hoặc công trình khác (đồng) | Nhóm 3: Công trình phải lập BCNCKT hoặc BCKT-KT (đồng) |
-|---|---|---|---|---|
-| K1 | Thi công không che chắn / rơi vãi vật liệu / để vật liệu sai nơi quy định | 3.000.000 – 5.000.000 | 3.000.000 – 5.000.000 (*) | 15.000.000 – 20.000.000 |
-| K2 | Không công khai giấy phép xây dựng tại công trường | 5.000.000 – 10.000.000 | 10.000.000 – 20.000.000 | 20.000.000 – 30.000.000 |
-| K3 | Không thực hiện thủ tục điều chỉnh, gia hạn GPXD | 15.000.000 – 20.000.000 | 25.000.000 – 30.000.000 | 60.000.000 – 80.000.000 |
-| K4 | Thi công sai nội dung GPXD (sửa chữa, cải tạo, di dời, GPXD có thời hạn) | 15.000.000 – 20.000.000 | 25.000.000 – 30.000.000 | 70.000.000 – 90.000.000 |
-| K5 | Thi công gây lún, nứt, hư hỏng hạ tầng/công trình lân cận, nguy cơ sụp đổ (không gây thiệt hại sức khỏe, tính mạng) | 30.000.000 – 40.000.000 | 50.000.000 – 60.000.000 | 80.000.000 – 100.000.000 |
-| K6 | Thi công sai nội dung GPXD (cấp GPXD mới) | 30.000.000 – 40.000.000 | 50.000.000 – 70.000.000 | 100.000.000 – 120.000.000 |
-| K7 | Thi công không có GPXD mà phải có GPXD | 60.000.000 – 80.000.000 | 80.000.000 – 100.000.000 | 120.000.000 – 140.000.000 |
-| K8 | Xây không đúng thiết kế được thẩm định (được miễn GPXD) | 80.000.000 – 100.000.000 | 80.000.000 – 100.000.000 (*) | 80.000.000 – 100.000.000 (*) |
-| K9 | Xây không đúng quy hoạch xây dựng, quy hoạch đô thị được duyệt | 80.000.000 – 100.000.000 | 100.000.000 – 120.000.000 | 160.000.000 – 180.000.000 |
-| K10 | Cơi nới, lấn chiếm diện tích, không gian hợp pháp của tổ chức, cá nhân khác hoặc khu vực công cộng, sử dụng chung | 80.000.000 – 100.000.000 | 100.000.000 – 120.000.000 | 180.000.000 – 200.000.000 |
-| K12 | Tiếp tục vi phạm sau khi đã bị lập biên bản | 100.000.000 – 120.000.000 | 120.000.000 – 140.000.000 | 400.000.000 – 500.000.000 |
-| K13 | Tái phạm (không bị truy cứu hình sự) | 120.000.000 – 140.000.000 | 140.000.000 – 160.000.000 | 950.000.000 – 1.000.000.000 |
+| Khoản | Hành vi vi phạm                                                                                                     | Nhóm 1: Nhà ở riêng lẻ (đồng) | Nhóm 2: Nhà ở riêng lẻ trong khu bảo tồn / khu di tích hoặc công trình khác (đồng) | Nhóm 3: Công trình phải lập BCNCKT hoặc BCKT-KT (đồng) |
+| ----- | ------------------------------------------------------------------------------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| K1    | Thi công không che chắn / rơi vãi vật liệu / để vật liệu sai nơi quy định                                           | 3.000.000 – 5.000.000         | 3.000.000 – 5.000.000 (*)                                                          | 15.000.000 – 20.000.000                                |
+| K2    | Không công khai giấy phép xây dựng tại công trường                                                                  | 5.000.000 – 10.000.000        | 10.000.000 – 20.000.000                                                            | 20.000.000 – 30.000.000                                |
+| K3    | Không thực hiện thủ tục điều chỉnh, gia hạn GPXD                                                                    | 15.000.000 – 20.000.000       | 25.000.000 – 30.000.000                                                            | 60.000.000 – 80.000.000                                |
+| K4    | Thi công sai nội dung GPXD (sửa chữa, cải tạo, di dời, GPXD có thời hạn)                                            | 15.000.000 – 20.000.000       | 25.000.000 – 30.000.000                                                            | 70.000.000 – 90.000.000                                |
+| K5    | Thi công gây lún, nứt, hư hỏng hạ tầng/công trình lân cận, nguy cơ sụp đổ (không gây thiệt hại sức khỏe, tính mạng) | 30.000.000 – 40.000.000       | 50.000.000 – 60.000.000                                                            | 80.000.000 – 100.000.000                               |
+| K6    | Thi công sai nội dung GPXD (cấp GPXD mới)                                                                           | 30.000.000 – 40.000.000       | 50.000.000 – 70.000.000                                                            | 100.000.000 – 120.000.000                              |
+| K7    | Thi công không có GPXD mà phải có GPXD                                                                              | 60.000.000 – 80.000.000       | 80.000.000 – 100.000.000                                                           | 120.000.000 – 140.000.000                              |
+| K8    | Xây không đúng thiết kế được thẩm định (được miễn GPXD)                                                             | 80.000.000 – 100.000.000      | 80.000.000 – 100.000.000 (*)                                                       | 80.000.000 – 100.000.000 (*)                           |
+| K9    | Xây không đúng quy hoạch xây dựng, quy hoạch đô thị được duyệt                                                      | 80.000.000 – 100.000.000      | 100.000.000 – 120.000.000                                                          | 160.000.000 – 180.000.000                              |
+| K10   | Cơi nới, lấn chiếm diện tích, không gian hợp pháp của tổ chức, cá nhân khác hoặc khu vực công cộng, sử dụng chung   | 80.000.000 – 100.000.000      | 100.000.000 – 120.000.000                                                          | 180.000.000 – 200.000.000                              |
+| K12   | Tiếp tục vi phạm sau khi đã bị lập biên bản                                                                         | 100.000.000 – 120.000.000     | 120.000.000 – 140.000.000                                                          | 400.000.000 – 500.000.000                              |
+| K13   | Tái phạm (không bị truy cứu hình sự)                                                                                | 120.000.000 – 140.000.000     | 140.000.000 – 160.000.000                                                          | 950.000.000 – 1.000.000.000                            |
 
 (*) Ghi chú kỹ thuật về cách đọc bảng:
+
 - **Khoản 1**: Khoản 1 chỉ quy định hai điểm (a) và (b). Điểm a — "nhà ở riêng lẻ **hoặc công trình xây dựng khác**" chung một mức 3.000.000 – 5.000.000 đồng; điểm b — công trình phải lập BCNCKT/BCKT-KT là 15.000.000 – 20.000.000 đồng. Do vậy nhóm 1 và nhóm 2 cùng áp dụng điểm a.
 - **Khoản 8**: Khoản 8 là một mức phạt duy nhất (80.000.000 – 100.000.000 đồng) áp dụng chung cho mọi trường hợp, không phân biệt nhóm công trình.
 - **Khoản 13c**: Điểm c khoản 13 quy định mức "từ 950.000.000 đồng đến 1.000.000.000 đồng" (con số "1.000.0000.000" trong bản gốc quét là lỗi in ấn, hiệu chỉnh đúng thành 1.000.000.000 đồng).
@@ -108,20 +109,20 @@ Căn cứ Điều 16 Nghị định 16/2022/NĐ-CP, mức phạt tiền được
 
 ### 4.1. Hình thức xử phạt bổ sung (khoản 14 Điều 16)
 
-| Hình thức xử phạt bổ sung | Áp dụng cho hành vi |
-|---|---|
+| Hình thức xử phạt bổ sung                                                   | Áp dụng cho hành vi                                 |
+| --------------------------------------------------------------------------- | --------------------------------------------------- |
 | Tước quyền sử dụng giấy phép xây dựng từ **03 tháng đến 06 tháng** (nếu có) | Điểm a khoản 12 và điểm a khoản 13 (nhà ở riêng lẻ) |
-| Tước quyền sử dụng giấy phép xây dựng từ **06 tháng đến 09 tháng** (nếu có) | Điểm b khoản 12 và điểm b khoản 13 (nhóm 2) |
-| Tước quyền sử dụng giấy phép xây dựng từ **09 tháng đến 12 tháng** (nếu có) | Điểm c khoản 12 và điểm c khoản 13 (nhóm 3) |
-| **Tịch thu tang vật, phương tiện vi phạm hành chính** | Mọi hành vi quy định tại khoản 12, khoản 13 |
+| Tước quyền sử dụng giấy phép xây dựng từ **06 tháng đến 09 tháng** (nếu có) | Điểm b khoản 12 và điểm b khoản 13 (nhóm 2)         |
+| Tước quyền sử dụng giấy phép xây dựng từ **09 tháng đến 12 tháng** (nếu có) | Điểm c khoản 12 và điểm c khoản 13 (nhóm 3)         |
+| **Tịch thu tang vật, phương tiện vi phạm hành chính**                       | Mọi hành vi quy định tại khoản 12, khoản 13         |
 
 ### 4.2. Biện pháp khắc phục hậu quả (khoản 15 Điều 16)
 
-| Biện pháp khắc phục hậu quả | Áp dụng cho hành vi |
-|---|---|
-| Buộc **che chắn** theo quy định và khắc phục tình trạng ô nhiễm môi trường (nếu có) | Hành vi quy định tại khoản 1 |
-| Buộc thực hiện thủ tục **điều chỉnh hoặc gia hạn giấy phép xây dựng** hoặc buộc **công khai giấy phép xây dựng** theo quy định | Hành vi quy định tại khoản 2, khoản 3 |
-| Buộc **phá dỡ** công trình, phần công trình xây dựng vi phạm | Hành vi quy định tại khoản 4, khoản 6, khoản 7, khoản 8 (mà hành vi vi phạm đã kết thúc), khoản 9, khoản 10, khoản 12, khoản 13 |
+| Biện pháp khắc phục hậu quả                                                                                                    | Áp dụng cho hành vi                                                                                                             |
+| ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| Buộc **che chắn** theo quy định và khắc phục tình trạng ô nhiễm môi trường (nếu có)                                            | Hành vi quy định tại khoản 1                                                                                                    |
+| Buộc thực hiện thủ tục **điều chỉnh hoặc gia hạn giấy phép xây dựng** hoặc buộc **công khai giấy phép xây dựng** theo quy định | Hành vi quy định tại khoản 2, khoản 3                                                                                           |
+| Buộc **phá dỡ** công trình, phần công trình xây dựng vi phạm                                                                   | Hành vi quy định tại khoản 4, khoản 6, khoản 7, khoản 8 (mà hành vi vi phạm đã kết thúc), khoản 9, khoản 10, khoản 12, khoản 13 |
 
 **Ý nghĩa nghiệp vụ**: Biện pháp khắc phục hậu quả đối với trường hợp công trình đang thi công vi phạm (khoản 4, 6, 7, 8) **không** áp dụng ngay biện pháp buộc phá dỡ mà được xử lý theo trình tự, thủ tục riêng tại Điều 81 (xem mục 7). Biện pháp buộc phá dỡ chỉ đặt ra sau khi hết thời hạn được cấp phép mà chủ đầu tư không xuất trình được giấy phép hợp pháp.
 
@@ -131,17 +132,17 @@ Theo Điều 72, những người có thẩm quyền lập biên bản vi phạm
 
 Bảng tổng hợp thẩm quyền xử phạt của từng chức danh (căn cứ Điều 73 đến Điều 80):
 
-| Chức danh (Điều) | Phạt tiền tối đa | Hình thức xử phạt bổ sung / quyền hạn kèm theo |
-|---|---|---|
-| Thanh tra viên xây dựng (hoặc thanh tra viên GTVT - Xây dựng) (Đ73) | Đến 1.000.000 đồng | Tịch thu tang vật, phương tiện giá trị ≤ 2.000.000 đồng; áp dụng biện pháp khắc phục tại điểm a, b khoản 4 Điều 4 |
-| Trưởng đoàn thanh tra chuyên ngành của Thanh tra Sở Xây dựng (Đ74.1) | Đến 100.000.000 đồng | Tước GPXD, chứng chỉ năng lực, chứng chỉ hành nghề có thời hạn hoặc đình chỉ hoạt động có thời hạn; tịch thu tang vật, phương tiện ≤ 200.000.000 đồng |
-| Trưởng đoàn thanh tra chuyên ngành của Thanh tra Bộ Xây dựng (Đ74.2) | Đến 500.000.000 đồng (xây dựng, BĐS); đến 210.000.000 đồng (VLXD, hạ tầng kỹ thuật, nhà) | Tước GPXD/chứng chỉ có thời hạn hoặc đình chỉ hoạt động; tịch thu tang vật, phương tiện ≤ 1.000.000.000 đồng (xây dựng, BĐS); ≤ 420.000.000 đồng (các lĩnh vực khác) |
-| Chánh Thanh tra Sở Xây dựng (hoặc Chánh thanh tra Sở GTVT - Xây dựng) (Đ75) | Đến 100.000.000 đồng | Tước GPXD/chứng chỉ có thời hạn hoặc đình chỉ hoạt động; tịch thu tang vật, phương tiện ≤ 200.000.000 đồng |
-| Chánh Thanh tra Bộ Xây dựng (Đ76) | Đến 1.000.000.000 đồng (xây dựng, BĐS); đến 300.000.000 đồng (VLXD, hạ tầng kỹ thuật, nhà) | Tước GPXD/chứng chỉ có thời hạn hoặc đình chỉ hoạt động; tịch thu tang vật, phương tiện |
-| Công an nhân dân (Đ77) | Theo Nghị định về xử phạt vi phạm hành chính trong lĩnh vực an ninh, trật tự, an toàn xã hội | Chỉ xử lý hành vi quy định tại Điều 6 (chống đối, cản trở) |
-| Chủ tịch UBND cấp xã (Đ78) | Đến 10.000.000 đồng | Tịch thu tang vật, phương tiện ≤ 20.000.000 đồng; áp dụng biện pháp khắc phục tại điểm a, b, c khoản 4 Điều 4 |
-| Chủ tịch UBND cấp huyện (Đ79) | Đến 200.000.000 đồng | Tước GPXD/chứng chỉ có thời hạn hoặc đình chỉ hoạt động; tịch thu tang vật, phương tiện |
-| Chủ tịch UBND cấp tỉnh (Đ80) | Đến 1.000.000.000 đồng (xây dựng, BĐS); đến 300.000.000 đồng (VLXD, hạ tầng kỹ thuật, nhà) | Tước GPXD/chứng chỉ có thời hạn hoặc đình chỉ hoạt động; tịch thu tang vật, phương tiện |
+| Chức danh (Điều)                                                            | Phạt tiền tối đa                                                                             | Hình thức xử phạt bổ sung / quyền hạn kèm theo                                                                                                                       |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Thanh tra viên xây dựng (hoặc thanh tra viên GTVT - Xây dựng) (Đ73)         | Đến 1.000.000 đồng                                                                           | Tịch thu tang vật, phương tiện giá trị ≤ 2.000.000 đồng; áp dụng biện pháp khắc phục tại điểm a, b khoản 4 Điều 4                                                    |
+| Trưởng đoàn thanh tra chuyên ngành của Thanh tra Sở Xây dựng (Đ74.1)        | Đến 100.000.000 đồng                                                                         | Tước GPXD, chứng chỉ năng lực, chứng chỉ hành nghề có thời hạn hoặc đình chỉ hoạt động có thời hạn; tịch thu tang vật, phương tiện ≤ 200.000.000 đồng                |
+| Trưởng đoàn thanh tra chuyên ngành của Thanh tra Bộ Xây dựng (Đ74.2)        | Đến 500.000.000 đồng (xây dựng, BĐS); đến 210.000.000 đồng (VLXD, hạ tầng kỹ thuật, nhà)     | Tước GPXD/chứng chỉ có thời hạn hoặc đình chỉ hoạt động; tịch thu tang vật, phương tiện ≤ 1.000.000.000 đồng (xây dựng, BĐS); ≤ 420.000.000 đồng (các lĩnh vực khác) |
+| Chánh Thanh tra Sở Xây dựng (hoặc Chánh thanh tra Sở GTVT - Xây dựng) (Đ75) | Đến 100.000.000 đồng                                                                         | Tước GPXD/chứng chỉ có thời hạn hoặc đình chỉ hoạt động; tịch thu tang vật, phương tiện ≤ 200.000.000 đồng                                                           |
+| Chánh Thanh tra Bộ Xây dựng (Đ76)                                           | Đến 1.000.000.000 đồng (xây dựng, BĐS); đến 300.000.000 đồng (VLXD, hạ tầng kỹ thuật, nhà)   | Tước GPXD/chứng chỉ có thời hạn hoặc đình chỉ hoạt động; tịch thu tang vật, phương tiện                                                                              |
+| Công an nhân dân (Đ77)                                                      | Theo Nghị định về xử phạt vi phạm hành chính trong lĩnh vực an ninh, trật tự, an toàn xã hội | Chỉ xử lý hành vi quy định tại Điều 6 (chống đối, cản trở)                                                                                                           |
+| Chủ tịch UBND cấp xã (Đ78)                                                  | Đến 10.000.000 đồng                                                                          | Tịch thu tang vật, phương tiện ≤ 20.000.000 đồng; áp dụng biện pháp khắc phục tại điểm a, b, c khoản 4 Điều 4                                                        |
+| Chủ tịch UBND cấp huyện (Đ79)                                               | Đến 200.000.000 đồng                                                                         | Tước GPXD/chứng chỉ có thời hạn hoặc đình chỉ hoạt động; tịch thu tang vật, phương tiện                                                                              |
+| Chủ tịch UBND cấp tỉnh (Đ80)                                                | Đến 1.000.000.000 đồng (xây dựng, BĐS); đến 300.000.000 đồng (VLXD, hạ tầng kỹ thuật, nhà)   | Tước GPXD/chứng chỉ có thời hạn hoặc đình chỉ hoạt động; tịch thu tang vật, phương tiện                                                                              |
 
 **Lưu ý chung về thẩm quyền**: Thẩm quyền phạt tiền nêu trên là thẩm quyền đối với **một hành vi vi phạm hành chính của tổ chức**. Thẩm quyền phạt tiền đối với hành vi vi phạm của **cá nhân bằng 1/2** lần thẩm quyền phạt tiền của tổ chức (khoản 5 Điều 4). Trong nghiệp vụ quản lý trật tự xây dựng tại các phường/xã, Chủ tịch UBND cấp xã và cấp huyện thường là chức danh trực tiếp xử lý các vụ vi phạm nhà ở riêng lẻ.
 
@@ -171,37 +172,42 @@ Khoản 2 Điều 5 quy định thời điểm chấm dứt hành vi vi phạm �
 Điều 81 quy định trình tự, thủ tục xử lý đối với các hành vi quy định tại **khoản 4, khoản 6, khoản 7 và khoản 8 Điều 16** thuộc trường hợp **đủ điều kiện cấp phép xây dựng hoặc điều chỉnh giấy phép xây dựng hoặc điều chỉnh thiết kế xây dựng** mà công trình **đang thi công**. Đây là quy trình đặc thù, cho phép "hợp pháp hóa" công trình vi phạm đang thi công theo các bước sau:
 
 **Bước 1 — Lập biên bản và yêu cầu dừng thi công (khoản 1):**
+
 - Người có thẩm quyền lập biên bản vi phạm hành chính và yêu cầu tổ chức, cá nhân vi phạm **dừng thi công** xây dựng công trình.
 - Trong thời hạn **90 ngày** (đối với dự án đầu tư xây dựng) hoặc **30 ngày** (đối với nhà ở riêng lẻ) kể từ ngày ban hành quyết định xử phạt vi phạm hành chính, tổ chức, cá nhân vi phạm phải hoàn thành hồ sơ đề nghị cấp giấy phép xây dựng, giấy phép xây dựng điều chỉnh hoặc điều chỉnh thiết kế xây dựng và phải có được giấy phép/thẩm định tương ứng.
 - Hồ sơ xin cấp phép bổ sung thêm giấy tờ chứng minh **đã hoàn thành việc nộp phạt** vi phạm hành chính.
 - Cơ quan nhà nước có thẩm quyền cấp giấy phép xây dựng hoặc giấy phép xây dựng điều chỉnh; cơ quan chuyên môn về xây dựng thẩm định thiết kế xây dựng điều chỉnh.
 
 **Bước 2 — Xử lý khi hết thời hạn (khoản 2):**
+
 - Hết thời hạn nêu trên mà tổ chức, cá nhân vi phạm **không xuất trình** giấy phép xây dựng, giấy phép xây dựng điều chỉnh hoặc thiết kế điều chỉnh đã được thẩm định, thì người có thẩm quyền ra **văn bản thông báo yêu cầu tự phá dỡ** công trình, phần công trình vi phạm.
 - Trong thời hạn tối đa **15 ngày** kể từ ngày gửi văn bản thông báo (tính theo dấu bưu điện) hoặc từ ngày có biên bản bàn giao thông báo, tổ chức, cá nhân vi phạm có trách nhiệm **tự phá dỡ** công trình, phần công trình vi phạm.
 
 **Bước 3 — Kiểm tra hiện trạng (khoản 3):**
+
 - Trong thời hạn tối đa **05 ngày** kể từ ngày tổ chức, cá nhân vi phạm xuất trình giấy phép xây dựng hoặc giấy phép điều chỉnh hoặc thiết kế điều chỉnh đã được thẩm định, người có thẩm quyền xử phạt tổ chức **kiểm tra hiện trạng công trình**, lập biên bản ghi nhận sự phù hợp của hiện trạng công trình với giấy phép/thiết kế đã được thẩm định.
 
 **Bước 4 — Quyết định cho tiếp tục thi công (khoản 4):**
+
 - Tổ chức, cá nhân vi phạm **chỉ được tiếp tục thi công** nếu biên bản kiểm tra xác nhận hiện trạng công trình **phù hợp** với giấy phép xây dựng được cấp, giấy phép xây dựng điều chỉnh hoặc thiết kế xây dựng điều chỉnh đã được thẩm định.
 - Nếu hiện trạng **không phù hợp** thì trong thời hạn tối đa **15 ngày** kể từ ngày lập biên bản kiểm tra, tổ chức, cá nhân vi phạm buộc **phá dỡ** công trình, phần công trình không phù hợp.
 
 **Bước 5 — Xử lý tiếp tục thi công trái phép và cưỡng chế (khoản 5):**
+
 - Trong thời hạn đang đề nghị làm thủ tục xin cấp phép mà tổ chức, cá nhân vi phạm **tiếp tục thi công** thì bị xử lý theo quy định tại **khoản 13 Điều 16** (tái phạm với khung phạt cao nhất lên đến 1.000.000.000 đồng đối với tổ chức).
 - Tổ chức, cá nhân **không thực hiện biện pháp buộc phá dỡ** quy định tại khoản 2 và khoản 4 thì bị **cưỡng chế thi hành** theo quy định của pháp luật về xử lý vi phạm hành chính.
 
 **Tóm tắt dòng thời gian xử lý công trình đang thi công vi phạm:**
 
-| Giai đoạn | Thời hạn | Hành động |
-|---|---|---|
-| Lập biên bản + yêu cầu dừng thi công | Ngay khi phát hiện | Lập biên bản, ban hành quyết định xử phạt |
-| Hoàn thiện hồ sơ xin cấp phép hợp pháp hóa | 90 ngày (dự án) / 30 ngày (nhà ở riêng lẻ) kể từ ngày ban hành QĐ xử phạt | Nộp phạt, xin GPXD / GPXD điều chỉnh / thẩm định thiết kế điều chỉnh |
-| Tự phá dỡ nếu không xuất trình được giấy phép | Tối đa 15 ngày kể từ ngày thông báo | Tổ chức, cá nhân vi phạm tự phá dỡ |
-| Kiểm tra hiện trạng sau khi xuất trình giấy phép | Tối đa 05 ngày kể từ ngày xuất trình | Lập biên bản ghi nhận hiện trạng |
-| Tiếp tục thi công | Ngay khi có biên bản phù hợp | Được tiếp tục thi công nếu hiện trạng phù hợp |
-| Phá dỡ phần không phù hợp | Tối đa 15 ngày kể từ ngày lập biên bản kiểm tra | Phá dỡ phần không phù hợp với giấy phép |
-| Cưỡng chế thi hành | Sau các thời hạn trên nếu không chấp hành | Cưỡng chế theo pháp luật về xử lý vi phạm hành chính |
+| Giai đoạn                                        | Thời hạn                                                                  | Hành động                                                            |
+| ------------------------------------------------ | ------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Lập biên bản + yêu cầu dừng thi công             | Ngay khi phát hiện                                                        | Lập biên bản, ban hành quyết định xử phạt                            |
+| Hoàn thiện hồ sơ xin cấp phép hợp pháp hóa       | 90 ngày (dự án) / 30 ngày (nhà ở riêng lẻ) kể từ ngày ban hành QĐ xử phạt | Nộp phạt, xin GPXD / GPXD điều chỉnh / thẩm định thiết kế điều chỉnh |
+| Tự phá dỡ nếu không xuất trình được giấy phép    | Tối đa 15 ngày kể từ ngày thông báo                                       | Tổ chức, cá nhân vi phạm tự phá dỡ                                   |
+| Kiểm tra hiện trạng sau khi xuất trình giấy phép | Tối đa 05 ngày kể từ ngày xuất trình                                      | Lập biên bản ghi nhận hiện trạng                                     |
+| Tiếp tục thi công                                | Ngay khi có biên bản phù hợp                                              | Được tiếp tục thi công nếu hiện trạng phù hợp                        |
+| Phá dỡ phần không phù hợp                        | Tối đa 15 ngày kể từ ngày lập biên bản kiểm tra                           | Phá dỡ phần không phù hợp với giấy phép                              |
+| Cưỡng chế thi hành                               | Sau các thời hạn trên nếu không chấp hành                                 | Cưỡng chế theo pháp luật về xử lý vi phạm hành chính                 |
 
 ## 8. Nghiệp vụ phần mềm cần hỗ trợ
 
@@ -219,4 +225,4 @@ Từ phân tích pháp lý trên, phần mềm quản lý trật tự xây dựn
 
 ---
 
-*Tài liệu phân tích pháp lý được xây dựng dựa trên Nghị định số 16/2022/NĐ-CP ngày 28/01/2022 của Chính phủ về xử phạt vi phạm hành chính trong xây dựng (tập tin ND16-2022.md) và các văn bản pháp luật liên quan. Mọi trích dẫn điều, khoản, điểm đều bám sát nội dung văn bản gốc; các lỗi in ấn/quét OCR (như "Phật tiền", "khác phục", "sup đồ", "cơi nói", "1.000.0000.000") đã được hiệu chỉnh về dạng chuẩn của tiếng Việt trong tài liệu này.*
+_Tài liệu phân tích pháp lý được xây dựng dựa trên Nghị định số 16/2022/NĐ-CP ngày 28/01/2022 của Chính phủ về xử phạt vi phạm hành chính trong xây dựng (tập tin ND16-2022.md) và các văn bản pháp luật liên quan. Mọi trích dẫn điều, khoản, điểm đều bám sát nội dung văn bản gốc; các lỗi in ấn/quét OCR (như "Phật tiền", "khác phục", "sup đồ", "cơi nói", "1.000.0000.000") đã được hiệu chỉnh về dạng chuẩn của tiếng Việt trong tài liệu này._

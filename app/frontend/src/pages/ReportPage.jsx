@@ -4,15 +4,24 @@ import { STATES, STATE_LABELS } from '../lib/constants.js';
 import { Loading } from '../components/Loading.jsx';
 import { Chart } from '../components/Status.jsx';
 
-export function ReportPage({ api, user, notify }) {
-  const [filters, setFilters] = useState({ trang_thai: '', quan_huyen_id: '', tu_ngay: '', den_ngay: '' });
+export function ReportPage({ api, notify }) {
+  const [filters, setFilters] = useState({
+    trang_thai: '',
+    quan_huyen_id: '',
+    tu_ngay: '',
+    den_ngay: '',
+  });
   const [districts, setDistricts] = useState([]);
   const [data, setData] = useState(null);
   const [downloading, setDownloading] = useState('');
 
   useEffect(() => {
-    api('/api/v1/danh-muc/quan-huyen').then((r) => setDistricts(r.data || [])).catch(() => {});
-    api('/api/v1/thong-ke/tong-quan').then((r) => setData(r.data)).catch((e) => notify(errorText(e), 'error'));
+    api('/api/v1/danh-muc/quan-huyen')
+      .then((r) => setDistricts(r.data || []))
+      .catch(() => {});
+    api('/api/v1/thong-ke/tong-quan')
+      .then((r) => setData(r.data))
+      .catch((e) => notify(errorText(e), 'error'));
   }, []);
 
   const set = (key, value) => setFilters((old) => ({ ...old, [key]: value }));
@@ -36,7 +45,10 @@ export function ReportPage({ api, user, notify }) {
       const r = await fetch(url, { headers: { 'X-Auth-Token': token || '' } });
       if (!r.ok) {
         let msg = `Xuất ${loai.toUpperCase()} thất bại (${r.status})`;
-        try { const j = await r.json(); msg = j.error || msg; } catch {}
+        try {
+          const j = await r.json();
+          msg = j.error || msg;
+        } catch {}
         throw new Error(msg);
       }
       const blob = await r.blob();
@@ -48,7 +60,11 @@ export function ReportPage({ api, user, notify }) {
       a.remove();
       URL.revokeObjectURL(a.href);
       notify(`Đã tải file ${loai.toUpperCase()}.`, 'success');
-    } catch (e) { notify(errorText(e), 'error'); } finally { setDownloading(''); }
+    } catch (e) {
+      notify(errorText(e), 'error');
+    } finally {
+      setDownloading('');
+    }
   }
 
   if (!data) return <Loading />;
@@ -65,24 +81,55 @@ export function ReportPage({ api, user, notify }) {
       <section className="panel">
         <h3>Bộ lọc</h3>
         <div className="report-filters">
-          <label>Trạng thái
+          <label>
+            Trạng thái
             <select value={filters.trang_thai} onChange={(e) => set('trang_thai', e.target.value)}>
               <option value="">Tất cả</option>
-              {STATES.map((x) => <option key={x} value={x}>{STATE_LABELS[x]}</option>)}
+              {STATES.map((x) => (
+                <option key={x} value={x}>
+                  {STATE_LABELS[x]}
+                </option>
+              ))}
             </select>
           </label>
-          <label>Quận/huyện
-            <select value={filters.quan_huyen_id} onChange={(e) => set('quan_huyen_id', e.target.value)}>
+          <label>
+            Quận/huyện
+            <select
+              value={filters.quan_huyen_id}
+              onChange={(e) => set('quan_huyen_id', e.target.value)}
+            >
               <option value="">Tất cả</option>
-              {districts.map((x) => <option key={x.id} value={x.id}>{x.ten}</option>)}
+              {districts.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.ten}
+                </option>
+              ))}
             </select>
           </label>
-          <label>Từ ngày<input type="date" value={filters.tu_ngay} onChange={(e) => set('tu_ngay', e.target.value)} /></label>
-          <label>Đến ngày<input type="date" value={filters.den_ngay} onChange={(e) => set('den_ngay', e.target.value)} /></label>
+          <label>
+            Từ ngày
+            <input
+              type="date"
+              value={filters.tu_ngay}
+              onChange={(e) => set('tu_ngay', e.target.value)}
+            />
+          </label>
+          <label>
+            Đến ngày
+            <input
+              type="date"
+              value={filters.den_ngay}
+              onChange={(e) => set('den_ngay', e.target.value)}
+            />
+          </label>
         </div>
         <div className="report-actions">
-          <button onClick={() => download('csv')} disabled={!!downloading}>{downloading === 'csv' ? 'Đang tải…' : '📥 Xuất CSV'}</button>
-          <button onClick={() => download('pdf')} disabled={!!downloading}>{downloading === 'pdf' ? 'Đang tải…' : '📄 Xuất PDF'}</button>
+          <button onClick={() => download('csv')} disabled={!!downloading}>
+            {downloading === 'csv' ? 'Đang tải…' : '📥 Xuất CSV'}
+          </button>
+          <button onClick={() => download('pdf')} disabled={!!downloading}>
+            {downloading === 'pdf' ? 'Đang tải…' : '📄 Xuất PDF'}
+          </button>
         </div>
       </section>
       <section className="panel">

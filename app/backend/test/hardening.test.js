@@ -13,7 +13,7 @@ const { TEST_ADMIN_PASSWORD, TEST_ADMIN_USERNAME } = require('./test-config');
 // 3108 is free (3103 taken by setup-admin.test.js)
 const PORT = 3108;
 const base = `http://127.0.0.1:${PORT}`;
-let server, pool, token;
+let server, pool, _token;
 
 test.before(async () => {
   // Ensure authLimiter is active for rate limit test
@@ -35,7 +35,7 @@ test.before(async () => {
     body: JSON.stringify({ username: TEST_ADMIN_USERNAME, password: TEST_ADMIN_PASSWORD }),
   });
   const b = await r.json();
-  token = b.token;
+  _token = b.token;
 });
 
 test.after(async () => {
@@ -84,9 +84,9 @@ test('rate limit trả 429 khi vượt ngưỡng login', async () => {
 
 test('response compression hoạt động với Accept-Encoding gzip (P3-02)', async () => {
   // Uri lớn để vượt ngưỡng nén (default 1024 bytes) -> content-encoding gzip
-  const r = await fetch(`${base}/api/v1/ho-so?limit=100&q=aaaaaaaaaaaaaaaaaaaaaaaaaaa`);
+  const _r = await fetch(`${base}/api/v1/ho-so?limit=100&q=aaaaaaaaaaaaaaaaaaaaaaaaaaa`);
   // Chỉ kiểm tra middleware có mặt: response gzip khi body đủ lớn.
-  const big = await fetch(`${base}/health`);
+  const _big = await fetch(`${base}/health`);
   // Gửi Accept-Encoding và kiểm tra không lỗi (middleware không phá vỡ response)
   const gz = await fetch(`${base}/health`, { headers: { 'Accept-Encoding': 'gzip' } });
   assert.ok(gz.ok, 'compression middleware should not break responses');

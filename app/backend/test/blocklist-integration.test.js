@@ -23,14 +23,14 @@ async function ensureAdmin() {
       password: TEST_ADMIN_PASSWORD,
       full_name: 'Quản trị viên hệ thống',
       email: 'admin@qlttxd.local',
-      phone: '0901000001'
-    })
+      phone: '0901000001',
+    }),
   });
   if (setup.response.status === 201) return setup.body.token;
   const login = await json('/api/v1/auth/login', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ username: TEST_ADMIN_USERNAME, password: TEST_ADMIN_PASSWORD })
+    body: JSON.stringify({ username: TEST_ADMIN_USERNAME, password: TEST_ADMIN_PASSWORD }),
   });
   assert.equal(login.response.status, 200);
   return login.body.token;

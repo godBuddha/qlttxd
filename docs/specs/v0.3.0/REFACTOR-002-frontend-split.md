@@ -3,9 +3,11 @@
 > Task: coder | Priority: P1 | Dependency: REFACTOR-001
 
 ## Mục tiêu
+
 Tách main.jsx (903 dòng) thành component files riêng. Thêm React.lazy cho code splitting.
 
 ## Cấu trúc mới
+
 ```
 app/frontend/src/
   main.jsx              (< 100 dòng: App shell + routing + render)
@@ -40,6 +42,7 @@ app/frontend/src/
 ```
 
 ## Quy tắc
+
 - KHÔNG thay đổi UI behavior
 - KHÔNG thay đổi routing logic
 - Dùng React.lazy + Suspense cho admin pages
@@ -49,6 +52,7 @@ app/frontend/src/
 - Vite build phải clean
 
 ## Acceptance Criteria
+
 - main.jsx < 100 dòng
 - Mỗi component < 150 dòng
 - Vite build clean

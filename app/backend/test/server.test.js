@@ -50,8 +50,8 @@ test('setup admin và đăng nhập', async () => {
       password: TEST_ADMIN_PASSWORD,
       full_name: 'Quản trị viên hệ thống',
       email: 'admin@qlttxd.local',
-      phone: '0901000001'
-    })
+      phone: '0901000001',
+    }),
   });
   if (setup.response.status === 201) {
     assert.ok(setup.body.token);
@@ -62,7 +62,7 @@ test('setup admin và đăng nhập', async () => {
     const login = await json('/api/v1/auth/login', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ username: TEST_ADMIN_USERNAME, password: TEST_ADMIN_PASSWORD })
+      body: JSON.stringify({ username: TEST_ADMIN_USERNAME, password: TEST_ADMIN_PASSWORD }),
     });
     assert.equal(login.response.status, 200);
     assert.ok(login.body.token);
@@ -72,13 +72,15 @@ test('setup admin và đăng nhập', async () => {
 
 test('đăng nhập đúng và sai tuân thủ RBAC', async () => {
   const bad = await json('/api/v1/auth/login', {
-    method: 'POST', headers: { 'content-type': 'application/json' },
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ username: 'admin', password: 'sai-mat-khau' }),
   });
   assert.equal(bad.response.status, 401);
 
   const good = await json('/api/v1/auth/login', {
-    method: 'POST', headers: { 'content-type': 'application/json' },
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ username: TEST_ADMIN_USERNAME, password: TEST_ADMIN_PASSWORD }),
   });
   assert.equal(good.response.status, 200);
@@ -102,9 +104,12 @@ test('tạo báo cáo, hồ sơ và chuyển trạng thái', async () => {
   assert.deepEqual(report.body.data.toa_do, { lat: 21.033, lng: 105.82 });
 
   const categories = await json('/api/v1/danh-muc/loai-vi-pham');
-  const types = await json(`/api/v1/danh-muc/hanh-vi?loai_vi_pham_id=${categories.body.data[0].id}`);
+  const types = await json(
+    `/api/v1/danh-muc/hanh-vi?loai_vi_pham_id=${categories.body.data[0].id}`
+  );
   const created = await json('/api/v1/ho-so', {
-    method: 'POST', headers: { ...headers, 'content-type': 'application/json' },
+    method: 'POST',
+    headers: { ...headers, 'content-type': 'application/json' },
     body: JSON.stringify({
       bao_cao_id: report.body.data.id,
       loai_vi_pham_id: categories.body.data[0].id,
@@ -118,7 +123,8 @@ test('tạo báo cáo, hồ sơ và chuyển trạng thái', async () => {
   createdCaseId = created.body.data.id;
 
   const changed = await json(`/api/v1/ho-so/${createdCaseId}/trang-thai`, {
-    method: 'PATCH', headers: { ...headers, 'content-type': 'application/json' },
+    method: 'PATCH',
+    headers: { ...headers, 'content-type': 'application/json' },
     body: JSON.stringify({ trang_thai: 'cho_xac_minh' }),
   });
   assert.equal(changed.response.status, 200);
@@ -126,7 +132,8 @@ test('tạo báo cáo, hồ sơ và chuyển trạng thái', async () => {
 
   for (const trang_thai of ['dang_xac_minh', 'cho_lap_bien_ban']) {
     const step = await json(`/api/v1/ho-so/${createdCaseId}/trang-thai`, {
-      method: 'PATCH', headers: { ...headers, 'content-type': 'application/json' },
+      method: 'PATCH',
+      headers: { ...headers, 'content-type': 'application/json' },
       body: JSON.stringify({ trang_thai }),
     });
     assert.equal(step.response.status, 200);
@@ -136,18 +143,24 @@ test('tạo báo cáo, hồ sơ và chuyển trạng thái', async () => {
 test('luồng biên bản, quyết định, khắc phục và thống kê', async () => {
   const headers = { authorization: `Bearer ${token}`, 'content-type': 'application/json' };
   let result = await json(`/api/v1/ho-so/${createdCaseId}/bien-ban`, {
-    method: 'POST', headers, body: JSON.stringify({ noi_dung: 'Biên bản kiểm thử' }),
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ noi_dung: 'Biên bản kiểm thử' }),
   });
   assert.equal(result.response.status, 201);
   const bienBanId = result.body.data.id;
 
   result = await json(`/api/v1/ho-so/${createdCaseId}/trang-thai`, {
-    method: 'PATCH', headers, body: JSON.stringify({ trang_thai: 'cho_ra_quyet_dinh' }),
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify({ trang_thai: 'cho_ra_quyet_dinh' }),
   });
   assert.equal(result.response.status, 200);
 
   result = await json(`/api/v1/ho-so/${createdCaseId}/quyet-dinh`, {
-    method: 'POST', headers, body: JSON.stringify({ bien_ban_id: bienBanId, nhom_cong_trinh: 1 }),
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ bien_ban_id: bienBanId, nhom_cong_trinh: 1 }),
   });
   assert.equal(result.response.status, 201);
   assert.ok(Number(result.body.data.so_tien_phat) > 0);
@@ -155,20 +168,26 @@ test('luồng biên bản, quyết định, khắc phục và thống kê', asyn
 
   // Ban hành quyết định (draft → da_ban_hanh)
   result = await json(`/api/v1/ho-so/${createdCaseId}/quyet-dinh/ban-hanh`, {
-    method: 'POST', headers, body: JSON.stringify({}),
+    method: 'POST',
+    headers,
+    body: JSON.stringify({}),
   });
   assert.equal(result.response.status, 200);
   assert.equal(result.body.data.trang_thai, 'da_ban_hanh');
   assert.ok(result.body.data.ngay_ban_hanh, 'ngày ban hành phải được set');
 
   result = await json(`/api/v1/ho-so/${createdCaseId}/khac-phuc`, {
-    method: 'POST', headers, body: JSON.stringify({ bien_phap: 'Khắc phục theo kiểm thử' }),
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ bien_phap: 'Khắc phục theo kiểm thử' }),
   });
   assert.equal(result.response.status, 201);
   const khacPhucId = result.body.data.id;
 
   result = await json(`/api/v1/khac-phuc/${khacPhucId}`, {
-    method: 'PATCH', headers, body: JSON.stringify({ trang_thai: 'da_thuc_hien' }),
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify({ trang_thai: 'da_thuc_hien' }),
   });
   assert.equal(result.response.status, 200);
   assert.equal(result.body.data.trang_thai, 'da_thuc_hien');

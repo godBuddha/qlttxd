@@ -1,5 +1,5 @@
 import { chromium } from 'playwright-core';
-import { mkdirSync, existsSync, readdirSync, statSync } from 'fs';
+import { mkdirSync } from 'fs';
 
 const BASE = process.env.FRONTEND_URL || 'http://localhost:5175';
 const API = process.env.BACKEND_URL || 'http://localhost:3000';

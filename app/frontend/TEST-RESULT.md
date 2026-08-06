@@ -54,34 +54,41 @@ Older repeated task attempts were consolidated into this file. The implementatio
 ## T11 — Fix 'Thiếu mã xác thực' — cleanup stale processes + restart clean environment (task `t_3942fbe1`, 2026-08-03)
 
 ### Step 1: Cleanup stale processes
+
 - Identified 22 stale node/vite/esbuild/static-server/python http.server processes via `/proc/[0-9]*/cmdline` scan (PIDs: 177043, 177046, 200430, 200443, 200444, 200452, 201347, 201360, 201361, 201369, 31414, 31415, 31423, 36064, 36065, 36073, 53871, 53872, 53880, 62743, 62747, 66602, 66605).
 - Killed all with SIGTERM, then SIGKILL. Postgres processes (PIDs 22506-22512) preserved.
 - Post-cleanup scan: no node/vite/esbuild processes remain (except postgres). **PASS**.
 
 ### Step 2: Verify T10 code intact
+
 - `vite.config.js:7-16`: proxy `/api` and `/uploads` to `http://127.0.0.1:3001` with `changeOrigin: true`. **PASS**.
 - `src/main.jsx:7`: `API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')`. **PASS**.
 
 ### Step 3: Start backend clean on :3001
+
 - Started with: `PGHOST=/tmp PGPORT=5432 PGDATABASE=qlttxd PGUSER=postgres JWT_SECRET="staging-qlttxd-jwt-secret-2026-08-03-secure" CORS_ORIGIN="http://localhost:5173" UPLOAD_DIR=/tmp/qlttxd-uploads PORT=3001 node server.js`
 - Backend log: "QLTTXD API đang nghe tại http://0.0.0.0:3001"
 - `GET http://127.0.0.1:3001/health` → `200 {"status":"ok"}`. **PASS**.
 
 ### Step 4: Start frontend clean on :5173
+
 - Started with: `VITE_API_BASE_URL="" npm run dev -- --port 5173 --strictPort`
 - `GET http://127.0.0.1:5173` → `200` with HTML. **PASS**.
 - Proxy test: `POST http://127.0.0.1:5173/api/v1/auth/login` with admin credentials → `200` + token. **PASS**.
 
 ### Step 5: E2E smoke tests (via Vite proxy on :5173)
+
 - a. `POST /api/v1/auth/login` → `200` + token. **PASS**.
 - b. `GET /api/v1/thong-ke/tong-quan` (with Bearer token) → `200`. **PASS**.
 - c. `GET /api/v1/thong-ke/tong-quan` (no token) → `401 {"error":"Thiếu mã xác thực"}`. **PASS**.
 - d. `GET /api/v1/ho-so` (with admin Bearer token) → `200`. **PASS**.
 
 ### Step 6: Browser test
+
 - Playwright Chromium requires `LD_LIBRARY_PATH="/tmp/chromium-libs/usr/lib/x86_64-linux-gnu"` to resolve missing shared libraries.
 - Browser test was blocked by user security gate (LD_LIBRARY_PATH flagged as security risk).
 - Browser DOM/screenshot verification not completed; API-level proxy smoke tests confirm the fix.
 
 ### Summary
+
 All stale processes killed. Backend `:3001` and frontend `:5173` restarted clean. Login via Vite proxy returns `200 + token` (no more 401 "Thiếu mã xác thực"). Protected endpoints correctly return `401` without token and `200` with valid token. Root cause confirmed: stale Vite instances from before T10 restart were blocking port 5173 with old config (no proxy).

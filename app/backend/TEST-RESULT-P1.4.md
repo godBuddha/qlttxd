@@ -7,14 +7,14 @@ Agent: deployment
 
 ## 1. Môi trường staging
 
-| Component | Version | Trạng thái |
-|---|---|---|
-| Node.js | v24.18.1 | /workspace/ssd/toolchain/node/bin/node |
-| PostgreSQL | 16.14 | socket /tmp:5432 |
-| PostGIS | 3.6.3 | USE_GEOS=1 USE_PROJ=1 USE_STATS=1 |
-| Backend | Express (server.js) | port 3001 |
-| Frontend | Vite 7.3.6 + React 19 | port 5173 |
-| Tables | 23 (19 app + spatial_ref_sys + schema_migrations + 1 seq) | OK |
+| Component  | Version                                                   | Trạng thái                             |
+| ---------- | --------------------------------------------------------- | -------------------------------------- |
+| Node.js    | v24.18.1                                                  | /workspace/ssd/toolchain/node/bin/node |
+| PostgreSQL | 16.14                                                     | socket /tmp:5432                       |
+| PostGIS    | 3.6.3                                                     | USE_GEOS=1 USE_PROJ=1 USE_STATS=1      |
+| Backend    | Express (server.js)                                       | port 3001                              |
+| Frontend   | Vite 7.3.6 + React 19                                     | port 5173                              |
+| Tables     | 23 (19 app + spatial_ref_sys + schema_migrations + 1 seq) | OK                                     |
 
 ## 2. Quy trình khởi động staging
 
@@ -194,14 +194,14 @@ Citizen/Staff Browser → Vite (5173) → Express API (3001) → PostgreSQL (/tm
 
 ### 7d. Security Headers
 
-| Header | Value | Status |
-|---|---|---|
-| Content-Security-Policy | default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none' | PASS |
-| X-Content-Type-Options | nosniff | PASS |
-| X-Frame-Options | DENY | PASS |
-| Referrer-Policy | no-referrer | PASS |
-| Permissions-Policy | geolocation=(), microphone=(), camera=() | PASS |
-| X-Powered-By | disabled | PASS |
+| Header                  | Value                                                                          | Status |
+| ----------------------- | ------------------------------------------------------------------------------ | ------ |
+| Content-Security-Policy | default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none' | PASS   |
+| X-Content-Type-Options  | nosniff                                                                        | PASS   |
+| X-Frame-Options         | DENY                                                                           | PASS   |
+| Referrer-Policy         | no-referrer                                                                    | PASS   |
+| Permissions-Policy      | geolocation=(), microphone=(), camera=()                                       | PASS   |
+| X-Powered-By            | disabled                                                                       | PASS   |
 
 ### 7e. CORS
 
@@ -237,11 +237,11 @@ Citizen/Staff Browser → Vite (5173) → Express API (3001) → PostgreSQL (/tm
 
 ### Phát hiện trong staging run
 
-| PID | PORT | JWT_SECRET | Status |
-|---|---|---|---|
-| 175240 | 3000 | placeholder từ .env.example | OLD — đã kill |
-| 26142 | 3001 | dev-secret-*** | OLD — đã kill |
-| 177043 | 3001 | staging-*** (32+ chars) | CURRENT — đã restart với security headers |
+| PID    | PORT | JWT_SECRET                  | Status                                    |
+| ------ | ---- | --------------------------- | ----------------------------------------- |
+| 175240 | 3000 | placeholder từ .env.example | OLD — đã kill                             |
+| 26142  | 3001 | dev-secret-***              | OLD — đã kill                             |
+| 177043 | 3001 | staging-*** (32+ chars)     | CURRENT — đã restart với security headers |
 
 **Bài học**: Backend cũ (PID 175240, 26142) thiếu security headers vì được start
 trước khi code cập nhật. `/health` trả 200 KHÔNG chứng minh code mới đang chạy.
@@ -249,32 +249,33 @@ Phải kill process cũ trước khi restart.
 
 ## 10. Files Changed (P1.4)
 
-| File | Action | Purpose |
-|---|---|---|
-| scripts/staging-smoke.js | NEW | Smoke test 12 checks |
-| scripts/staging-full-verify.js | NEW | Full verification 35 checks |
-| scripts/check-headers.js | NEW | Security header verification |
-| scripts/build-frontend.sh | NEW | Frontend build helper |
-| TEST-RESULT-P1.4.md | NEW | This report |
+| File                           | Action | Purpose                      |
+| ------------------------------ | ------ | ---------------------------- |
+| scripts/staging-smoke.js       | NEW    | Smoke test 12 checks         |
+| scripts/staging-full-verify.js | NEW    | Full verification 35 checks  |
+| scripts/check-headers.js       | NEW    | Security header verification |
+| scripts/build-frontend.sh      | NEW    | Frontend build helper        |
+| TEST-RESULT-P1.4.md            | NEW    | This report                  |
 
 **Không sửa application code, schema hoặc runtime data.**
 
 ## 11. Known Risks
 
-| # | Risk | Severity | Status |
-|---|---|---|---|
-| 1 | Browser E2E blocked — thiếu Chromium host libs | MEDIUM | Known từ P1.3 |
-| 2 | JWT logout stateless — token valid 8h nếu bị đánh cắp | LOW | Design choice |
-| 3 | Không có rate-limiting trên login | MEDIUM | Cần thêm cho production |
-| 4 | Seed GIS polygons hình chữ nhật giả lập | HIGH (prod) | Cần dữ liệu GIS thật |
-| 5 | ILIKE search wildcards không escape | LOW | Input sanitization |
-| 6 | COUNT+1 sequence chỉ an toàn cho demo | MEDIUM (prod) | Cần sequence/counter |
-| 7 | CORS wildcard `*` nếu không set CORS_ORIGIN | MEDIUM | Đã set đúng trong staging |
-| 8 | Process cũ chạy code cũ nếu không kill trước | MEDIUM | Operational procedure |
+| #   | Risk                                                  | Severity      | Status                    |
+| --- | ----------------------------------------------------- | ------------- | ------------------------- |
+| 1   | Browser E2E blocked — thiếu Chromium host libs        | MEDIUM        | Known từ P1.3             |
+| 2   | JWT logout stateless — token valid 8h nếu bị đánh cắp | LOW           | Design choice             |
+| 3   | Không có rate-limiting trên login                     | MEDIUM        | Cần thêm cho production   |
+| 4   | Seed GIS polygons hình chữ nhật giả lập               | HIGH (prod)   | Cần dữ liệu GIS thật      |
+| 5   | ILIKE search wildcards không escape                   | LOW           | Input sanitization        |
+| 6   | COUNT+1 sequence chỉ an toàn cho demo                 | MEDIUM (prod) | Cần sequence/counter      |
+| 7   | CORS wildcard `*` nếu không set CORS_ORIGIN           | MEDIUM        | Đã set đúng trong staging |
+| 8   | Process cũ chạy code cũ nếu không kill trước          | MEDIUM        | Operational procedure     |
 
 ## 12. Go/No-Go Assessment
 
 ### GO cho staging/internal demo:
+
 - Backend 20 endpoints hoạt động
 - Auth/RBAC matrix đúng
 - Security headers đầy đủ (sau restart)
@@ -284,6 +285,7 @@ Phải kill process cũ trước khi restart.
 - Audit log hoạt động
 
 ### NO-GO cho production:
+
 - **HIGH**: Seed GIS polygons giả lập — cần dữ liệu ranh giới thật
 - **MEDIUM**: Không rate-limiting login
 - **MEDIUM**: COUNT+1 sequence không chịu concurrent
@@ -291,6 +293,7 @@ Phải kill process cũ trước khi restart.
 - **LOW**: JWT logout stateless
 
 ### Yêu cầu trước production:
+
 1. Thay dữ liệu ranh giới quận/phường bằng GADM/OSM
 2. Thêm rate-limiting (express-rate-limit)
 3. Thay COUNT+1 bằng PostgreSQL sequence

@@ -47,24 +47,24 @@ Truy cập: http://localhost:5173
 > Xem `sql/seed.sql` (comment dòng đầu) hoặc hỏi quản trị viên để lấy
 > mật khẩu mặc định. Đổi ngay sau khi đăng nhập lần đầu trong môi trường thật.
 
-| Username     | Vai trò                    | Quyền chính                                        |
-|--------------|----------------------------|----------------------------------------------------|
-| `admin`      | Quản trị                   | toàn quyền (case.view, case.update, report.*...)   |
-| `handler.hn` | Cán bộ tiếp nhận           | tiếp nhận hồ sơ, báo cáo                           |
-| `verifier.hn`| Cán bộ xác minh            | xác minh, lập biên bản                             |
-| `leader.hn`  | Lãnh đạo                   | thống kê, duyệt quyết định                         |
-| `citizen.nga`| Công dân                   | report.create (báo cáo vi phạm)                    |
+| Username      | Vai trò          | Quyền chính                                      |
+| ------------- | ---------------- | ------------------------------------------------ |
+| `admin`       | Quản trị         | toàn quyền (case.view, case.update, report.*...) |
+| `handler.hn`  | Cán bộ tiếp nhận | tiếp nhận hồ sơ, báo cáo                         |
+| `verifier.hn` | Cán bộ xác minh  | xác minh, lập biên bản                           |
+| `leader.hn`   | Lãnh đạo         | thống kê, duyệt quyết định                       |
+| `citizen.nga` | Công dân         | report.create (báo cáo vi phạm)                  |
 
 ## 4. API chính (20 endpoint — chi tiết trong `app/backend/server.js`)
 
-| Nhóm | Endpoint |
-|---|---|
-| Auth | `POST /api/v1/auth/login`, `POST /api/v1/auth/logout`, `GET /api/v1/auth/me` |
-| Danh mục | `GET /api/v1/danh-muc/{loai-vi-pham,hanh-vi,muc-phat,quan-huyen,phuong-xa}` |
-| Báo cáo | `POST /api/v1/bao-cao` (multipart, tối đa 5 ảnh, auto-dò quận/phường PostGIS), `GET /api/v1/bao-cao` |
-| Hồ sơ | `POST /api/v1/ho-so`, `GET /api/v1/ho-so` (lọc/phân trang), `GET /api/v1/ho-so/:id`, `PATCH /api/v1/ho-so/:id/trang-thai` |
-| Xử lý | `POST /api/v1/ho-so/:id/bien-ban`, `POST /api/v1/ho-so/:id/quyet-dinh`, `POST /api/v1/ho-so/:id/khac-phuc`, `PATCH /api/v1/khac-phuc/:id` |
-| Thống kê | `GET /api/v1/thong-ke/tong-quan` |
+| Nhóm     | Endpoint                                                                                                                                  |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth     | `POST /api/v1/auth/login`, `POST /api/v1/auth/logout`, `GET /api/v1/auth/me`                                                              |
+| Danh mục | `GET /api/v1/danh-muc/{loai-vi-pham,hanh-vi,muc-phat,quan-huyen,phuong-xa}`                                                               |
+| Báo cáo  | `POST /api/v1/bao-cao` (multipart, tối đa 5 ảnh, auto-dò quận/phường PostGIS), `GET /api/v1/bao-cao`                                      |
+| Hồ sơ    | `POST /api/v1/ho-so`, `GET /api/v1/ho-so` (lọc/phân trang), `GET /api/v1/ho-so/:id`, `PATCH /api/v1/ho-so/:id/trang-thai`                 |
+| Xử lý    | `POST /api/v1/ho-so/:id/bien-ban`, `POST /api/v1/ho-so/:id/quyet-dinh`, `POST /api/v1/ho-so/:id/khac-phuc`, `PATCH /api/v1/khac-phuc/:id` |
+| Thống kê | `GET /api/v1/thong-ke/tong-quan`                                                                                                          |
 
 Chuỗi trạng thái hồ sơ (state machine, backend tự validate):
 `cho_tiep_nhan → cho_xac_minh → dang_xac_minh → cho_lap_bien_ban → da_lap_bien_ban → cho_ra_quyet_dinh → da_ra_quyet_dinh → dang_khac_phuc → da_khac_phuc → da_dong` (+ nhánh `cho_bo_sung`, `da_huy`, `cho_duyet_dieu_81`).
@@ -88,9 +88,11 @@ E2E đầy đủ (login → báo cáo → hồ sơ → biên bản → quyết �
 1. **Dọn process cũ trước khi chạy lại**: nếu `node server.js` đã chạy từ lần
    trước, nó giữ port 3001 và chạy CODE CŨ trong RAM. Khi sửa code phải kill
    process cũ trước:
+
    ```sh
    pkill -f "node server.js"   # hoặc kill theo PID đã xác định
    ```
+
    Triệu chứng: `/health` vẫn 200 nhưng API mới trả 404 `Cannot POST /api/...`.
 
 2. **Mã tuần tự `COUNT+1`** (BC/HS/BB/QD-YYYY-xxxxxx): an toàn cho demo/test,
@@ -166,9 +168,9 @@ Mọi task phát triển QLTTXD phải tuân thủ quy trình quality gate bắt
 ### Quy trình 13 bước (tóm tắt)
 
 1. requirements/specify → 2. architecture → 3. task/dependencies →
-4. implementation → 5. self-test → 6. review-required →
-7. independent-review → 8. fixes (nếu có) → 9. regression →
-10. security/perf/a11y → 11. verified → 12. complete → 13. docs/handoff
+2. implementation → 5. self-test → 6. review-required →
+3. independent-review → 8. fixes (nếu có) → 9. regression →
+4. security/perf/a11y → 11. verified → 12. complete → 13. docs/handoff
 
 > **Vòng lặp bắt buộc sau fixes**: fixes → regression → security/perf/a11y →
 > verified → complete. Không được bỏ qua regression sau khi sửa.
@@ -244,6 +246,7 @@ node /workspace/ssd/qlttxd/scripts/staging-full-verify.js
 
 - **GO**: staging/internal demo — all API, auth/RBAC, security headers, backup/restore PASS
 - **NO-GO cho production**: cần GIS thật, rate-limiting, sequence, TLS, browser E2E
+
 ## 11. TLS Termination với Caddy (T4.5 — 2026-08-03)
 
 Hệ thống sử dụng **Caddy** làm reverse proxy và TLS termination. Caddy tự động cấp và gia hạn chứng chỉ Let's Encrypt cho production, và hỗ trợ self-signed cho development.
@@ -265,11 +268,11 @@ Hệ thống sử dụng **Caddy** làm reverse proxy và TLS termination. Caddy
 
 ### 11.2 Cấu hình Caddyfiles
 
-| Môi trường | File | Chứng chỉ | Mô tả |
-|---|---|---|---|
-| Development | `Caddyfile.dev` | Self-signed (local_certs) | Dùng cho dev local, truy cập `https://localhost` |
-| Staging | `Caddyfile.staging` | Let's Encrypt Staging | Dùng cho staging, không giới hạn rate limit |
-| Production | `Caddyfile.prod` | Let's Encrypt Production | Dùng cho production thật |
+| Môi trường  | File                | Chứng chỉ                 | Mô tả                                            |
+| ----------- | ------------------- | ------------------------- | ------------------------------------------------ |
+| Development | `Caddyfile.dev`     | Self-signed (local_certs) | Dùng cho dev local, truy cập `https://localhost` |
+| Staging     | `Caddyfile.staging` | Let's Encrypt Staging     | Dùng cho staging, không giới hạn rate limit      |
+| Production  | `Caddyfile.prod`    | Let's Encrypt Production  | Dùng cho production thật                         |
 
 ### 11.3 Khởi động với Docker Compose
 
@@ -296,18 +299,19 @@ CADDY_EMAIL=admin@qlttxd.example.gov.vn \
 
 ### 11.4 Biến môi trường quan trọng
 
-| Biến | Mô tả | Ví dụ |
-|---|---|---|
-| `CADDYFILE` | Chọn Caddyfile (dev/staging/prod) | `Caddyfile.dev` |
-| `CADDY_EMAIL` | Email cho Let's Encrypt (bắt buộc production) | `admin@qlttxd.example.gov.vn` |
-| `CORS_ORIGIN` | Origin được phép gọi API (phải khớp domain Caddy) | `https://qlttxd.example.gov.vn` |
-| `VITE_API_BASE_URL` | URL API cho frontend build | `https://qlttxd.example.gov.vn` |
+| Biến                | Mô tả                                             | Ví dụ                           |
+| ------------------- | ------------------------------------------------- | ------------------------------- |
+| `CADDYFILE`         | Chọn Caddyfile (dev/staging/prod)                 | `Caddyfile.dev`                 |
+| `CADDY_EMAIL`       | Email cho Let's Encrypt (bắt buộc production)     | `admin@qlttxd.example.gov.vn`   |
+| `CORS_ORIGIN`       | Origin được phép gọi API (phải khớp domain Caddy) | `https://qlttxd.example.gov.vn` |
+| `VITE_API_BASE_URL` | URL API cho frontend build                        | `https://qlttxd.example.gov.vn` |
 
 ### 11.5 CORS_ORIGIN & Domain Mapping
 
 **Quan trọng**: `CORS_ORIGIN` trong backend **phải khớp chính xác** domain mà Caddy phục vụ (kể cả protocol HTTPS).
 
 Ví dụ mapping:
+
 - Dev: `CORS_ORIGIN=https://localhost` (khi dùng self-signed)
 - Staging: `CORS_ORIGIN=https://staging.qlttxd.example.gov.vn`
 - Prod: `CORS_ORIGIN=https://qlttxd.example.gov.vn`
@@ -331,6 +335,7 @@ curl -I http://qlttxd.example.gov.vn | head -1
 ### 11.7 Volumes Caddy (persistent certs)
 
 Docker compose định nghĩa 2 volumes để lưu chứng chỉ và cấu hình Caddy:
+
 - `caddy_data` — `/data` (chứng chỉ, private keys, OCSP staples)
 - `caddy_config` — `/config` (cấu hình runtime)
 
@@ -346,13 +351,13 @@ docker run --rm -v qlttxd_caddy_data:/data -v $(pwd):/backup alpine tar xzf /bac
 
 ### 11.8 Troubleshooting
 
-| Vấn đề | Nguyên nhân | Giải pháp |
-|---|---|---|
-| Cert không cấp được | Domain không trỏ đúng IP DNS | Kiểm tra A record, firewall 80/443 |
-| Rate limit Let's Encrypt | Quá nhiều lần request cert | Dùng staging CA hoặc chờ 1 tuần |
-| CORS error | `CORS_ORIGIN` không khớp domain | Set đúng `CORS_ORIGIN=https://<caddy-domain>` |
-| Self-signed warning dev | Browser không tin cậy local_certs | Thêm exception hoặc dùng mkcert |
-| Mixed content | Frontend load HTTP resource trên HTTPS | Đảm bảo `VITE_API_BASE_URL` dùng HTTPS |
+| Vấn đề                   | Nguyên nhân                            | Giải pháp                                     |
+| ------------------------ | -------------------------------------- | --------------------------------------------- |
+| Cert không cấp được      | Domain không trỏ đúng IP DNS           | Kiểm tra A record, firewall 80/443            |
+| Rate limit Let's Encrypt | Quá nhiều lần request cert             | Dùng staging CA hoặc chờ 1 tuần               |
+| CORS error               | `CORS_ORIGIN` không khớp domain        | Set đúng `CORS_ORIGIN=https://<caddy-domain>` |
+| Self-signed warning dev  | Browser không tin cậy local_certs      | Thêm exception hoặc dùng mkcert               |
+| Mixed content            | Frontend load HTTP resource trên HTTPS | Đảm bảo `VITE_API_BASE_URL` dùng HTTPS        |
 
 ### 11.9 Tài liệu tham khảo
 

@@ -3,9 +3,11 @@
 > Task: coder | Priority: P1 | Dependency: PHASE3A (done)
 
 ## Mục tiêu
+
 Tách server.js (1518 dòng) thành modules có cấu trúc. Mỗi route/middleware/logic trong file riêng. server.js chỉ setup + mount.
 
 ## Cấu trúc mới
+
 ```
 app/backend/
   routes/
@@ -35,6 +37,7 @@ app/backend/
 ```
 
 ## Quy tắc
+
 - KHÔNG thay đổi API behavior (endpoint paths, request/response format)
 - KHÔNG thay đổi middleware order
 - Mỗi file export function nhận `pool` + `authenticateWithBlocklist` làm params
@@ -42,6 +45,7 @@ app/backend/
 - Test: 132/132 phải pass SAU refactor
 
 ## Acceptance Criteria
+
 - server.js < 150 dòng
 - Mỗi route file < 150 dòng
 - Test suite 132/132 PASS

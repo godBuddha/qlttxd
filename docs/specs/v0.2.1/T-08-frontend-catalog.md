@@ -3,15 +3,18 @@
 > Task: coder (frontend) | Priority: P1 | Dependency: T-01
 
 ## Mục tiêu
+
 Trang admin CRUD danh mục: loại vi phạm, hành vi vi phạm, mức phạt (3 tab).
 
 ## Files thay đổi
+
 1. `app/frontend/src/main.jsx` — thêm `AdminCatalogPage`
 2. `app/frontend/src/styles.css` — CSS cho catalog
 
 ## Chi tiết
 
 ### Component `AdminCatalogPage`
+
 - 3 tab: Loại vi phạm | Hành vi | Mức phạt
 - Mỗi tab: bảng dữ liệu + form thêm/sửa + nút xóa
 - API endpoints đã có sẵn:
@@ -25,12 +28,20 @@ Trang admin CRUD danh mục: loại vi phạm, hành vi vi phạm, mức phạt 
   - Tương tự cho hanh-vi, muc-phat
 
 ### Menu
+
 Thêm vào nav (chỉ khi `can(user, 'admin.users')`):
+
 ```jsx
-<button className={route.page === 'admin-catalog' ? 'selected' : ''} onClick={() => nav('admin-catalog')}>📚 Danh mục</button>
+<button
+  className={route.page === 'admin-catalog' ? 'selected' : ''}
+  onClick={() => nav('admin-catalog')}
+>
+  📚 Danh mục
+</button>
 ```
 
 ## Acceptance Criteria
+
 - [ ] 3 tab hiển thị dữ liệu từ DB
 - [ ] Thêm/sửa/xóa hoạt động
 - [ ] Validate form (tên bắt buộc, số hợp lệ)

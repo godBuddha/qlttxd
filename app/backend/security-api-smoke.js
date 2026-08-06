@@ -153,7 +153,7 @@ async function main() {
 
   // Step 7: GET phuong-xa
   const listPX = await request('GET', '/api/v1/admin/phuong-xa', { headers: AH });
-  check('API: GET phuong-x → 00, listPX.status === 200, `status=${listPX.status}`);
+  check('API: GET phuong-x → 200', listPX.status === 200, `status=${listPX.status}`);
   let pxList;
   try { pxList = JSON.parse(listPX.body).data; } catch(e) {}
 

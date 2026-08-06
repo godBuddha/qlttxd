@@ -18,22 +18,14 @@
     "no-undef": "error",
     "no-constant-condition": "error",
     "no-dupe-keys": "error",
-    "eqeqeq": [
-      "error",
-      "always"
-    ],
+    "eqeqeq": ["error", "always"],
     "no-var": "error",
     "prefer-const": "error",
-    "curly": [
-      "error",
-      "multi-line"
-    ]
+    "curly": ["error", "multi-line"]
   },
   "overrides": [
     {
-      "files": [
-        "app/frontend/src/**/*.{js,jsx}"
-      ],
+      "files": ["app/frontend/src/**/*.{js,jsx}"],
       "env": {
         "browser": true,
         "node": false,

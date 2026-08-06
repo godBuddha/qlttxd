@@ -3,15 +3,18 @@
 > Task: coder (backend) | Priority: P0 | Dependency: none
 
 ## Mục tiêu
+
 Thêm `schema_migrations` table vào `01-schema.sql` và đảm bảo `admin.locations` permission được seed trong `02-seed.sql`.
 
 ## Files thay đổi
+
 1. `app/db/init/01-schema.sql` — thêm CREATE TABLE schema_migrations
 2. `app/db/init/02-seed.sql` — thêm seed permission admin.locations + gán cho admin
 
 ## Chi tiết
 
 ### 1. `01-schema.sql` — thêm cuối cùng (trước khi close)
+
 ```sql
 CREATE TABLE IF NOT EXISTS schema_migrations (
     version     VARCHAR(100) PRIMARY KEY,
@@ -21,6 +24,7 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 ```
 
 ### 2. `02-seed.sql` — thêm permission admin.locations
+
 ```sql
 -- Thêm permission mới (idempotent)
 INSERT INTO permissions (code, name, module) VALUES
@@ -35,6 +39,7 @@ ON CONFLICT DO NOTHING;
 ```
 
 ## Acceptance Criteria
+
 - [ ] `schema_migrations` table tồn tại sau khi chạy `01-schema.sql`
 - [ ] `admin.locations` permission tồn tại trong `permissions` table
 - [ ] Admin role có `admin.locations` permission trong `role_permissions`
@@ -42,6 +47,7 @@ ON CONFLICT DO NOTHING;
 - [ ] Chạy lại `bash sql/setup-db.sh` — pass
 
 ## Test
+
 ```bash
 cd /workspace/ssd/qlttxd
 bash sql/setup-db.sh

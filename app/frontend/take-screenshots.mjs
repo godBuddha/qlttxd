@@ -9,7 +9,7 @@ mkdirSync(DIR, { recursive: true });
 
 const browser = await chromium.launch({ headless: true });
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
-let page = await ctx.newPage();
+const page = await ctx.newPage();
 let idx = 1;
 
 async function snap(name) {

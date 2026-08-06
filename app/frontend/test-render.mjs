@@ -20,7 +20,7 @@ const ctx = await browser.newContext({
   viewport: { width: 1280, height: 800 },
   colorScheme: 'light',
 });
-let page = await ctx.newPage();
+const page = await ctx.newPage();
 
 // Check if page actually renders
 page.on('console', msg => {

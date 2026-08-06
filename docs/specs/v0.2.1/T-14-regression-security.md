@@ -3,11 +3,13 @@
 > Task: security + qa | Priority: P1 | Dependency: T-01..T-13
 
 ## Mục tiêu
+
 Hồi quy toàn bộ test + security review.
 
 ## Chi tiết
 
 ### QA — Hồi quy
+
 ```bash
 cd /workspace/ssd/qlttxd/app/backend
 npm test  # Tất cả test phải pass
@@ -20,7 +22,9 @@ PGPASSWORD=postgres psql -h /tmp -U postgres -d qlttxd -f /workspace/ssd/qlttxd/
 ```
 
 ### Security — Review
+
 Kiểm tra:
+
 1. Rate limit không chặn nhầm user thật
 2. Helmet headers đầy đủ (CSP, HSTS, nosniff, X-Frame-Options, Referrer-Policy)
 3. PII masking đúng quyền
@@ -29,6 +33,7 @@ Kiểm tra:
 6. Không lộ secret/stack trace trong error
 
 ## Acceptance Criteria
+
 - [ ] Tất cả test pass (cũ + mới)
 - [ ] Frontend build pass
 - [ ] verify-db.sql pass

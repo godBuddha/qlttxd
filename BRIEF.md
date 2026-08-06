@@ -13,13 +13,13 @@ cho chính quyền địa phương (phường/xã/quận/huyện). Hệ thống 
 
 ## 2. Các tài liệu pháp lý (đã có sẵn trong `taplieu/`)
 
-| File | Nội dung | Vai trò |
-|---|---|---|
-| `taplieu/ND50-xaydung.md` | Luật Xây dựng 50/2014/QH13 | Nền tảng |
-| `taplieu/ND62.md` | Luật sửa đổi bổ sung 62/2020/QH14 | Nền tảng |
-| `taplieu/ND15-2021.md` | Nghị định 15/2021 (quản lý dự án, GPXD) | Thủ tục |
-| `taplieu/ND15-2021-phuluc.md` | Phụ lục + mẫu văn bản NĐ 15 | Mẫu biểu |
-| `taplieu/ND16-2022.md` | **Nghị định 16/2022 — Xử phạt VPHC về xây dựng** | **Cốt lõi nghiệp vụ** |
+| File                          | Nội dung                                         | Vai trò               |
+| ----------------------------- | ------------------------------------------------ | --------------------- |
+| `taplieu/ND50-xaydung.md`     | Luật Xây dựng 50/2014/QH13                       | Nền tảng              |
+| `taplieu/ND62.md`             | Luật sửa đổi bổ sung 62/2020/QH14                | Nền tảng              |
+| `taplieu/ND15-2021.md`        | Nghị định 15/2021 (quản lý dự án, GPXD)          | Thủ tục               |
+| `taplieu/ND15-2021-phuluc.md` | Phụ lục + mẫu văn bản NĐ 15                      | Mẫu biểu              |
+| `taplieu/ND16-2022.md`        | **Nghị định 16/2022 — Xử phạt VPHC về xây dựng** | **Cốt lõi nghiệp vụ** |
 
 ## 3. Yêu cầu cốt lõi (theo chủ đầu tư)
 
@@ -34,14 +34,14 @@ cho chính quyền địa phương (phường/xã/quận/huyện). Hệ thống 
 
 ## 4. Công việc cần team thực hiện (thứ tự)
 
-| # | Profile | Đầu ra | File |
-|---|---|---|---|
-| T1 | researcher | Phân tích pháp lý: nhóm hành vi vi phạm, khung phạt, biện pháp khắc phục, thẩm quyền | `docs/01-phan-tich-phap-ly.md` |
-| T2 | researcher | Quy trình nghiệp vụ đầy đủ + vai trò + tham khảo OSS tương tự | `docs/02-quy-trinh-nghiep-vu.md` |
-| T3 | writer | Đặc tả nghiệp vụ (actors, use cases, yêu cầu chức năng/phi chức năng) | `docs/03-dac-ta-nghiep-vu.md` |
-| T4 | writer | Thiết kế CSDL (ERD + schema PostgreSQL/PostGIS) | `docs/04-thiet-ke-csdl.md` + `sql/schema.sql` |
-| T5 | writer | Thiết kế giao diện (sitemap, wireframe, UX flow) | `docs/05-thiet-ke-giao-dien.md` |
-| T6 | coder | Khung dự án (cấu trúc thư mục, stack đề xuất, scaffold) | `app/` |
+| #   | Profile    | Đầu ra                                                                               | File                                          |
+| --- | ---------- | ------------------------------------------------------------------------------------ | --------------------------------------------- |
+| T1  | researcher | Phân tích pháp lý: nhóm hành vi vi phạm, khung phạt, biện pháp khắc phục, thẩm quyền | `docs/01-phan-tich-phap-ly.md`                |
+| T2  | researcher | Quy trình nghiệp vụ đầy đủ + vai trò + tham khảo OSS tương tự                        | `docs/02-quy-trinh-nghiep-vu.md`              |
+| T3  | writer     | Đặc tả nghiệp vụ (actors, use cases, yêu cầu chức năng/phi chức năng)                | `docs/03-dac-ta-nghiep-vu.md`                 |
+| T4  | writer     | Thiết kế CSDL (ERD + schema PostgreSQL/PostGIS)                                      | `docs/04-thiet-ke-csdl.md` + `sql/schema.sql` |
+| T5  | writer     | Thiết kế giao diện (sitemap, wireframe, UX flow)                                     | `docs/05-thiet-ke-giao-dien.md`               |
+| T6  | coder      | Khung dự án (cấu trúc thư mục, stack đề xuất, scaffold)                              | `app/`                                        |
 
 ## 5. Stack đề xuất (định hướng, có thể điều chỉnh)
 

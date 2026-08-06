@@ -15,7 +15,6 @@ const PORT = 3120;
 const base = `http://127.0.0.1:${PORT}`;
 let server;
 let pool;
-let token;
 let userId;
 
 test.before(async () => {
@@ -35,7 +34,6 @@ test.before(async () => {
     body: JSON.stringify({ username: TEST_ADMIN_USERNAME, password: TEST_ADMIN_PASSWORD }),
   });
   const body = await res.json();
-  token = body.token;
   userId = body.user.id;
 
   // Ensure admin has email for forgot-password lookup
@@ -55,7 +53,11 @@ test.after(async () => {
 async function json(path, options = {}) {
   const response = await fetch(`${base}${path}`, options);
   let body = {};
-  try { body = await response.json(); } catch { /* non-JSON response */ }
+  try {
+    body = await response.json();
+  } catch {
+    /* non-JSON response */
+  }
   return { response, body };
 }
 
@@ -93,7 +95,9 @@ test('POST /api/v1/auth/forgot-password tạo token cho user hợp lệ', async 
   assert.ok(body.dev_token, 'dev_token should be returned in dev mode (no SMTP_HOST)');
 
   // Verify token was stored in DB
-  const tokens = await pool.query('SELECT * FROM reset_token WHERE user_id=$1 AND used=false', [userId]);
+  const tokens = await pool.query('SELECT * FROM reset_token WHERE user_id=$1 AND used=false', [
+    userId,
+  ]);
   assert.ok(tokens.rows.length >= 1, 'Should have at least one unused reset token');
   assert.ok(tokens.rows[0].token_hash, 'Token hash should exist');
   assert.ok(tokens.rows[0].expires_at, 'Expiry should exist');
@@ -188,7 +192,10 @@ test('POST /api/v1/auth/reset-password trả 400 cho token không hợp lệ', a
   const { response, body } = await json('/api/v1/auth/reset-password', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ token: 'invalid-token-that-does-not-exist', new_password: 'NewPass123' }),
+    body: JSON.stringify({
+      token: 'invalid-token-that-does-not-exist',
+      new_password: 'NewPass123',
+    }),
   });
   assert.equal(response.status, 400);
   assert.match(body.error, /không hợp lệ|hết hạn/);
@@ -215,7 +222,9 @@ test('Quy trình đầy đủ: forgot → reset → đăng nhập bằng mật k
   assert.match(resetBody.message, /thành công/);
 
   // Verify the token is now marked as used
-  const usedToken = await pool.query('SELECT used FROM reset_token WHERE token_hash=$1', [tokenHash]);
+  const usedToken = await pool.query('SELECT used FROM reset_token WHERE token_hash=$1', [
+    tokenHash,
+  ]);
   assert.equal(usedToken.rows[0].used, true);
 
   // Login with new password

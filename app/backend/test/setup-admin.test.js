@@ -5,7 +5,6 @@ const { buildApp, createPool } = require('../server');
 const { TEST_ADMIN_PASSWORD } = require('./test-config');
 
 const PORT = 0;
-const base = `http://127.0.0.1:${PORT}`;
 let server;
 let pool;
 
@@ -31,7 +30,11 @@ test.before(async () => {
   await pool.query('DELETE FROM bao_cao_vi_pham');
   await pool.query('DELETE FROM user_roles');
   await pool.query('DELETE FROM audit_log');
-  try { await pool.query('DELETE FROM token_blocklist'); } catch (_) { /* table may not exist */ }
+  try {
+    await pool.query('DELETE FROM token_blocklist');
+  } catch {
+    /* table may not exist */
+  }
   await pool.query('DELETE FROM users');
   await new Promise((resolve, reject) => {
     server = buildApp({ pool }).listen(PORT, '127.0.0.1');
@@ -60,11 +63,19 @@ test('tạo admin đầu tiên thành công + auto-login', async () => {
       password: TEST_ADMIN_PASSWORD,
       full_name: 'Quản trị viên hệ thống',
       email: 'admin@qlttxd.local',
-      phone: '0901000001'
-    })
+      phone: '0901000001',
+    }),
   });
-  console.error('[DEBUG] setup-admin response:', result.response.status, JSON.stringify(result.body));
-  console.error('[DEBUG] setup-admin response:', result.response.status, JSON.stringify(result.body));
+  console.error(
+    '[DEBUG] setup-admin response:',
+    result.response.status,
+    JSON.stringify(result.body)
+  );
+  console.error(
+    '[DEBUG] setup-admin response:',
+    result.response.status,
+    JSON.stringify(result.body)
+  );
   assert.equal(result.response.status, 201);
   assert.ok(result.body.token);
   assert.equal(result.body.user.username, 'admin');
@@ -80,8 +91,8 @@ test('gọi lần 2 → 409 (admin đã tồn tại)', async () => {
       username: 'admin2',
       password: TEST_ADMIN_PASSWORD,
       full_name: 'Admin khác',
-      email: 'admin2@qlttxd.local'
-    })
+      email: 'admin2@qlttxd.local',
+    }),
   });
   assert.equal(result.response.status, 409);
   assert.match(result.body.error, /đã tồn tại/);
@@ -102,8 +113,8 @@ test('password yếu → 400', async () => {
       username: 'test',
       password: 'short',
       full_name: 'Test User',
-      email: 'test@test.com'
-    })
+      email: 'test@test.com',
+    }),
   });
   assert.equal(result.response.status, 400);
   assert.match(result.body.error, /8 ký tự/);
@@ -116,8 +127,8 @@ test('password yếu → 400', async () => {
       username: 'test',
       password: 'NoNumberHere',
       full_name: 'Test User',
-      email: 'test@test.com'
-    })
+      email: 'test@test.com',
+    }),
   });
   assert.equal(result.response.status, 400);
   assert.match(result.body.error, /chữ số/);
@@ -130,8 +141,8 @@ test('password yếu → 400', async () => {
       username: 'test',
       password: '12345678',
       full_name: 'Test User',
-      email: 'test@test.com'
-    })
+      email: 'test@test.com',
+    }),
   });
   assert.equal(result.response.status, 400);
   assert.match(result.body.error, /chữ/);
@@ -144,8 +155,8 @@ test('thiếu full_name → 400', async () => {
     body: JSON.stringify({
       username: 'test',
       password: 'Valid@2026',
-      email: 'test@test.com'
-    })
+      email: 'test@test.com',
+    }),
   });
   assert.equal(result.response.status, 400);
   assert.match(result.body.error, /Họ tên/);
@@ -158,8 +169,8 @@ test('thiếu cả email và phone → 400', async () => {
     body: JSON.stringify({
       username: 'test',
       password: 'Valid@2026',
-      full_name: 'Test User'
-    })
+      full_name: 'Test User',
+    }),
   });
   assert.equal(result.response.status, 400);
   assert.match(result.body.error, /Email hoặc số điện thoại/);

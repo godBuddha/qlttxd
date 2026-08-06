@@ -25,16 +25,16 @@ env PGHOST=/tmp PGPORT=5432 PGDATABASE=qlttxd PGUSER=postgres \
 
 ## Kết quả end-to-end (backend chạy thật trên port 3101 trong test)
 
-| Bước | Kết quả |
-|---|---|
-| Đăng nhập admin đúng / sai | 200 cùng JWT có quyền `case.update`; mật khẩu sai 401 |
-| Tạo báo cáo | 201, có mã `BC-YYYY-xxxxxx`, Point PostGIS trả `{lat,lng}` |
-| Tạo hồ sơ từ báo cáo | 201, có mã `HS-YYYY-xxxxxx` |
-| Chuyển trạng thái | 200, `cho_tiep_nhan` → `cho_xac_minh` |
-| Lập biên bản | 201, hồ sơ thành `da_lap_bien_ban` |
-| Ban hành quyết định | 201, tính được số tiền phạt và hồ sơ thành `da_ra_quyet_dinh` |
-| Tạo/cập nhật khắc phục | 201/200, hoàn tất chuyển hồ sơ thành `da_khac_phuc` |
-| Thống kê tổng quan | 200, có các mảng theo trạng thái/quận/tháng |
+| Bước                       | Kết quả                                                       |
+| -------------------------- | ------------------------------------------------------------- |
+| Đăng nhập admin đúng / sai | 200 cùng JWT có quyền `case.update`; mật khẩu sai 401         |
+| Tạo báo cáo                | 201, có mã `BC-YYYY-xxxxxx`, Point PostGIS trả `{lat,lng}`    |
+| Tạo hồ sơ từ báo cáo       | 201, có mã `HS-YYYY-xxxxxx`                                   |
+| Chuyển trạng thái          | 200, `cho_tiep_nhan` → `cho_xac_minh`                         |
+| Lập biên bản               | 201, hồ sơ thành `da_lap_bien_ban`                            |
+| Ban hành quyết định        | 201, tính được số tiền phạt và hồ sơ thành `da_ra_quyet_dinh` |
+| Tạo/cập nhật khắc phục     | 201/200, hoàn tất chuyển hồ sơ thành `da_khac_phuc`           |
+| Thống kê tổng quan         | 200, có các mảng theo trạng thái/quận/tháng                   |
 
 Kết quả runner: **3 passed, 0 failed**.
 
@@ -70,13 +70,13 @@ Quy trình production: backup đã được kiểm chứng → deploy backend t�
 
 ### Giải pháp
 
-| # | Thay đổi | File |
-|---|---|---|
-| 1 | Tạo `test/test-config.js` với `TEST_ADMIN_PASSWORD = 'Qlttxd@2026'` | `test/test-config.js` (new) |
-| 2 | Import constant, thay hardcode `Admin@2026` | `test/security-rbac.test.js`, `test/admin-roles.test.js`, `test/admin-users.test.js`, `test/blocklist-integration.test.js`, `test/server.test.js`, `test/setup-admin.test.js` |
-| 3 | Đổi tên `test-setup-e2e.mjs` → `e2e-setup-check.mjs` (loại khỏi runner) | `test-setup-e2e.mjs` → `e2e-setup-check.mjs` |
-| 4 | Sửa password trong E2E script cho khớp | `e2e-setup-check.mjs` |
-| 5 | `--test-concurrency=1` trong package.json | `package.json` |
+| #   | Thay đổi                                                                | File                                                                                                                                                                          |
+| --- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Tạo `test/test-config.js` với `TEST_ADMIN_PASSWORD = 'Qlttxd@2026'`     | `test/test-config.js` (new)                                                                                                                                                   |
+| 2   | Import constant, thay hardcode `Admin@2026`                             | `test/security-rbac.test.js`, `test/admin-roles.test.js`, `test/admin-users.test.js`, `test/blocklist-integration.test.js`, `test/server.test.js`, `test/setup-admin.test.js` |
+| 3   | Đổi tên `test-setup-e2e.mjs` → `e2e-setup-check.mjs` (loại khỏi runner) | `test-setup-e2e.mjs` → `e2e-setup-check.mjs`                                                                                                                                  |
+| 4   | Sửa password trong E2E script cho khớp                                  | `e2e-setup-check.mjs`                                                                                                                                                         |
+| 5   | `--test-concurrency=1` trong package.json                               | `package.json`                                                                                                                                                                |
 
 ### Lệnh kiểm thử
 
@@ -110,11 +110,11 @@ node --test --test-concurrency=1
 bash sql/setup-db.sh qlttxd   # reset về seed sạch
 ```
 
-| Table | Count |
-|---|---|
-| users | 0 |
-| quan_huyen | 6 |
-| phuong_xa | 12 |
+| Table      | Count |
+| ---------- | ----- |
+| users      | 0     |
+| quan_huyen | 6     |
+| phuong_xa  | 12    |
 
 ### Files đã sửa
 
@@ -132,3 +132,37 @@ bash sql/setup-db.sh qlttxd   # reset về seed sạch
 
 - Root-level `test-auth-*.mjs` và `test-proxy-cors.mjs` vẫn được `node --test` pickup (match `test-*.mjs`), nhưng pass vì chỉ console.log và exit 0. Không ảnh hưởng kết quả test nhưng là noise. Có thể rename trong task riêng.
 - `--test-concurrency=1` làm test chạy chậm hơn (~4.6s vs ~1.5s). Chấp nhận được cho CI.
+
+## AUDIT-B1: Backend quick fixes (C-02, C-03, H-11, H-04) — 2026-08-06
+
+### Thay đổi
+
+| #   | Issue        | Thay đổi                                                                                                              | File                                                   |
+| --- | ------------ | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| 1   | C-02         | `PATCH /api/v1/auth/password` giờ gọi `invalidateUserTokens(pool, req.user.id)` sau khi đổi mật khẩu → thu hồi mọi token user (cả token dùng cho request hiện tại). Cập nhật `test/reporting.test.js` để re-login sau khi đổi mật khẩu và assert token cũ bị 401. | `app/backend/routes/auth.js`, `app/backend/test/reporting.test.js` |
+| 2   | C-03         | `app.set('trust proxy', process.env.TRUST_PROXY || 1)` → `req.ip` trả IP thật qua `X-Forwarded-For` khi behind proxy    | `app/backend/server.js`                                |
+| 3   | H-11         | Class mới `ResetTokenCleanup` (timer unref, dọn định kỳ) xóa `reset_token` đã `used` hoặc `expires_at < now() - interval '1 hour'`; khởi tạo trong `buildApp`. | `app/backend/reset-token-cleanup.js` (new), `app/backend/server.js` |
+| 4   | H-04         | Migration `003_add_missing_indexes.sql` tạo 3 index (`idx_bao_cao_nguoi_gui`, `idx_thong_bao_unread` partial, `idx_ho_so_active` partial); thêm cùng index vào `sql/schema.sql`    | `sql/migrations/003_add_missing_indexes.sql` (new), `sql/schema.sql` |
+
+### Test mới (unit, không cần DB)
+
+- `app/backend/test/audit-quick-fixes.test.js`: verify `trust proxy` mặc định = 1 và env `TRUST_PROXY` override.
+- `app/backend/test/reset-token-cleanup.test.js`: verify `_cleanup` xóa used/expired reset_token, không crash khi query lỗi, `destroy` dừng timer.
+
+### Lệnh đã chạy
+
+```sh
+cd /workspace/ssd/qlttxd/app/backend
+node --test --test-concurrency=1 test/reset-token-cleanup.test.js test/audit-quick-fixes.test.js
+# → 5/5 PASS
+npx eslint routes/auth.js server.js reset-token-cleanup.js test/reset-token-cleanup.test.js test/audit-quick-fixes.test.js test/reporting.test.js
+# → LINT CLEAN
+npx prettier --check routes/auth.js server.js reset-token-cleanup.js test/reset-token-cleanup.test.js test/audit-quick-fixes.test.js test/reporting.test.js
+# → CLEAN sau --write
+```
+
+### Hạn chế môi trường (quan trọng)
+
+- Sandbox này **không có PostgreSQL/PostGIS** (không có `psql`, `postgres`, Docker, sudo/root, apt không cài được do thiếu quyền). Do đó **chưa chạy được `node --test` tích hợp đầy đủ** (yêu cầu DB thật qua socket `/tmp`, database `qlttxd`). Bộ tích hợp phụ thuộc DB: `server.test.js`, `reporting.test.js` (đã sửa luồng password C-02), `forgot-password.test.js`...
+- Cần chạy trên môi trường có PostgreSQL 16 + PostGIS: reset DB bằng `bash sql/setup-db.sh qlttxd` rồi `npm test`. Migration `003` sẽ được `scripts/migrate.js` nạp; 3 index tồn tại trong DB là tiêu chí H-04.
+- Đã kiểm chứng ở mức unit (không DB): server `buildApp` nạp được, route đăng ký OK, `trust proxy` đúng, cleanup reset_token đúng SQL.

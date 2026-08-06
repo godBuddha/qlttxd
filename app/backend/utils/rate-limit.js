@@ -10,7 +10,7 @@ function makeLimiter(max) {
     max,
     standardHeaders: true,
     legacyHeaders: false,
-    message: { error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' }
+    message: { error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' },
   });
 }
 

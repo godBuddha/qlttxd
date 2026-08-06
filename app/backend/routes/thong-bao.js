@@ -16,9 +16,14 @@ module.exports = function thongBaoRoutes({ pool, authenticate }) {
          FROM thong_bao WHERE nguoi_nhan_id=$1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
         [req.user.id, limit, offset]
       );
-      const count = await pool.query('SELECT count(*)::int AS total FROM thong_bao WHERE nguoi_nhan_id=$1', [req.user.id]);
+      const count = await pool.query(
+        'SELECT count(*)::int AS total FROM thong_bao WHERE nguoi_nhan_id=$1',
+        [req.user.id]
+      );
       res.json({ data: r.rows, total: count.rows[0].total, page, limit });
-    } catch (e) { next(e); }
+    } catch (e) {
+      next(e);
+    }
   });
 
   // GET /api/v1/thong-bao/unread-count
@@ -29,7 +34,9 @@ module.exports = function thongBaoRoutes({ pool, authenticate }) {
         [req.user.id]
       );
       res.json({ count: r.rows[0].count });
-    } catch (e) { next(e); }
+    } catch (e) {
+      next(e);
+    }
   });
 
   // POST /api/v1/thong-bao/:id/mark-read
@@ -41,7 +48,9 @@ module.exports = function thongBaoRoutes({ pool, authenticate }) {
       );
       if (!r.rows[0]) return res.status(404).json({ error: 'Không tìm thấy thông báo' });
       res.json({ message: 'Đã đánh dấu đã đọc' });
-    } catch (e) { next(e); }
+    } catch (e) {
+      next(e);
+    }
   });
 
   // POST /api/v1/thong-bao/mark-all-read
@@ -52,7 +61,9 @@ module.exports = function thongBaoRoutes({ pool, authenticate }) {
         [req.user.id]
       );
       res.json({ message: 'Đã đánh dấu tất cả đã đọc' });
-    } catch (e) { next(e); }
+    } catch (e) {
+      next(e);
+    }
   });
 
   return router;

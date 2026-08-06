@@ -14,14 +14,14 @@ Hệ thống sử dụng **PostgreSQL 16** làm cơ sở dữ liệu quan hệ c
 chính). Lược đồ được tổ chức theo **6 cụm (module)** logic, mỗi cụm gồm các bảng
 có liên quan chặt chẽ với nhau:
 
-| # | Cụm | Bảng | Mục đích |
-|---|-----|------|----------|
-| 1 | **Nhận dạng & phân quyền (RBAC)** | `users`, `roles`, `permissions`, `user_roles`, `role_permissions` | Tài khoản người dùng và kiểm soát truy cập dựa trên vai trò |
-| 2 | **Đơn vị hành chính (GIS)** | `quan_huyen`, `phuong_xa` | Ranh giới hành chính dạng đa giác phục vụ tra cứu vị trí |
-| 3 | **Danh mục pháp lý** | `loai_vi_pham`, `hanh_vi_vi_pham`, `muc_phat` | Nhóm hành vi, hành vi cụ thể và khung mức phạt theo Điều 16 NĐ16/2022 |
-| 4 | **Hồ sơ xử lý** | `bao_cao_vi_pham`, `ho_so`, `nguoi_vi_pham`, `bien_ban`, `quyet_dinh`, `khac_phuc` | Toàn bộ vòng đời một vụ việc vi phạm |
-| 5 | **Giao tiếp & lưu trữ** | `thong_bao`, `tep_dinh_kem` | Thông báo cho người dân/cán bộ và tệp đính kèm (ảnh, văn bản) |
-| 6 | **Kiểm toán** | `audit_log` | Nhật ký mọi thao tác quan trọng để truy vết |
+| #   | Cụm                               | Bảng                                                                               | Mục đích                                                              |
+| --- | --------------------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| 1   | **Nhận dạng & phân quyền (RBAC)** | `users`, `roles`, `permissions`, `user_roles`, `role_permissions`                  | Tài khoản người dùng và kiểm soát truy cập dựa trên vai trò           |
+| 2   | **Đơn vị hành chính (GIS)**       | `quan_huyen`, `phuong_xa`                                                          | Ranh giới hành chính dạng đa giác phục vụ tra cứu vị trí              |
+| 3   | **Danh mục pháp lý**              | `loai_vi_pham`, `hanh_vi_vi_pham`, `muc_phat`                                      | Nhóm hành vi, hành vi cụ thể và khung mức phạt theo Điều 16 NĐ16/2022 |
+| 4   | **Hồ sơ xử lý**                   | `bao_cao_vi_pham`, `ho_so`, `nguoi_vi_pham`, `bien_ban`, `quyet_dinh`, `khac_phuc` | Toàn bộ vòng đời một vụ việc vi phạm                                  |
+| 5   | **Giao tiếp & lưu trữ**           | `thong_bao`, `tep_dinh_kem`                                                        | Thông báo cho người dân/cán bộ và tệp đính kèm (ảnh, văn bản)         |
+| 6   | **Kiểm toán**                     | `audit_log`                                                                        | Nhật ký mọi thao tác quan trọng để truy vết                           |
 
 ### 1.1 Sơ đồ ERD dạng văn bản
 
@@ -75,27 +75,27 @@ trường `ma_...` (mã hồ sơ, mã biên bản, mã quyết định) để in
 
 ## 2. Danh sách bảng và mô tả
 
-| Bảng | Mô tả ngắn | Liên kết chính |
-|------|-----------|----------------|
-| `users` | Người dùng hệ thống (công dân, cán bộ, lãnh đạo, quản trị) | → `user_roles` |
-| `roles` | Vai trò (citizen, case_handler, verifier, leader, admin) | → `role_permissions` |
-| `permissions` | Quyền hạn cụ thể theo module/hành động | ← `role_permissions` |
-| `user_roles` | Gán vai trò cho người dùng (N:N) | `users`, `roles` |
-| `role_permissions` | Gán quyền cho vai trò (N:N) | `roles`, `permissions` |
-| `quan_huyen` | Quận/huyện, kèm ranh giới đa giác (GIS) | → `phuong_xa` |
-| `phuong_xa` | Phường/xã, kèm ranh giới đa giác (GIS) | `quan_huyen` |
-| `loai_vi_pham` | Nhóm hành vi vi phạm (4 nhóm) | → `hanh_vi_vi_pham` |
-| `hanh_vi_vi_pham` | Hành vi vi phạm cụ thể (khoản 1–13 Điều 16 NĐ16/2022) | `loai_vi_pham`, → `muc_phat` |
-| `muc_phat` | Khung mức phạt theo nhóm công trình (1/2/3) | `hanh_vi_vi_pham` |
-| `bao_cao_vi_pham` | Báo cáo vi phạm do người dân gửi (kèm tọa độ GIS) | → `ho_so` |
-| `ho_so` | Hồ sơ xử lý vụ việc — bảng trung tâm, có state machine | nhiều bảng |
-| `nguoi_vi_pham` | Chủ thể bị xử lý (cá nhân/tổ chức) | ← `ho_so`, `bien_ban` |
-| `bien_ban` | Biên bản vi phạm hành chính | `ho_so`, `nguoi_vi_pham` |
-| `quyet_dinh` | Quyết định xử phạt | `ho_so`, `bien_ban` |
-| `khac_phuc` | Theo dõi biện pháp khắc phục hậu quả | `ho_so`, `quyet_dinh` |
-| `thong_bao` | Thông báo cho người dân/cán bộ | `users`, `ho_so` |
-| `tep_dinh_kem` | Tệp đính kèm (ảnh chứng cứ, văn bản scan) — đa hình | bất kỳ thực thể |
-| `audit_log` | Nhật ký kiểm toán mọi thao tác | bất kỳ thực thể |
+| Bảng               | Mô tả ngắn                                                 | Liên kết chính               |
+| ------------------ | ---------------------------------------------------------- | ---------------------------- |
+| `users`            | Người dùng hệ thống (công dân, cán bộ, lãnh đạo, quản trị) | → `user_roles`               |
+| `roles`            | Vai trò (citizen, case_handler, verifier, leader, admin)   | → `role_permissions`         |
+| `permissions`      | Quyền hạn cụ thể theo module/hành động                     | ← `role_permissions`         |
+| `user_roles`       | Gán vai trò cho người dùng (N:N)                           | `users`, `roles`             |
+| `role_permissions` | Gán quyền cho vai trò (N:N)                                | `roles`, `permissions`       |
+| `quan_huyen`       | Quận/huyện, kèm ranh giới đa giác (GIS)                    | → `phuong_xa`                |
+| `phuong_xa`        | Phường/xã, kèm ranh giới đa giác (GIS)                     | `quan_huyen`                 |
+| `loai_vi_pham`     | Nhóm hành vi vi phạm (4 nhóm)                              | → `hanh_vi_vi_pham`          |
+| `hanh_vi_vi_pham`  | Hành vi vi phạm cụ thể (khoản 1–13 Điều 16 NĐ16/2022)      | `loai_vi_pham`, → `muc_phat` |
+| `muc_phat`         | Khung mức phạt theo nhóm công trình (1/2/3)                | `hanh_vi_vi_pham`            |
+| `bao_cao_vi_pham`  | Báo cáo vi phạm do người dân gửi (kèm tọa độ GIS)          | → `ho_so`                    |
+| `ho_so`            | Hồ sơ xử lý vụ việc — bảng trung tâm, có state machine     | nhiều bảng                   |
+| `nguoi_vi_pham`    | Chủ thể bị xử lý (cá nhân/tổ chức)                         | ← `ho_so`, `bien_ban`        |
+| `bien_ban`         | Biên bản vi phạm hành chính                                | `ho_so`, `nguoi_vi_pham`     |
+| `quyet_dinh`       | Quyết định xử phạt                                         | `ho_so`, `bien_ban`          |
+| `khac_phuc`        | Theo dõi biện pháp khắc phục hậu quả                       | `ho_so`, `quyet_dinh`        |
+| `thong_bao`        | Thông báo cho người dân/cán bộ                             | `users`, `ho_so`             |
+| `tep_dinh_kem`     | Tệp đính kèm (ảnh chứng cứ, văn bản scan) — đa hình        | bất kỳ thực thể              |
+| `audit_log`        | Nhật ký kiểm toán mọi thao tác                             | bất kỳ thực thể              |
 
 ---
 
@@ -105,17 +105,17 @@ trường `ma_...` (mã hồ sơ, mã biên bản, mã quyết định) để in
 
 **Bảng `users`**
 
-| Cột | Kiểu dữ liệu | Khóa/Ràng buộc | Ghi chú |
-|-----|-------------|----------------|---------|
-| `id` | `UUID` | PK, default `gen_random_uuid()` | Khóa chính |
-| `username` | `CITEXT` | UNIQUE, NOT NULL | Không phân biệt hoa thường |
-| `email` | `CITEXT` | UNIQUE | |
-| `phone` | `VARCHAR(20)` | UNIQUE | |
-| `full_name` | `VARCHAR(200)` | NOT NULL | |
-| `password_hash` | `TEXT` | NOT NULL | Băm argon2id/bcrypt |
-| `is_active` | `BOOLEAN` | NOT NULL, default TRUE | Khóa tài khoản |
-| `last_login_at` | `TIMESTAMPTZ` | | Lần đăng nhập gần nhất |
-| `created_at` / `updated_at` | `TIMESTAMPTZ` | NOT NULL, default now() | Trigger cập nhật `updated_at` |
+| Cột                         | Kiểu dữ liệu   | Khóa/Ràng buộc                  | Ghi chú                       |
+| --------------------------- | -------------- | ------------------------------- | ----------------------------- |
+| `id`                        | `UUID`         | PK, default `gen_random_uuid()` | Khóa chính                    |
+| `username`                  | `CITEXT`       | UNIQUE, NOT NULL                | Không phân biệt hoa thường    |
+| `email`                     | `CITEXT`       | UNIQUE                          |                               |
+| `phone`                     | `VARCHAR(20)`  | UNIQUE                          |                               |
+| `full_name`                 | `VARCHAR(200)` | NOT NULL                        |                               |
+| `password_hash`             | `TEXT`         | NOT NULL                        | Băm argon2id/bcrypt           |
+| `is_active`                 | `BOOLEAN`      | NOT NULL, default TRUE          | Khóa tài khoản                |
+| `last_login_at`             | `TIMESTAMPTZ`  |                                 | Lần đăng nhập gần nhất        |
+| `created_at` / `updated_at` | `TIMESTAMPTZ`  | NOT NULL, default now()         | Trigger cập nhật `updated_at` |
 
 Ràng buộc `CHECK (email IS NOT NULL OR phone IS NOT NULL)` đảm bảo có ít nhất
 một kênh liên hệ.
@@ -132,13 +132,13 @@ một kênh liên hệ.
 
 **Bảng `quan_huyen`**
 
-| Cột | Kiểu dữ liệu | Ràng buộc | Ghi chú |
-|-----|-------------|-----------|---------|
-| `id` | `UUID` | PK | |
-| `ma` | `VARCHAR(20)` | UNIQUE, NOT NULL | Mã đơn vị hành chính |
-| `ten` | `VARCHAR(200)` | NOT NULL | Tên quận/huyện |
-| `boundary` | `GEOMETRY(MultiPolygon, 4326)` | | Ranh giới, có GIST index |
-| `created_at` | `TIMESTAMPTZ` | NOT NULL | |
+| Cột          | Kiểu dữ liệu                   | Ràng buộc        | Ghi chú                  |
+| ------------ | ------------------------------ | ---------------- | ------------------------ |
+| `id`         | `UUID`                         | PK               |                          |
+| `ma`         | `VARCHAR(20)`                  | UNIQUE, NOT NULL | Mã đơn vị hành chính     |
+| `ten`        | `VARCHAR(200)`                 | NOT NULL         | Tên quận/huyện           |
+| `boundary`   | `GEOMETRY(MultiPolygon, 4326)` |                  | Ranh giới, có GIST index |
+| `created_at` | `TIMESTAMPTZ`                  | NOT NULL         |                          |
 
 **Bảng `phuong_xa`** tương tự, thêm cột `quan_huyen_id` (FK → `quan_huyen`,
 `ON DELETE CASCADE`). Cả hai bảng có `GIST` index trên cột `boundary` để phục vụ
@@ -153,17 +153,17 @@ Cột: `id`, `code` (UNIQUE), `ten`, `mo_ta`, `so_thu_tu`, `created_at`.
 
 **Bảng `hanh_vi_vi_pham`**
 
-| Cột | Kiểu | Ràng buộc | Ghi chú |
-|-----|------|-----------|---------|
-| `id` | `UUID` | PK | |
-| `loai_vi_pham_id` | `UUID` | FK → `loai_vi_pham` | |
-| `dieu` | `VARCHAR(10)` | NOT NULL, default `'16'` | |
-| `khoan` | `VARCHAR(10)` | NOT NULL | Khoản 1..13 |
-| `diem` | `VARCHAR(10)` | | Điểm a/b/c nếu có |
-| `ten` | `VARCHAR(500)` | NOT NULL | Mô tả ngắn hành vi |
-| `mo_ta` | `TEXT` | | Mô tả đầy đủ |
-| `is_active` | `BOOLEAN` | NOT NULL, default TRUE | |
-| `created_at` | `TIMESTAMPTZ` | | |
+| Cột               | Kiểu           | Ràng buộc                | Ghi chú            |
+| ----------------- | -------------- | ------------------------ | ------------------ |
+| `id`              | `UUID`         | PK                       |                    |
+| `loai_vi_pham_id` | `UUID`         | FK → `loai_vi_pham`      |                    |
+| `dieu`            | `VARCHAR(10)`  | NOT NULL, default `'16'` |                    |
+| `khoan`           | `VARCHAR(10)`  | NOT NULL                 | Khoản 1..13        |
+| `diem`            | `VARCHAR(10)`  |                          | Điểm a/b/c nếu có  |
+| `ten`             | `VARCHAR(500)` | NOT NULL                 | Mô tả ngắn hành vi |
+| `mo_ta`           | `TEXT`         |                          | Mô tả đầy đủ       |
+| `is_active`       | `BOOLEAN`      | NOT NULL, default TRUE   |                    |
+| `created_at`      | `TIMESTAMPTZ`  |                          |                    |
 
 Ràng buộc `UNIQUE (dieu, khoan, diem)` chống trùng hành vi. Seed dữ liệu theo
 đúng Điều 16 gồm 12 hành vi (khoản 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13; khoản
@@ -172,14 +172,14 @@ không phải hành vi).
 
 **Bảng `muc_phat`** — khung mức phạt theo **nhóm công trình**:
 
-| Cột | Kiểu | Ràng buộc | Ghi chú |
-|-----|------|-----------|---------|
-| `id` | `UUID` | PK | |
-| `hanh_vi_id` | `UUID` | FK → `hanh_vi_vi_pham`, CASCADE | |
-| `nhom_cong_trinh` | `INT` | CHECK IN (1,2,3) | Nhóm 1/2/3 |
-| `muc_toi_thieu` | `BIGINT` | CHECK ≥ 0 | Đơn vị: đồng |
-| `muc_toi_da` | `BIGINT` | CHECK ≥ `muc_toi_thieu` | |
-| `created_at` | `TIMESTAMPTZ` | | |
+| Cột               | Kiểu          | Ràng buộc                       | Ghi chú      |
+| ----------------- | ------------- | ------------------------------- | ------------ |
+| `id`              | `UUID`        | PK                              |              |
+| `hanh_vi_id`      | `UUID`        | FK → `hanh_vi_vi_pham`, CASCADE |              |
+| `nhom_cong_trinh` | `INT`         | CHECK IN (1,2,3)                | Nhóm 1/2/3   |
+| `muc_toi_thieu`   | `BIGINT`      | CHECK ≥ 0                       | Đơn vị: đồng |
+| `muc_toi_da`      | `BIGINT`      | CHECK ≥ `muc_toi_thieu`         |              |
+| `created_at`      | `TIMESTAMPTZ` |                                 |              |
 
 `UNIQUE (hanh_vi_id, nhom_cong_trinh)`. **Quy tắc nghiệp vụ quan trọng**: giá trị
 lưu trong `muc_phat` là mức phạt dành cho **tổ chức**; khi chủ thể là **cá nhân**,
@@ -285,8 +285,8 @@ quan hệ tham chiếu) để tránh dữ liệu mồ côi.
 ## 5. Lược đồ trạng thái hồ sơ (state machine)
 
 Bảng `ho_so` dùng enum `trang_thai_ho_so` để quản lý vòng đời một vụ việc, khớp
-với quy trình nghiệp vụ: *tiếp nhận → xác minh → lập biên bản → ra quyết định →
-theo dõi khắc phục → đóng hồ sơ* (mục 9, tài liệu đặc tả).
+với quy trình nghiệp vụ: _tiếp nhận → xác minh → lập biên bản → ra quyết định →
+theo dõi khắc phục → đóng hồ sơ_ (mục 9, tài liệu đặc tả).
 
 ```
              (người dân gửi)             (cán bộ tiếp nhận)
@@ -319,21 +319,21 @@ theo dõi khắc phục → đóng hồ sơ* (mục 9, tài liệu đặc tả).
 
 **Mô tả các trạng thái:**
 
-| Trạng thái | Ý nghĩa |
-|-----------|---------|
-| `cho_tiep_nhan` | Báo cáo mới gửi, chờ cán bộ tiếp nhận (mặc định khi tạo hồ sơ) |
-| `cho_xac_minh` | Đã tiếp nhận, xếp hàng chờ xác minh |
-| `dang_xac_minh` | Cán bộ xác minh, phân loại hành vi |
-| `cho_bo_sung` | Thiếu thông tin, yêu cầu bổ sung (quay lại xác minh khi đủ) |
-| `cho_lap_bien_ban` | Xác minh có căn cứ, đủ điều kiện lập biên bản |
-| `da_lap_bien_ban` | Đã lập biên bản vi phạm |
-| `cho_ra_quyet_dinh` | Chờ ban hành quyết định xử phạt |
-| `da_ra_quyet_dinh` | Đã ban hành quyết định xử phạt |
+| Trạng thái          | Ý nghĩa                                                               |
+| ------------------- | --------------------------------------------------------------------- |
+| `cho_tiep_nhan`     | Báo cáo mới gửi, chờ cán bộ tiếp nhận (mặc định khi tạo hồ sơ)        |
+| `cho_xac_minh`      | Đã tiếp nhận, xếp hàng chờ xác minh                                   |
+| `dang_xac_minh`     | Cán bộ xác minh, phân loại hành vi                                    |
+| `cho_bo_sung`       | Thiếu thông tin, yêu cầu bổ sung (quay lại xác minh khi đủ)           |
+| `cho_lap_bien_ban`  | Xác minh có căn cứ, đủ điều kiện lập biên bản                         |
+| `da_lap_bien_ban`   | Đã lập biên bản vi phạm                                               |
+| `cho_ra_quyet_dinh` | Chờ ban hành quyết định xử phạt                                       |
+| `da_ra_quyet_dinh`  | Đã ban hành quyết định xử phạt                                        |
 | `cho_duyet_dieu_81` | Công trình đang thi công, xử lý theo quy trình Điều 81 (hợp pháp hóa) |
-| `dang_khac_phuc` | Theo dõi thực hiện biện pháp khắc phục hậu quả |
-| `da_khac_phuc` | Đã khắc phục xong, chờ kiểm tra lại |
-| `da_dong` | Đóng hồ sơ (hoàn tất) — trạng thái cuối |
-| `da_huy` | Hủy (không đủ cơ sở, ngoài thẩm quyền, thuộc pháp luật đất đai...) |
+| `dang_khac_phuc`    | Theo dõi thực hiện biện pháp khắc phục hậu quả                        |
+| `da_khac_phuc`      | Đã khắc phục xong, chờ kiểm tra lại                                   |
+| `da_dong`           | Đóng hồ sơ (hoàn tất) — trạng thái cuối                               |
+| `da_huy`            | Hủy (không đủ cơ sở, ngoài thẩm quyền, thuộc pháp luật đất đai...)    |
 
 Các trạng thái `da_dong` và `da_huy` là **trạng thái cuối** (không chuyển tiếp ra
 ngoài). Trong lược đồ hiện tại, việc **kiểm soát chuyển tiếp hợp lệ** được thực

@@ -30,7 +30,11 @@ test.after(async () => {
 async function json(path, options = {}) {
   const response = await fetch(`${base}${path}`, options);
   let body = {};
-  try { body = await response.json(); } catch { /* may not return JSON */ }
+  try {
+    body = await response.json();
+  } catch {
+    /* may not return JSON */
+  }
   return { response, body };
 }
 
@@ -93,7 +97,9 @@ test('setup: create a case to assign', async () => {
   assert.equal(report.response.status, 201);
 
   const categories = await json('/api/v1/danh-muc/loai-vi-pham');
-  const types = await json(`/api/v1/danh-muc/hanh-vi?loai_vi_pham_id=${categories.body.data[0].id}`);
+  const types = await json(
+    `/api/v1/danh-muc/hanh-vi?loai_vi_pham_id=${categories.body.data[0].id}`
+  );
   const created = await json('/api/v1/ho-so', {
     method: 'POST',
     headers: { ...headers, 'content-type': 'application/json' },

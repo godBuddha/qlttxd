@@ -7,6 +7,7 @@ Ngày kiểm thử: 2026-08-03
 ### Backend (server.js)
 
 **Public endpoints (không auth):**
+
 - `GET /api/v1/auth/setup-status` → `{ needsSetup: true/false }` — kiểm tra xem hệ thống đã có admin chưa
 - `POST /api/v1/auth/setup-admin` → tạo admin đầu tiên + auto-login (trả token+user)
   - Validate: username 3-50, password ≥8 có chữ+chữ số, full_name, email hoặc phone
@@ -14,6 +15,7 @@ Ngày kiểm thử: 2026-08-03
   - Đã có admin → 409
 
 **Admin endpoints (require `admin.users` permission):**
+
 - `GET /api/v1/admin/users` — danh sách user + roles (KHÔNG trả password_hash)
 - `POST /api/v1/admin/users` — tạo user: username, full_name, email, phone, password, is_active, roles[]
 - `PATCH /api/v1/admin/users/:id` — sửa: full_name, email, phone, is_active, roles[], password
@@ -22,6 +24,7 @@ Ngày kiểm thử: 2026-08-03
 - `GET /api/v1/admin/permissions` — toàn bộ permissions nhóm theo module
 
 **Ràng buộc bảo mật:**
+
 - Không cho khóa/xóa admin cuối cùng (đếm user có role admin >= 2 mới cho phép)
 - Không cho tự gỡ quyền admin khi chỉ còn 1 admin
 - Audit log cho mọi hành động tạo/sửa user, sửa role permissions
@@ -55,13 +58,13 @@ node --test test/security-rbac.test.js
 
 ## Kết quả test
 
-| Test file | Kết quả |
-|---|---|
-| setup-admin.test.js | 7/7 PASS |
-| server.test.js | 4/4 PASS |
-| admin-users.test.js | 11/11 PASS |
-| admin-roles.test.js | 6/6 PASS |
-| security-rbac.test.js | 5/5 PASS |
+| Test file             | Kết quả    |
+| --------------------- | ---------- |
+| setup-admin.test.js   | 7/7 PASS   |
+| server.test.js        | 4/4 PASS   |
+| admin-users.test.js   | 11/11 PASS |
+| admin-roles.test.js   | 6/6 PASS   |
+| security-rbac.test.js | 5/5 PASS   |
 
 **Tổng: 33/33 test PASS**
 

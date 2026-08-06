@@ -1,13 +1,64 @@
 'use strict';
 
 const express = require('express');
+const swaggerUiDistPath = require('swagger-ui-dist').getAbsoluteFSPath();
+
+// Swagger UI bootstrap script, served as an EXTERNAL same-origin file so the
+// HTML page stays CSP-compliant (server.js enforces script-src 'self' — inline
+// <script> and 'unsafe-inline' are rejected). It runs once swagger-ui bundles
+// (loaded before it) have defined the SwaggerUIBundle globals.
+const SWAGGER_INIT_JS = `(function () {
+  window.addEventListener('load', function () {
+    window.ui = SwaggerUIBundle({
+      url: '/api/v1/docs',
+      dom_id: '#swagger-ui',
+      deepLinking: true,
+      presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+      plugins: [SwaggerUIBundle.plugins.DownloadUrl],
+      layout: 'StandaloneLayout'
+    });
+  });
+})();
+`;
+
+const SWAGGER_HTML = `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>QLTTXD API Docs</title>
+  <link rel="stylesheet" type="text/css" href="/api/docs/assets/swagger-ui.css">
+  <style>
+    html { box-sizing: border-box; overflow: -moz-scrollbars-vertical; overflow-y: scroll; }
+    *, *:before, *:after { box-sizing: inherit; }
+    body { margin: 0; background: #fafafa; }
+  </style>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="/api/docs/assets/swagger-ui-bundle.js"></script>
+  <script src="/api/docs/assets/swagger-ui-standalone-preset.js"></script>
+  <script src="/api/docs/swagger-init.js"></script>
+</body>
+</html>
+`;
 
 module.exports = function docsRoutes() {
   const router = express.Router();
 
-  // GET /api/v1/docs — returns OpenAPI 3.0 spec (JSON)
+  // GET /api/v1/docs — OpenAPI 3.0 spec (JSON)
   router.get('/api/v1/docs', (_req, res) => {
     res.json(openApiSpec);
+  });
+
+  // GET /api/docs — Swagger UI (HTML).
+  // Swagger UI assets are served locally (same-origin) so the UI renders under
+  // the strict helmet CSP without weakening it (no CDN, no inline scripts).
+  router.use('/api/docs/assets', express.static(swaggerUiDistPath));
+  router.get('/api/docs/swagger-init.js', (_req, res) => {
+    res.type('application/javascript').send(SWAGGER_INIT_JS);
+  });
+  router.get('/api/docs', (_req, res) => {
+    res.type('text/html').send(SWAGGER_HTML);
   });
 
   return router;
@@ -21,7 +72,7 @@ const openApiSpec = {
   info: {
     title: 'QLTTXD API',
     description: 'API quản lý trật tự xây dựng — Hệ thống Quản lý Trật tự Xây dựng (QLTTXD)',
-    version: '0.2.1',
+    version: '0.3.2',
     contact: { name: 'QLTTXD Team' },
   },
   servers: [{ url: '/api/v1', description: 'API v1' }],
@@ -57,7 +108,22 @@ const openApiSpec = {
         properties: {
           id: { type: 'string', format: 'uuid' },
           ma_ho_so: { type: 'string' },
-          trang_thai: { type: 'string', enum: ['moi', 'cho_lap_bien_ban', 'da_lap_bien_ban', 'cho_ra_quyet_dinh', 'da_ra_quyet_dinh', 'dang_khac_phuc', 'da_khac_phuc', 'da_dong', 'da_huy', 'cho_bo_sung', 'cho_duyet_dieu_81'] },
+          trang_thai: {
+            type: 'string',
+            enum: [
+              'moi',
+              'cho_lap_bien_ban',
+              'da_lap_bien_ban',
+              'cho_ra_quyet_dinh',
+              'da_ra_quyet_dinh',
+              'dang_khac_phuc',
+              'da_khac_phuc',
+              'da_dong',
+              'da_huy',
+              'cho_bo_sung',
+              'cho_duyet_dieu_81',
+            ],
+          },
           dia_chi: { type: 'string' },
           mo_ta: { type: 'string' },
           thoi_gian_xay_ra: { type: 'string', format: 'date-time' },
@@ -119,7 +185,24 @@ const openApiSpec = {
         tags: ['System'],
         summary: 'Health check',
         security: [],
-        responses: { 200: { description: 'Server healthy', content: { 'application/json': { schema: { type: 'object', properties: { status: { type: 'string' }, db: { type: 'string' }, uptime: { type: 'integer' }, version: { type: 'string' } } } } } } },
+        responses: {
+          200: {
+            description: 'Server healthy',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    status: { type: 'string' },
+                    db: { type: 'string' },
+                    uptime: { type: 'integer' },
+                    version: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     },
 
@@ -129,7 +212,16 @@ const openApiSpec = {
         tags: ['Auth'],
         summary: 'Check if admin setup is needed',
         security: [],
-        responses: { 200: { description: 'Setup status', content: { 'application/json': { schema: { type: 'object', properties: { needsSetup: { type: 'boolean' } } } } } } },
+        responses: {
+          200: {
+            description: 'Setup status',
+            content: {
+              'application/json': {
+                schema: { type: 'object', properties: { needsSetup: { type: 'boolean' } } },
+              },
+            },
+          },
+        },
       },
     },
     '/auth/setup-admin': {
@@ -139,9 +231,26 @@ const openApiSpec = {
         security: [],
         requestBody: {
           required: true,
-          content: { 'application/json': { schema: { type: 'object', required: ['username', 'password', 'full_name'], properties: { username: { type: 'string', minLength: 3, maxLength: 50 }, password: { type: 'string', minLength: 8 }, full_name: { type: 'string' }, email: { type: 'string', format: 'email' }, phone: { type: 'string' } } } } },
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['username', 'password', 'full_name'],
+                properties: {
+                  username: { type: 'string', minLength: 3, maxLength: 50 },
+                  password: { type: 'string', minLength: 8 },
+                  full_name: { type: 'string' },
+                  email: { type: 'string', format: 'email' },
+                  phone: { type: 'string' },
+                },
+              },
+            },
+          },
         },
-        responses: { 201: { description: 'Admin created with token' }, 409: { description: 'Admin already exists' } },
+        responses: {
+          201: { description: 'Admin created with token' },
+          409: { description: 'Admin already exists' },
+        },
       },
     },
     '/auth/login': {
@@ -151,9 +260,33 @@ const openApiSpec = {
         security: [],
         requestBody: {
           required: true,
-          content: { 'application/json': { schema: { type: 'object', required: ['username', 'password'], properties: { username: { type: 'string' }, password: { type: 'string' } } } } },
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['username', 'password'],
+                properties: { username: { type: 'string' }, password: { type: 'string' } },
+              },
+            },
+          },
         },
-        responses: { 200: { description: 'Login successful', content: { 'application/json': { schema: { type: 'object', properties: { token: { type: 'string' }, user: { '$ref': '#/components/schemas/User' } } } } } }, 401: { description: 'Invalid credentials' } },
+        responses: {
+          200: {
+            description: 'Login successful',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    token: { type: 'string' },
+                    user: { $ref: '#/components/schemas/User' },
+                  },
+                },
+              },
+            },
+          },
+          401: { description: 'Invalid credentials' },
+        },
       },
     },
     '/auth/logout': {
@@ -167,7 +300,19 @@ const openApiSpec = {
       get: {
         tags: ['Auth'],
         summary: 'Get current user profile',
-        responses: { 200: { description: 'Current user', content: { 'application/json': { schema: { type: 'object', properties: { user: { '$ref': '#/components/schemas/User' } } } } } } },
+        responses: {
+          200: {
+            description: 'Current user',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: { user: { $ref: '#/components/schemas/User' } },
+                },
+              },
+            },
+          },
+        },
       },
     },
     '/auth/password': {
@@ -176,9 +321,23 @@ const openApiSpec = {
         summary: 'Change own password',
         requestBody: {
           required: true,
-          content: { 'application/json': { schema: { type: 'object', required: ['old_password', 'new_password'], properties: { old_password: { type: 'string' }, new_password: { type: 'string', minLength: 8 } } } } },
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['old_password', 'new_password'],
+                properties: {
+                  old_password: { type: 'string' },
+                  new_password: { type: 'string', minLength: 8 },
+                },
+              },
+            },
+          },
         },
-        responses: { 200: { description: 'Password changed' }, 401: { description: 'Old password incorrect' } },
+        responses: {
+          200: { description: 'Password changed' },
+          401: { description: 'Old password incorrect' },
+        },
       },
     },
     '/auth/forgot-password': {
@@ -188,7 +347,15 @@ const openApiSpec = {
         security: [],
         requestBody: {
           required: true,
-          content: { 'application/json': { schema: { type: 'object', required: ['identifier'], properties: { identifier: { type: 'string', description: 'Username or email' } } } } },
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['identifier'],
+                properties: { identifier: { type: 'string', description: 'Username or email' } },
+              },
+            },
+          },
         },
         responses: { 200: { description: 'Reset instructions sent (always returns success)' } },
       },
@@ -200,30 +367,82 @@ const openApiSpec = {
         security: [],
         requestBody: {
           required: true,
-          content: { 'application/json': { schema: { type: 'object', required: ['token', 'new_password'], properties: { token: { type: 'string' }, new_password: { type: 'string', minLength: 8 } } } } },
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['token', 'new_password'],
+                properties: {
+                  token: { type: 'string' },
+                  new_password: { type: 'string', minLength: 8 },
+                },
+              },
+            },
+          },
         },
-        responses: { 200: { description: 'Password reset successful' }, 400: { description: 'Invalid or expired token' } },
+        responses: {
+          200: { description: 'Password reset successful' },
+          400: { description: 'Invalid or expired token' },
+        },
       },
     },
 
     // ── Danh mục (catalogs — public) ───────────────────────────────────────
     '/danh-muc/loai-vi-pham': {
-      get: { tags: ['Danh mục'], summary: 'List loại vi phạm', security: [], responses: { 200: { description: 'OK' } } },
+      get: {
+        tags: ['Danh mục'],
+        summary: 'List loại vi phạm',
+        security: [],
+        responses: { 200: { description: 'OK' } },
+      },
     },
     '/danh-muc/hanh-vi': {
-      get: { tags: ['Danh mục'], summary: 'List hành vi vi phạm', security: [], parameters: [{ name: 'loai_vi_pham_id', in: 'query', schema: { type: 'string', format: 'uuid' } }], responses: { 200: { description: 'OK' } } },
+      get: {
+        tags: ['Danh mục'],
+        summary: 'List hành vi vi phạm',
+        security: [],
+        parameters: [
+          { name: 'loai_vi_pham_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: { 200: { description: 'OK' } },
+      },
     },
     '/danh-muc/muc-phat': {
-      get: { tags: ['Danh mục'], summary: 'List mức phạt', security: [], parameters: [{ name: 'hanh_vi_id', in: 'query', schema: { type: 'string', format: 'uuid' } }], responses: { 200: { description: 'OK' } } },
+      get: {
+        tags: ['Danh mục'],
+        summary: 'List mức phạt',
+        security: [],
+        parameters: [
+          { name: 'hanh_vi_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: { 200: { description: 'OK' } },
+      },
     },
     '/danh-muc/quan-huyen': {
-      get: { tags: ['Danh mục'], summary: 'List quận/huyện', security: [], responses: { 200: { description: 'OK' } } },
+      get: {
+        tags: ['Danh mục'],
+        summary: 'List quận/huyện',
+        security: [],
+        responses: { 200: { description: 'OK' } },
+      },
     },
     '/danh-muc/phuong-xa': {
-      get: { tags: ['Danh mục'], summary: 'List phường/xã', security: [], parameters: [{ name: 'quan_huyen_id', in: 'query', schema: { type: 'string', format: 'uuid' } }], responses: { 200: { description: 'OK' } } },
+      get: {
+        tags: ['Danh mục'],
+        summary: 'List phường/xã',
+        security: [],
+        parameters: [
+          { name: 'quan_huyen_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: { 200: { description: 'OK' } },
+      },
     },
     '/danh-muc/can-bo': {
-      get: { tags: ['Danh mục'], summary: 'List cán bộ xử lý (case_handler)', responses: { 200: { description: 'OK' } } },
+      get: {
+        tags: ['Danh mục'],
+        summary: 'List cán bộ xử lý (case_handler)',
+        responses: { 200: { description: 'OK' } },
+      },
     },
 
     // ── Báo cáo (reports) ──────────────────────────────────────────────────
@@ -253,7 +472,10 @@ const openApiSpec = {
             },
           },
         },
-        responses: { 201: { description: 'Report created' }, 400: { description: 'Validation error' } },
+        responses: {
+          201: { description: 'Report created' },
+          400: { description: 'Validation error' },
+        },
       },
       get: {
         tags: ['Báo cáo'],
@@ -265,7 +487,9 @@ const openApiSpec = {
       get: {
         tags: ['Báo cáo'],
         summary: 'Get report detail',
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
         responses: { 200: { description: 'OK' }, 404: { description: 'Not found' } },
       },
     },
@@ -273,8 +497,13 @@ const openApiSpec = {
       post: {
         tags: ['Báo cáo'],
         summary: 'Convert report to case (ho_so)',
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
-        responses: { 201: { description: 'Case created from report' }, 409: { description: 'Already converted' } },
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          201: { description: 'Case created from report' },
+          409: { description: 'Already converted' },
+        },
       },
     },
 
@@ -285,7 +514,35 @@ const openApiSpec = {
         summary: 'Create a new case',
         requestBody: {
           required: true,
-          content: { 'application/json': { schema: { type: 'object', properties: { bao_cao_id: { type: 'string', format: 'uuid' }, loai_vi_pham_id: { type: 'string', format: 'uuid' }, hanh_vi_id: { type: 'string', format: 'uuid' }, dia_chi: { type: 'string' }, mo_ta: { type: 'string' }, lat: { type: 'number' }, lng: { type: 'number' }, thoi_gian_xay_ra: { type: 'string', format: 'date-time' }, nguoi_vi_pham: { type: 'object', properties: { loai_chu_the: { type: 'string' }, ten: { type: 'string' }, cmnd_cccd: { type: 'string' }, dia_chi: { type: 'string' }, sdt: { type: 'string' }, email: { type: 'string' }, nguoi_dai_dien: { type: 'string' } } } } } } },
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  bao_cao_id: { type: 'string', format: 'uuid' },
+                  loai_vi_pham_id: { type: 'string', format: 'uuid' },
+                  hanh_vi_id: { type: 'string', format: 'uuid' },
+                  dia_chi: { type: 'string' },
+                  mo_ta: { type: 'string' },
+                  lat: { type: 'number' },
+                  lng: { type: 'number' },
+                  thoi_gian_xay_ra: { type: 'string', format: 'date-time' },
+                  nguoi_vi_pham: {
+                    type: 'object',
+                    properties: {
+                      loai_chu_the: { type: 'string' },
+                      ten: { type: 'string' },
+                      cmnd_cccd: { type: 'string' },
+                      dia_chi: { type: 'string' },
+                      sdt: { type: 'string' },
+                      email: { type: 'string' },
+                      nguoi_dai_dien: { type: 'string' },
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
         responses: { 201: { description: 'Case created' } },
       },
@@ -308,7 +565,9 @@ const openApiSpec = {
       get: {
         tags: ['Hồ sơ'],
         summary: 'Get case detail (includes biên bản, quyết định, khắc phục, ảnh)',
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
         responses: { 200: { description: 'OK' }, 404: { description: 'Not found' } },
       },
     },
@@ -316,96 +575,237 @@ const openApiSpec = {
       patch: {
         tags: ['Hồ sơ'],
         summary: 'Transition case status',
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
         requestBody: {
           required: true,
-          content: { 'application/json': { schema: { type: 'object', required: ['trang_thai'], properties: { trang_thai: { type: 'string', enum: ['moi', 'cho_lap_bien_ban', 'da_lap_bien_ban', 'cho_ra_quyet_dinh', 'da_ra_quyet_dinh', 'dang_khac_phuc', 'da_khac_phuc', 'da_dong', 'da_huy', 'cho_bo_sung', 'cho_duyet_dieu_81'] } } } } },
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['trang_thai'],
+                properties: {
+                  trang_thai: {
+                    type: 'string',
+                    enum: [
+                      'moi',
+                      'cho_lap_bien_ban',
+                      'da_lap_bien_ban',
+                      'cho_ra_quyet_dinh',
+                      'da_ra_quyet_dinh',
+                      'dang_khac_phuc',
+                      'da_khac_phuc',
+                      'da_dong',
+                      'da_huy',
+                      'cho_bo_sung',
+                      'cho_duyet_dieu_81',
+                    ],
+                  },
+                },
+              },
+            },
+          },
         },
-        responses: { 200: { description: 'Status updated' }, 400: { description: 'Invalid transition' } },
+        responses: {
+          200: { description: 'Status updated' },
+          400: { description: 'Invalid transition' },
+        },
       },
     },
     '/ho-so/{id}/phan-cong': {
       put: {
         tags: ['Hồ sơ'],
         summary: 'Assign case handler',
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
         requestBody: {
           required: true,
-          content: { 'application/json': { schema: { type: 'object', required: ['can_bo_id'], properties: { can_bo_id: { type: 'string', format: 'uuid' } } } } },
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['can_bo_id'],
+                properties: { can_bo_id: { type: 'string', format: 'uuid' } },
+              },
+            },
+          },
         },
-        responses: { 200: { description: 'Handler assigned' }, 400: { description: 'Invalid handler' } },
+        responses: {
+          200: { description: 'Handler assigned' },
+          400: { description: 'Invalid handler' },
+        },
       },
     },
     '/ho-so/{id}/bien-ban': {
       post: {
         tags: ['Hồ sơ'],
         summary: 'Create biên bản for case (case must be in cho_lap_bien_ban)',
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
         requestBody: {
-          content: { 'application/json': { schema: { type: 'object', properties: { noi_dung: { type: 'string' }, muc_phat_du_kien: { type: 'number' } } } } },
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: { noi_dung: { type: 'string' }, muc_phat_du_kien: { type: 'number' } },
+              },
+            },
+          },
         },
-        responses: { 201: { description: 'Biên bản created' }, 400: { description: 'Case not in correct state' } },
+        responses: {
+          201: { description: 'Biên bản created' },
+          400: { description: 'Case not in correct state' },
+        },
       },
     },
     '/ho-so/{id}/quyet-dinh': {
       post: {
         tags: ['Hồ sơ'],
         summary: 'Create quyết định draft for case',
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
         requestBody: {
           required: true,
-          content: { 'application/json': { schema: { type: 'object', required: ['bien_ban_id'], properties: { bien_ban_id: { type: 'string', format: 'uuid' }, nhom_cong_trinh: { type: 'integer', enum: [1, 2, 3] }, can_cu_phap_ly: { type: 'string' }, hinh_thuc_phat_bo_sung: { type: 'string' }, bien_phap_khac_phuc_hau_qua: { type: 'string' } } } } },
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['bien_ban_id'],
+                properties: {
+                  bien_ban_id: { type: 'string', format: 'uuid' },
+                  nhom_cong_trinh: { type: 'integer', enum: [1, 2, 3] },
+                  can_cu_phap_ly: { type: 'string' },
+                  hinh_thuc_phat_bo_sung: { type: 'string' },
+                  bien_phap_khac_phuc_hau_qua: { type: 'string' },
+                },
+              },
+            },
+          },
         },
-        responses: { 201: { description: 'Quyết định created (draft)' }, 400: { description: 'Case not in correct state or missing biên bản' } },
+        responses: {
+          201: { description: 'Quyết định created (draft)' },
+          400: { description: 'Case not in correct state or missing biên bản' },
+        },
       },
     },
     '/ho-so/{id}/quyet-dinh/ban-hanh': {
       post: {
         tags: ['Hồ sơ'],
         summary: 'Issue (publish) latest draft quyết định',
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
         requestBody: {
-          content: { 'application/json': { schema: { type: 'object', properties: { ngay_ban_hanh: { type: 'string', format: 'date' } } } } },
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: { ngay_ban_hanh: { type: 'string', format: 'date' } },
+              },
+            },
+          },
         },
-        responses: { 200: { description: 'Quyết định issued' }, 400: { description: 'No draft to issue' } },
+        responses: {
+          200: { description: 'Quyết định issued' },
+          400: { description: 'No draft to issue' },
+        },
       },
     },
     '/ho-so/{id}/khac-phuc': {
       post: {
         tags: ['Hồ sơ'],
         summary: 'Register remedy tracking for case',
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
         requestBody: {
-          content: { 'application/json': { schema: { type: 'object', properties: { quyet_dinh_id: { type: 'string', format: 'uuid' }, bien_phap: { type: 'string' }, mo_ta: { type: 'string' }, han_thuc_hien: { type: 'string', format: 'date' } } } } },
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  quyet_dinh_id: { type: 'string', format: 'uuid' },
+                  bien_phap: { type: 'string' },
+                  mo_ta: { type: 'string' },
+                  han_thuc_hien: { type: 'string', format: 'date' },
+                },
+              },
+            },
+          },
         },
-        responses: { 201: { description: 'Remedy registered' }, 400: { description: 'Case not in correct state' } },
+        responses: {
+          201: { description: 'Remedy registered' },
+          400: { description: 'Case not in correct state' },
+        },
       },
     },
     '/khac-phuc/{id}': {
       patch: {
         tags: ['Hồ sơ'],
         summary: 'Update remedy status',
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
         requestBody: {
           required: true,
-          content: { 'application/json': { schema: { type: 'object', required: ['trang_thai'], properties: { trang_thai: { type: 'string', enum: ['chua_thuc_hien', 'dang_thuc_hien', 'da_thuc_hien', 'qua_han', 'cuong_che', 'da_kiem_tra'] } } } } },
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['trang_thai'],
+                properties: {
+                  trang_thai: {
+                    type: 'string',
+                    enum: [
+                      'chua_thuc_hien',
+                      'dang_thuc_hien',
+                      'da_thuc_hien',
+                      'qua_han',
+                      'cuong_che',
+                      'da_kiem_tra',
+                    ],
+                  },
+                },
+              },
+            },
+          },
         },
-        responses: { 200: { description: 'Remedy updated' }, 400: { description: 'Invalid status' } },
+        responses: {
+          200: { description: 'Remedy updated' },
+          400: { description: 'Invalid status' },
+        },
       },
     },
     '/ho-so/{id}/xuat-bien-ban.docx': {
       get: {
         tags: ['Xuất'],
         summary: 'Export biên bản as DOCX',
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
-        responses: { 200: { description: 'DOCX file', content: { 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': { schema: { type: 'string', format: 'binary' } } } } },
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          200: {
+            description: 'DOCX file',
+            content: {
+              'application/vnd.openxmlformats-officedocument.wordprocessingml.document': {
+                schema: { type: 'string', format: 'binary' },
+              },
+            },
+          },
+        },
       },
     },
     '/ho-so/{id}/xuat-quyet-dinh.docx': {
       get: {
         tags: ['Xuất'],
         summary: 'Export quyết định as DOCX',
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
         responses: { 200: { description: 'DOCX file' } },
       },
     },
@@ -413,15 +813,24 @@ const openApiSpec = {
       get: {
         tags: ['Xuất'],
         summary: 'Export biên bản as PDF (Vietnamese font)',
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
-        responses: { 200: { description: 'PDF file', content: { 'application/pdf': { schema: { type: 'string', format: 'binary' } } } } },
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          200: {
+            description: 'PDF file',
+            content: { 'application/pdf': { schema: { type: 'string', format: 'binary' } } },
+          },
+        },
       },
     },
     '/ho-so/{id}/xuat-quyet-dinh.pdf': {
       get: {
         tags: ['Xuất'],
         summary: 'Export quyết định as PDF (Vietnamese font)',
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
         responses: { 200: { description: 'PDF file' } },
       },
     },
@@ -445,7 +854,10 @@ const openApiSpec = {
           { name: 'tu_ngay', in: 'query', schema: { type: 'string', format: 'date' } },
           { name: 'den_ngay', in: 'query', schema: { type: 'string', format: 'date' } },
         ],
-        responses: { 200: { description: 'CSV or PDF file' }, 400: { description: 'Invalid export type' } },
+        responses: {
+          200: { description: 'CSV or PDF file' },
+          400: { description: 'Invalid export type' },
+        },
       },
     },
 
@@ -474,14 +886,25 @@ const openApiSpec = {
       get: {
         tags: ['Thông báo'],
         summary: 'Get unread notification count',
-        responses: { 200: { description: 'Count', content: { 'application/json': { schema: { type: 'object', properties: { count: { type: 'integer' } } } } } } },
+        responses: {
+          200: {
+            description: 'Count',
+            content: {
+              'application/json': {
+                schema: { type: 'object', properties: { count: { type: 'integer' } } },
+              },
+            },
+          },
+        },
       },
     },
     '/thong-bao/{id}/mark-read': {
       post: {
         tags: ['Thông báo'],
         summary: 'Mark single notification as read',
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
         responses: { 200: { description: 'Marked' }, 404: { description: 'Not found' } },
       },
     },
@@ -505,7 +928,23 @@ const openApiSpec = {
         summary: 'Create a new user',
         requestBody: {
           required: true,
-          content: { 'application/json': { schema: { type: 'object', required: ['username', 'password', 'full_name'], properties: { username: { type: 'string', minLength: 3, maxLength: 50 }, password: { type: 'string', minLength: 8 }, full_name: { type: 'string' }, email: { type: 'string', format: 'email' }, phone: { type: 'string' }, is_active: { type: 'boolean' }, roles: { type: 'array', items: { type: 'string' } } } } } },
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['username', 'password', 'full_name'],
+                properties: {
+                  username: { type: 'string', minLength: 3, maxLength: 50 },
+                  password: { type: 'string', minLength: 8 },
+                  full_name: { type: 'string' },
+                  email: { type: 'string', format: 'email' },
+                  phone: { type: 'string' },
+                  is_active: { type: 'boolean' },
+                  roles: { type: 'array', items: { type: 'string' } },
+                },
+              },
+            },
+          },
         },
         responses: { 201: { description: 'User created' } },
       },
@@ -514,9 +953,25 @@ const openApiSpec = {
       patch: {
         tags: ['Admin'],
         summary: 'Update a user',
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
         requestBody: {
-          content: { 'application/json': { schema: { type: 'object', properties: { full_name: { type: 'string' }, email: { type: 'string' }, phone: { type: 'string' }, is_active: { type: 'boolean' }, password: { type: 'string', minLength: 8 }, roles: { type: 'array', items: { type: 'string' } } } } } },
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  full_name: { type: 'string' },
+                  email: { type: 'string' },
+                  phone: { type: 'string' },
+                  is_active: { type: 'boolean' },
+                  password: { type: 'string', minLength: 8 },
+                  roles: { type: 'array', items: { type: 'string' } },
+                },
+              },
+            },
+          },
         },
         responses: { 200: { description: 'User updated' }, 404: { description: 'Not found' } },
       },
@@ -534,10 +989,22 @@ const openApiSpec = {
       patch: {
         tags: ['Admin'],
         summary: 'Update role permissions',
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
         requestBody: {
           required: true,
-          content: { 'application/json': { schema: { type: 'object', required: ['permission_ids'], properties: { permission_ids: { type: 'array', items: { type: 'string', format: 'uuid' } } } } } },
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['permission_ids'],
+                properties: {
+                  permission_ids: { type: 'array', items: { type: 'string', format: 'uuid' } },
+                },
+              },
+            },
+          },
         },
         responses: { 200: { description: 'Permissions updated' } },
       },
@@ -564,7 +1031,19 @@ const openApiSpec = {
         summary: 'Create quận/huyện',
         requestBody: {
           required: true,
-          content: { 'application/json': { schema: { type: 'object', required: ['ma', 'ten'], properties: { ma: { type: 'string' }, ten: { type: 'string' }, boundary: { type: 'object', description: 'GeoJSON MultiPolygon' } } } } },
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['ma', 'ten'],
+                properties: {
+                  ma: { type: 'string' },
+                  ten: { type: 'string' },
+                  boundary: { type: 'object', description: 'GeoJSON MultiPolygon' },
+                },
+              },
+            },
+          },
         },
         responses: { 201: { description: 'Created' }, 409: { description: 'Duplicate code' } },
       },
@@ -573,14 +1052,31 @@ const openApiSpec = {
       patch: {
         tags: ['Admin — Locations'],
         summary: 'Update quận/huyện',
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
-        requestBody: { content: { 'application/json': { schema: { type: 'object', properties: { ma: { type: 'string' }, ten: { type: 'string' }, boundary: { type: 'object' } } } } } },
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  ma: { type: 'string' },
+                  ten: { type: 'string' },
+                  boundary: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
         responses: { 200: { description: 'Updated' }, 404: { description: 'Not found' } },
       },
       delete: {
         tags: ['Admin — Locations'],
         summary: 'Delete quận/huyện (must have no references)',
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
         responses: { 200: { description: 'Deleted' }, 409: { description: 'Has references' } },
       },
     },
@@ -588,7 +1084,9 @@ const openApiSpec = {
       get: {
         tags: ['Admin — Locations'],
         summary: 'List all phường/xã',
-        parameters: [{ name: 'quan_huyen_id', in: 'query', schema: { type: 'string', format: 'uuid' } }],
+        parameters: [
+          { name: 'quan_huyen_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
+        ],
         responses: { 200: { description: 'OK' } },
       },
       post: {
@@ -596,7 +1094,20 @@ const openApiSpec = {
         summary: 'Create phường/xã',
         requestBody: {
           required: true,
-          content: { 'application/json': { schema: { type: 'object', required: ['ma', 'ten', 'quan_huyen_id'], properties: { ma: { type: 'string' }, ten: { type: 'string' }, quan_huyen_id: { type: 'string', format: 'uuid' }, boundary: { type: 'object' } } } } },
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['ma', 'ten', 'quan_huyen_id'],
+                properties: {
+                  ma: { type: 'string' },
+                  ten: { type: 'string' },
+                  quan_huyen_id: { type: 'string', format: 'uuid' },
+                  boundary: { type: 'object' },
+                },
+              },
+            },
+          },
         },
         responses: { 201: { description: 'Created' } },
       },
@@ -605,42 +1116,186 @@ const openApiSpec = {
       patch: {
         tags: ['Admin — Locations'],
         summary: 'Update phường/xã',
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
-        requestBody: { content: { 'application/json': { schema: { type: 'object', properties: { ma: { type: 'string' }, ten: { type: 'string' }, quan_huyen_id: { type: 'string', format: 'uuid' }, boundary: { type: 'object' } } } } } },
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  ma: { type: 'string' },
+                  ten: { type: 'string' },
+                  quan_huyen_id: { type: 'string', format: 'uuid' },
+                  boundary: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
         responses: { 200: { description: 'Updated' } },
       },
       delete: {
         tags: ['Admin — Locations'],
         summary: 'Delete phường/xã',
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
         responses: { 200: { description: 'Deleted' }, 409: { description: 'Has references' } },
       },
     },
 
     // ── Admin: Catalogs ─────────────────────────────────────────────────
     '/admin/loai-vi-pham': {
-      get: { tags: ['Admin — Catalogs'], summary: 'List loại vi phạm', responses: { 200: { description: 'OK' } } },
-      post: { tags: ['Admin — Catalogs'], summary: 'Create loại vi phạm', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['code', 'ten'], properties: { code: { type: 'string' }, ten: { type: 'string' }, mo_ta: { type: 'string' }, so_thu_tu: { type: 'integer' } } } } } }, responses: { 201: { description: 'Created' } } },
+      get: {
+        tags: ['Admin — Catalogs'],
+        summary: 'List loại vi phạm',
+        responses: { 200: { description: 'OK' } },
+      },
+      post: {
+        tags: ['Admin — Catalogs'],
+        summary: 'Create loại vi phạm',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['code', 'ten'],
+                properties: {
+                  code: { type: 'string' },
+                  ten: { type: 'string' },
+                  mo_ta: { type: 'string' },
+                  so_thu_tu: { type: 'integer' },
+                },
+              },
+            },
+          },
+        },
+        responses: { 201: { description: 'Created' } },
+      },
     },
     '/admin/loai-vi-pham/{id}': {
-      patch: { tags: ['Admin — Catalogs'], summary: 'Update loại vi phạm', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }], responses: { 200: { description: 'Updated' } } },
-      delete: { tags: ['Admin — Catalogs'], summary: 'Delete loại vi phạm', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }], responses: { 200: { description: 'Deleted' }, 409: { description: 'Has references' } } },
+      patch: {
+        tags: ['Admin — Catalogs'],
+        summary: 'Update loại vi phạm',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: { 200: { description: 'Updated' } },
+      },
+      delete: {
+        tags: ['Admin — Catalogs'],
+        summary: 'Delete loại vi phạm',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: { 200: { description: 'Deleted' }, 409: { description: 'Has references' } },
+      },
     },
     '/admin/hanh-vi': {
-      get: { tags: ['Admin — Catalogs'], summary: 'List hành vi vi phạm', parameters: [{ name: 'loai_vi_pham_id', in: 'query', schema: { type: 'string', format: 'uuid' } }], responses: { 200: { description: 'OK' } } },
-      post: { tags: ['Admin — Catalogs'], summary: 'Create hành vi vi phạm', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['loai_vi_pham_id', 'khoan', 'ten'], properties: { loai_vi_pham_id: { type: 'string', format: 'uuid' }, dieu: { type: 'string' }, khoan: { type: 'string' }, diem: { type: 'string' }, ten: { type: 'string' }, mo_ta: { type: 'string' }, is_active: { type: 'boolean' } } } } } }, responses: { 201: { description: 'Created' } } },
+      get: {
+        tags: ['Admin — Catalogs'],
+        summary: 'List hành vi vi phạm',
+        parameters: [
+          { name: 'loai_vi_pham_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: { 200: { description: 'OK' } },
+      },
+      post: {
+        tags: ['Admin — Catalogs'],
+        summary: 'Create hành vi vi phạm',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['loai_vi_pham_id', 'khoan', 'ten'],
+                properties: {
+                  loai_vi_pham_id: { type: 'string', format: 'uuid' },
+                  dieu: { type: 'string' },
+                  khoan: { type: 'string' },
+                  diem: { type: 'string' },
+                  ten: { type: 'string' },
+                  mo_ta: { type: 'string' },
+                  is_active: { type: 'boolean' },
+                },
+              },
+            },
+          },
+        },
+        responses: { 201: { description: 'Created' } },
+      },
     },
     '/admin/hanh-vi/{id}': {
-      patch: { tags: ['Admin — Catalogs'], summary: 'Update hành vi vi phạm', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }], responses: { 200: { description: 'Updated' } } },
-      delete: { tags: ['Admin — Catalogs'], summary: 'Delete hành vi vi phạm', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }], responses: { 200: { description: 'Deleted' }, 409: { description: 'Has references' } } },
+      patch: {
+        tags: ['Admin — Catalogs'],
+        summary: 'Update hành vi vi phạm',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: { 200: { description: 'Updated' } },
+      },
+      delete: {
+        tags: ['Admin — Catalogs'],
+        summary: 'Delete hành vi vi phạm',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: { 200: { description: 'Deleted' }, 409: { description: 'Has references' } },
+      },
     },
     '/admin/muc-phat': {
-      get: { tags: ['Admin — Catalogs'], summary: 'List mức phạt', parameters: [{ name: 'hanh_vi_id', in: 'query', schema: { type: 'string', format: 'uuid' } }], responses: { 200: { description: 'OK' } } },
-      post: { tags: ['Admin — Catalogs'], summary: 'Create mức phạt', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['hanh_vi_id', 'nhom_cong_trinh', 'muc_toi_thieu', 'muc_toi_da'], properties: { hanh_vi_id: { type: 'string', format: 'uuid' }, nhom_cong_trinh: { type: 'integer', enum: [1, 2, 3] }, muc_toi_thieu: { type: 'number' }, muc_toi_da: { type: 'number' } } } } } }, responses: { 201: { description: 'Created' } } },
+      get: {
+        tags: ['Admin — Catalogs'],
+        summary: 'List mức phạt',
+        parameters: [
+          { name: 'hanh_vi_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: { 200: { description: 'OK' } },
+      },
+      post: {
+        tags: ['Admin — Catalogs'],
+        summary: 'Create mức phạt',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['hanh_vi_id', 'nhom_cong_trinh', 'muc_toi_thieu', 'muc_toi_da'],
+                properties: {
+                  hanh_vi_id: { type: 'string', format: 'uuid' },
+                  nhom_cong_trinh: { type: 'integer', enum: [1, 2, 3] },
+                  muc_toi_thieu: { type: 'number' },
+                  muc_toi_da: { type: 'number' },
+                },
+              },
+            },
+          },
+        },
+        responses: { 201: { description: 'Created' } },
+      },
     },
     '/admin/muc-phat/{id}': {
-      patch: { tags: ['Admin — Catalogs'], summary: 'Update mức phạt', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }], responses: { 200: { description: 'Updated' } } },
-      delete: { tags: ['Admin — Catalogs'], summary: 'Delete mức phạt', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }], responses: { 200: { description: 'Deleted' } } },
+      patch: {
+        tags: ['Admin — Catalogs'],
+        summary: 'Update mức phạt',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: { 200: { description: 'Updated' } },
+      },
+      delete: {
+        tags: ['Admin — Catalogs'],
+        summary: 'Delete mức phạt',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: { 200: { description: 'Deleted' } },
+      },
     },
 
     // ── Admin: Audit Log ─────────────────────────────────────────────────
@@ -649,8 +1304,18 @@ const openApiSpec = {
         tags: ['Admin'],
         summary: 'List audit log entries (paginated, filterable)',
         parameters: [
-          { name: 'bang', in: 'query', schema: { type: 'string' }, description: 'Filter by table name' },
-          { name: 'hanh_dong', in: 'query', schema: { type: 'string' }, description: 'Filter by action' },
+          {
+            name: 'bang',
+            in: 'query',
+            schema: { type: 'string' },
+            description: 'Filter by table name',
+          },
+          {
+            name: 'hanh_dong',
+            in: 'query',
+            schema: { type: 'string' },
+            description: 'Filter by action',
+          },
           { name: 'tu_ngay', in: 'query', schema: { type: 'string', format: 'date-time' } },
           { name: 'den_ngay', in: 'query', schema: { type: 'string', format: 'date-time' } },
           { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },

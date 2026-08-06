@@ -12,16 +12,16 @@ async function run() {
   const client = await pool.connect();
   let allPassed = true;
   const results = [];
-  
+
   try {
     const sql = fs.readFileSync('/workspace/ssd/qlttxd/sql/verify-db.sql', 'utf8');
-    
+
     // Remove psql meta-commands and the manual BEGIN/ROLLBACK
     const cleaned = sql
       .replace(/^\\.*$/gm, '')
       .replace(/^BEGIN;?$/gim, '')
       .replace(/^COMMIT;?$/gim, '');
-    
+
     // Split into individual statements by finding SELECT ... ;
     // Each verification check is a standalone SELECT
     const stmts = [];
@@ -36,10 +36,10 @@ async function run() {
         current = '';
       }
     }
-    
+
     // Run each statement in its own transaction (savepoint) to isolate failures
     await client.query('BEGIN');
-    
+
     for (const stmt of stmts) {
       if (!stmt || stmt.startsWith('--') || stmt.startsWith('ROLLBACK')) continue;
       try {
@@ -56,23 +56,30 @@ async function run() {
                 // true values: 't', 'true', version strings, BC- codes
                 passed = val === 't' || val === 'true' || /^\d/.test(val) || val.startsWith('BC-');
               } else {
-                passed = val != null;
+                passed = val !== null && val !== undefined;
               }
-              
+
               results.push({ check: key, value: String(val), passed });
               if (!passed) allPassed = false;
             }
           }
         }
       } catch (e) {
-        results.push({ check: 'QUERY_ERROR', value: e.message.substring(0, 150), passed: false, stmt: stmt.substring(0, 100) });
+        results.push({
+          check: 'QUERY_ERROR',
+          value: e.message.substring(0, 150),
+          passed: false,
+          stmt: stmt.substring(0, 100),
+        });
         allPassed = false;
         // Rollback failed transaction and start new one
-        try { await client.query('ROLLBACK'); } catch(r) {}
+        try {
+          await client.query('ROLLBACK');
+        } catch {}
         await client.query('BEGIN');
       }
     }
-    
+
     await client.query('ROLLBACK');
   } catch (e) {
     console.error('FATAL:', e.message);
@@ -81,13 +88,21 @@ async function run() {
     client.release();
     await pool.end();
   }
-  
+
   for (const r of results) {
     const extra = r.stmt ? ' [' + r.stmt + ']' : '';
     console.log((r.passed ? 'PASS' : 'FAIL') + ' | ' + r.check + ' = ' + r.value + extra);
   }
   console.log('\nVERIFY-DB EXIT: ' + (allPassed ? 0 : 1));
-  console.log('Total: ' + results.filter(r => r.passed).length + ' PASS, ' + results.filter(r => !r.passed).length + ' FAIL');
+  console.log(
+    'Total: ' +
+      results.filter((r) => r.passed).length +
+      ' PASS, ' +
+      results.filter((r) => !r.passed).length +
+      ' FAIL'
+  );
 }
 
-run().then(() => process.exit(0)).catch(() => process.exit(1));
+run()
+  .then(() => process.exit(0))
+  .catch(() => process.exit(1));

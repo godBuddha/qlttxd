@@ -3,15 +3,18 @@
 > Task: coder (frontend) | Priority: P1 | Dependency: T-04
 
 ## Mục tiêu
+
 Trang hồ sơ cá nhân và form đổi mật khẩu.
 
 ## Files thay đổi
+
 1. `app/frontend/src/main.jsx` — thêm `ProfilePage`
 2. `app/frontend/src/styles.css` — CSS cho profile
 
 ## Chi tiết
 
 ### Component `ProfilePage`
+
 ```jsx
 function ProfilePage({ api, user, notify }) {
   const [oldPass, setOldPass] = useState('');
@@ -54,12 +57,17 @@ function ProfilePage({ api, user, notify }) {
 ```
 
 ### Menu
+
 Thêm vào nav (hiển thị cho tất cả user đăng nhập):
+
 ```jsx
-<button className={route.page === 'profile' ? 'selected' : ''} onClick={() => nav('profile')}>👤 Hồ sơ</button>
+<button className={route.page === 'profile' ? 'selected' : ''} onClick={() => nav('profile')}>
+  👤 Hồ sơ
+</button>
 ```
 
 ## Acceptance Criteria
+
 - [ ] Trang hiển thị thông tin user
 - [ ] Đổi mật khẩu hoạt động (old → new)
 - [ ] Validation: mật khẩu mới ≥ 8 ký tự, có chữ và số

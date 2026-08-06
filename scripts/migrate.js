@@ -34,7 +34,7 @@ for (const c of candidates) {
   try {
     pg = require(c);
     break;
-  } catch (_e) {
+  } catch {
     /* try next */
   }
 }
@@ -63,9 +63,7 @@ function buildConfig(dbOverride) {
 /** Return migration files (.sql) sorted by filename, skipping hidden/legacy dirs. */
 function listMigrationFiles() {
   const entries = fs.readdirSync(MIGRATIONS_DIR);
-  return entries
-    .filter((f) => f.endsWith('.sql') && !f.startsWith('.'))
-    .sort();
+  return entries.filter((f) => f.endsWith('.sql') && !f.startsWith('.')).sort();
 }
 
 async function ensureTrackingTable(client) {
@@ -120,10 +118,7 @@ async function main() {
       try {
         await client.query('BEGIN');
         await client.query(sql);
-        await client.query(
-          'INSERT INTO schema_migrations (id) VALUES ($1)',
-          [file]
-        );
+        await client.query('INSERT INTO schema_migrations (id) VALUES ($1)', [file]);
         await client.query('COMMIT');
         console.log(`APPLIED ${file}`);
         appliedCount += 1;
@@ -139,7 +134,7 @@ async function main() {
     console.log('');
     console.log(
       `Done: ${appliedCount} applied, ${skippedCount} skipped, ` +
-      `${files.length - appliedCount - skippedCount} failed.`
+        `${files.length - appliedCount - skippedCount} failed.`
     );
   } catch (err) {
     console.error(`ERROR: ${err.message}`);

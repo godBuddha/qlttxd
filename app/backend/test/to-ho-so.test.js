@@ -22,7 +22,13 @@ test.before(async () => {
   const setup = await fetch(`${base}/api/v1/auth/setup-admin`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ username: TEST_ADMIN_USERNAME, password: TEST_ADMIN_PASSWORD, full_name: 'Admin', email: 'admin@qlttxd.local', phone: '0900000000' }),
+    body: JSON.stringify({
+      username: TEST_ADMIN_USERNAME,
+      password: TEST_ADMIN_PASSWORD,
+      full_name: 'Admin',
+      email: 'admin@qlttxd.local',
+      phone: '0900000000',
+    }),
   });
   if (setup.status === 201) {
     const body = await setup.json();
@@ -39,7 +45,7 @@ test.before(async () => {
 });
 
 test.after(async () => {
-  await new Promise(resolve => server.close(resolve));
+  await new Promise((resolve) => server.close(resolve));
   await pool.end();
 });
 
@@ -88,7 +94,7 @@ test('hồ sơ mới xuất hiện trong GET /api/v1/ho-so', async () => {
   });
   assert.equal(r.status, 200);
   const body = await r.json();
-  const found = body.data.find(h => h.id === hoSoId);
+  const found = body.data.find((h) => h.id === hoSoId);
   assert.ok(found, 'new ho_so should appear in list');
   assert.equal(found.ma_ho_so.match(/^HS-/)?.[0], 'HS-');
 });
@@ -139,12 +145,15 @@ test('GET /api/v1/bao-cao/:id trả chi tiết báo cáo', async () => {
 
 // --- Audit log for create ho_so ---
 test('audit log ghi nhận tạo ho_so từ bao-cao', async () => {
-  const r = await fetch(`${base}/api/v1/admin/audit-log?bang=ho_so&hanh_dong=case.create&limit=10`, {
-    headers: { authorization: `Bearer ${token}` },
-  });
+  const r = await fetch(
+    `${base}/api/v1/admin/audit-log?bang=ho_so&hanh_dong=case.create&limit=10`,
+    {
+      headers: { authorization: `Bearer ${token}` },
+    }
+  );
   assert.equal(r.status, 200);
   const body = await r.json();
-  const found = body.data.find(a => a.id_ban_ghi === hoSoId);
+  const found = body.data.find((a) => a.id_ban_ghi === hoSoId);
   assert.ok(found, 'audit log should record case.create ho_so');
   assert.equal(found.bang_bi_tac_dong, 'ho_so');
   assert.equal(found.hanh_dong, 'case.create');

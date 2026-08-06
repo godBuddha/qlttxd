@@ -49,8 +49,16 @@ test.before(async () => {
 test.after(async () => {
   await pool.query('DELETE FROM thong_bao').catch(() => {});
   // Clean up test users from status transition test
-  await pool.query("UPDATE ho_so SET nguoi_xu_ly_id = NULL WHERE nguoi_xu_ly_id IN (SELECT id FROM users WHERE username='notif_test_user')").catch(() => {});
-  await pool.query("DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE username='notif_test_user')").catch(() => {});
+  await pool
+    .query(
+      "UPDATE ho_so SET nguoi_xu_ly_id = NULL WHERE nguoi_xu_ly_id IN (SELECT id FROM users WHERE username='notif_test_user')"
+    )
+    .catch(() => {});
+  await pool
+    .query(
+      "DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE username='notif_test_user')"
+    )
+    .catch(() => {});
   await pool.query("DELETE FROM users WHERE username='notif_test_user'").catch(() => {});
   delete process.env.SMTP_HOST;
   delete process.env.SMTP_PORT;
@@ -62,7 +70,11 @@ test.after(async () => {
 async function json(path, options = {}) {
   const response = await fetch(`${base}${path}`, options);
   let body = {};
-  try { body = await response.json(); } catch { /* non-JSON */ }
+  try {
+    body = await response.json();
+  } catch {
+    /* non-JSON */
+  }
   return { response, body };
 }
 
@@ -128,7 +140,9 @@ test('NotificationWorker.processBatch đánh dấu that_bai khi gửi lỗi', as
   const worker = new NotificationWorker({ pool });
   // Mock transporter that throws
   worker._transporter = {
-    sendMail: async () => { throw new Error('SMTP connection failed'); },
+    sendMail: async () => {
+      throw new Error('SMTP connection failed');
+    },
   };
 
   const result = await worker.processBatch();

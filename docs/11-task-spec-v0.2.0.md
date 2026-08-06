@@ -8,18 +8,19 @@
 
 ## T-01 — Migration 002 + 8 CRUD endpoints địa điểm + tests
 
-| Trường | Giá trị |
-|---|---|
-| Task ID | T-01 |
-| Requirement ID | REQ-01, REQ-02, REQ-03, REQ-04, REQ-05, REQ-06, REQ-14 |
-| Specification ID | SPEC-DB-001, SPEC-API-001, SPEC-TEST-001 |
-| Owner | coder (backend) |
-| Priority | P0 |
-| Difficulty | Cao |
-| Dependency | — |
-| Estimated Time | 1 ngày |
+| Trường           | Giá trị                                                |
+| ---------------- | ------------------------------------------------------ |
+| Task ID          | T-01                                                   |
+| Requirement ID   | REQ-01, REQ-02, REQ-03, REQ-04, REQ-05, REQ-06, REQ-14 |
+| Specification ID | SPEC-DB-001, SPEC-API-001, SPEC-TEST-001               |
+| Owner            | coder (backend)                                        |
+| Priority         | P0                                                     |
+| Difficulty       | Cao                                                    |
+| Dependency       | —                                                      |
+| Estimated Time   | 1 ngày                                                 |
 
 **Description:** Triển khai tầng database + API cho Quản lý địa điểm:
+
 1. Migration `sql/migrations/002_admin_locations.up.sql`: thêm permission `('admin.locations','Quản lý địa điểm (đơn vị hành chính)','admin')` ON CONFLICT DO NOTHING; gán role admin (`role_permissions` WHERE r.code='admin' AND p.code='admin.locations'); ghi `schema_migrations`. Down: gỡ role_permissions → permissions → schema_migrations.
 2. Cập nhật `sql/schema.sql`: thêm dòng permission `admin.locations` (cho DB reset mới).
 3. Sửa `sql/verify-db.sql` L51: `seeded_demo_users=5` → `count(*)=0`; thêm kiểm tra tồn tại `admin.locations` + admin có quyền.
@@ -43,6 +44,7 @@
 **Output:** migration 002 up/down; schema.sql/verify-db.sql cập nhật; server.js + 8 endpoints; test/admin-locations.test.js; báo cáo files changed + evidence.
 
 **Checklist:**
+
 - [ ] Migration 002 up chạy sạch trên DB đang chạy (không lỗi, idempotent)
 - [ ] Down chạy sạch
 - [ ] schema.sql có dòng admin.locations
@@ -65,18 +67,19 @@
 
 ## T-02 — AdminLocationsPage + menu + preview polygon
 
-| Trường | Giá trị |
-|---|---|
-| Task ID | T-02 |
-| Requirement ID | REQ-01, REQ-02, REQ-03, REQ-05 |
-| Specification ID | SPEC-UI-001 |
-| Owner | coder (frontend) |
-| Priority | P0 |
-| Difficulty | Trung bình |
-| Dependency | T-01 |
-| Estimated Time | 1 ngày |
+| Trường           | Giá trị                        |
+| ---------------- | ------------------------------ |
+| Task ID          | T-02                           |
+| Requirement ID   | REQ-01, REQ-02, REQ-03, REQ-05 |
+| Specification ID | SPEC-UI-001                    |
+| Owner            | coder (frontend)               |
+| Priority         | P0                             |
+| Difficulty       | Trung bình                     |
+| Dependency       | T-01                           |
+| Estimated Time   | 1 ngày                         |
 
 **Description:** Trong `app/frontend/src/main.jsx`:
+
 1. Trang `AdminLocationsPage`: 2 panel — trái danh sách quận (tên, mã, số phường, nút Sửa/Xóa); phải danh sách phường của quận đang chọn (hoặc tất cả khi chưa chọn).
 2. Nút "Thêm quận"/"Thêm phường" mở modal (mẫu `AdminUsersPage`): trường ma, ten (+ select quan_huyen_id cho phường), textarea GeoJSON boundary, **preview polygon** trên bản đồ (mở rộng `MapView` với prop polygons dùng `L.geoJSON`, hoặc component `BoundaryPreview` mới).
 3. Xóa có confirm; hiển thị lỗi 409/400 từ backend rõ ràng (toast/notice).
@@ -90,6 +93,7 @@
 **Output:** `main.jsx` cập nhật; báo cáo files changed + evidence (build PASS).
 
 **Checklist:**
+
 - [ ] 2 panel layout đúng
 - [ ] Modal tạo/sửa đủ trường + validate client
 - [ ] Preview polygon render được
@@ -110,16 +114,16 @@
 
 ## T-03 — E2E smoke địa điểm + verify-db + build
 
-| Trường | Giá trị |
-|---|---|
-| Task ID | T-03 |
-| Requirement ID | REQ-01..06, REQ-14 |
+| Trường           | Giá trị                                  |
+| ---------------- | ---------------------------------------- |
+| Task ID          | T-03                                     |
+| Requirement ID   | REQ-01..06, REQ-14                       |
 | Specification ID | SPEC-API-001, SPEC-UI-001, SPEC-TEST-001 |
-| Owner | qa |
-| Priority | P0 |
-| Difficulty | Trung bình |
-| Dependency | T-01, T-02 |
-| Estimated Time | 0.5 ngày |
+| Owner            | qa                                       |
+| Priority         | P0                                       |
+| Difficulty       | Trung bình                               |
+| Dependency       | T-01, T-02                               |
+| Estimated Time   | 0.5 ngày                                 |
 
 **Description:** Chạy E2E smoke toàn luồng: admin login → GET list → POST tạo quận/phường mới → PATCH sửa → DELETE phường không ràng buộc → 409 khi xóa quận còn phường; leader/citizen bị 403; verify-db.sql chạy pass; frontend build PASS; hồi quy 46 test backend cũ PASS.
 
@@ -128,6 +132,7 @@
 **Output:** báo cáo E2E + evidence (API responses, test logs, build log).
 
 **Checklist:**
+
 - [ ] E2E smoke CRUD đầy đủ
 - [ ] 403 cho leader/citizen
 - [ ] verify-db pass
@@ -146,18 +151,19 @@
 
 ## T-04 — Hardening: rate limit + helmet + upload MIME + dọn mồ côi
 
-| Trường | Giá trị |
-|---|---|
-| Task ID | T-04 |
-| Requirement ID | REQ-07, REQ-08, REQ-09, REQ-10 |
+| Trường           | Giá trị                                   |
+| ---------------- | ----------------------------------------- |
+| Task ID          | T-04                                      |
+| Requirement ID   | REQ-07, REQ-08, REQ-09, REQ-10            |
 | Specification ID | SPEC-API-002, SPEC-API-003, SPEC-TEST-002 |
-| Owner | coder (backend) |
-| Priority | P1 |
-| Difficulty | Cao |
-| Dependency | T-01 |
-| Estimated Time | 1 ngày |
+| Owner            | coder (backend)                           |
+| Priority         | P1                                        |
+| Difficulty       | Cao                                       |
+| Dependency       | T-01                                      |
+| Estimated Time   | 1 ngày                                    |
 
 **Description:** Trong `server.js` (+ package.json):
+
 1. Rate limit (`express-rate-limit`): login 10 req/15ph/IP; auth endpoints; upload 429 kèm Retry-After; cấu hình qua env.
 2. Helmet: thay header thủ công bằng `helmet()`; CSP đảm bảo `img-src` cho phép tile OSM (Leaflet vẫn chạy).
 3. Upload MIME magic-byte (file-type): whitelist jpeg/png/gif/webp; từ chối file giả .jpg (nội dung không phải ảnh); giới hạn kích thước.
@@ -170,6 +176,7 @@
 **Output:** server.js + package.json cập nhật; script dọn mồ côi; tests; evidence.
 
 **Checklist:**
+
 - [ ] Rate limit hoạt động (429)
 - [ ] Helmet không phá map
 - [ ] Upload MIME chặn file giả
@@ -189,18 +196,19 @@
 
 ## T-05 — Báo cáo CSV/PDF + che PII
 
-| Trường | Giá trị |
-|---|---|
-| Task ID | T-05 |
-| Requirement ID | REQ-12, REQ-13 |
+| Trường           | Giá trị                     |
+| ---------------- | --------------------------- |
+| Task ID          | T-05                        |
+| Requirement ID   | REQ-12, REQ-13              |
 | Specification ID | SPEC-API-004, SPEC-TEST-002 |
-| Owner | coder (backend) |
-| Priority | P1 |
-| Difficulty | Cao |
-| Dependency | T-01 |
-| Estimated Time | 1 ngày |
+| Owner            | coder (backend)             |
+| Priority         | P1                          |
+| Difficulty       | Cao                         |
+| Dependency       | T-01                        |
+| Estimated Time   | 1 ngày                      |
 
 **Description:** Trong `server.js`:
+
 1. `GET /api/v1/thong-ke/xuat?loai=csv|pdf&tu_ngay&den_ngay&quan_huyen_id` — authorize `report.statistics`.
 2. CSV: header + dữ liệu (theo trạng thái/quận/tháng), escape đúng, BOM UTF-8.
 3. PDF: pdfkit + font Unicode nhúng (Noto Sans) render bảng đơn giản tiếng Việt.
@@ -213,6 +221,7 @@
 **Output:** server.js cập nhật; tests; evidence.
 
 **Checklist:**
+
 - [ ] CSV đúng định dạng
 - [ ] PDF tiếng Việt đúng font
 - [ ] PII che đúng quyền
@@ -231,18 +240,19 @@
 
 ## T-06 — Trang Báo cáo + nút xuất
 
-| Trường | Giá trị |
-|---|---|
-| Task ID | T-06 |
-| Requirement ID | REQ-12, REQ-13 |
-| Specification ID | SPEC-UI-002 |
-| Owner | coder (frontend) |
-| Priority | P1 |
-| Difficulty | Trung bình |
-| Dependency | T-05 |
-| Estimated Time | 0.5 ngày |
+| Trường           | Giá trị          |
+| ---------------- | ---------------- |
+| Task ID          | T-06             |
+| Requirement ID   | REQ-12, REQ-13   |
+| Specification ID | SPEC-UI-002      |
+| Owner            | coder (frontend) |
+| Priority         | P1               |
+| Difficulty       | Trung bình       |
+| Dependency       | T-05             |
+| Estimated Time   | 0.5 ngày         |
 
 **Description:** Trong `main.jsx`:
+
 1. Trang "Báo cáo" (leader/admin — có `report.statistics`): chọn khoảng thời gian, quận, loại CSV/PDF, nút tải (download file).
 2. Nút xuất trên Dashboard (cùng quyền).
 3. Hiển thị dữ liệu đã che PII.
@@ -253,6 +263,7 @@
 **Output:** `main.jsx` cập nhật; build PASS.
 
 **Checklist:**
+
 - [ ] Trang Báo cáo đủ filter + nút xuất
 - [ ] Tải file CSV/PDF thành công
 - [ ] PII che hiển thị
@@ -271,16 +282,16 @@
 
 ## T-07 — Hồi quy toàn bộ + E2E hardening/báo cáo
 
-| Trường | Giá trị |
-|---|---|
-| Task ID | T-07 |
-| Requirement ID | REQ-07..13 |
+| Trường           | Giá trị                     |
+| ---------------- | --------------------------- |
+| Task ID          | T-07                        |
+| Requirement ID   | REQ-07..13                  |
 | Specification ID | SPEC-API-00x, SPEC-TEST-002 |
-| Owner | qa |
-| Priority | P1 |
-| Difficulty | Trung bình |
-| Dependency | T-04, T-05, T-06 |
-| Estimated Time | 0.5 ngày |
+| Owner            | qa                          |
+| Priority         | P1                          |
+| Difficulty       | Trung bình                  |
+| Dependency       | T-04, T-05, T-06            |
+| Estimated Time   | 0.5 ngày                    |
 
 **Description:** Hồi quy toàn bộ: 46 test cũ + ~20 test mới PASS; build frontend PASS; E2E hardening (429, upload giả bị chặn) + báo cáo (CSV/PDF/PII) PASS; verify-db pass; kiểm tra bản đồ vẫn hoạt động sau helmet.
 
@@ -298,16 +309,16 @@
 
 ## T-08 — Review bảo mật độc lập
 
-| Trường | Giá trị |
-|---|---|
-| Task ID | T-08 |
-| Requirement ID | REQ-01..15 |
-| Specification ID | Tất cả |
-| Owner | security |
-| Priority | P1 |
-| Difficulty | Cao |
-| Dependency | T-01..T-07 |
-| Estimated Time | 0.5 ngày |
+| Trường           | Giá trị    |
+| ---------------- | ---------- |
+| Task ID          | T-08       |
+| Requirement ID   | REQ-01..15 |
+| Specification ID | Tất cả     |
+| Owner            | security   |
+| Priority         | P1         |
+| Difficulty       | Cao        |
+| Dependency       | T-01..T-07 |
+| Estimated Time   | 0.5 ngày   |
 
 **Description:** Review độc lập toàn gói: RBAC (admin.locations đúng), SQL injection (boundary/param), upload (MIME, path traversal), secret (không lộ), rate limit, helmet, audit, PII, CORS/CSP. Trả findings kèm mức độ; chặn release nếu có HIGH.
 
@@ -325,18 +336,19 @@
 
 ## T-09 — Deploy nâng cấp + docs + release v0.2.0
 
-| Trường | Giá trị |
-|---|---|
-| Task ID | T-09 |
-| Requirement ID | REQ-15 |
+| Trường           | Giá trị         |
+| ---------------- | --------------- |
+| Task ID          | T-09            |
+| Requirement ID   | REQ-15          |
 | Specification ID | SPEC-DEPLOY-001 |
-| Owner | deployment |
-| Priority | P0 |
-| Difficulty | Trung bình |
-| Dependency | T-08 |
-| Estimated Time | 1 ngày |
+| Owner            | deployment      |
+| Priority         | P0              |
+| Difficulty       | Trung bình      |
+| Dependency       | T-08            |
+| Estimated Time   | 1 ngày          |
 
 **Description:** Trên hệ thống đang chạy:
+
 1. `scripts/backup.sh` → backup DB + uploads (giữ bản).
 2. Chạy migration 002 (test trên bản sao trước nếu có thể).
 3. Deploy bản mới (backend + frontend build) → health check `/health`.
@@ -349,6 +361,7 @@
 **Output:** hệ thống nâng cấp xong; README + report; commit + tag.
 
 **Checklist:**
+
 - [ ] Backup thành công
 - [ ] Migration OK
 - [ ] Deploy OK + health OK
@@ -364,22 +377,22 @@
 
 ## MA TRẬN ĐỐI CHIẾU TASK ↔ KẾ HOẠCH (Bước 7 — Requirement Traceability)
 
-| Requirement | T-01 | T-02 | T-03 | T-04 | T-05 | T-06 | T-07 | T-08 | T-09 |
-|---|---|---|---|---|---|---|---|---|---|
-| REQ-01 CRUD quận | ✅ | ✅ | ✅ | | | | | ✅ | |
-| REQ-02 CRUD phường | ✅ | ✅ | ✅ | | | | | ✅ | |
-| REQ-03 Boundary | ✅ | ✅ | ✅ | | | | | ✅ | |
-| REQ-04 Guard 409 | ✅ | | ✅ | | | | | ✅ | |
-| REQ-05 Permission | ✅ | ✅ | ✅ | | | | | ✅ | |
-| REQ-06 Audit | ✅ | | ✅ | | | | | ✅ | |
-| REQ-07 Rate limit | | | | ✅ | | | ✅ | ✅ | |
-| REQ-08 Headers | | | | ✅ | | | ✅ | ✅ | |
-| REQ-09 Upload MIME | | | | ✅ | | | ✅ | ✅ | |
-| REQ-10 Dọn mồ côi | | | | ✅ | | | ✅ | ✅ | |
-| REQ-11 Health/secret | | | | ✅ | | | ✅ | ✅ | |
-| REQ-12 CSV/PDF | | | | | ✅ | ✅ | ✅ | ✅ | |
-| REQ-13 Che PII | | | | | ✅ | ✅ | ✅ | ✅ | |
-| REQ-14 verify-db | ✅ | | ✅ | | | | ✅ | ✅ | |
-| REQ-15 Docs/release | | | | | | | | ✅ | ✅ |
+| Requirement          | T-01 | T-02 | T-03 | T-04 | T-05 | T-06 | T-07 | T-08 | T-09 |
+| -------------------- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+| REQ-01 CRUD quận     | ✅   | ✅   | ✅   |      |      |      |      | ✅   |      |
+| REQ-02 CRUD phường   | ✅   | ✅   | ✅   |      |      |      |      | ✅   |      |
+| REQ-03 Boundary      | ✅   | ✅   | ✅   |      |      |      |      | ✅   |      |
+| REQ-04 Guard 409     | ✅   |      | ✅   |      |      |      |      | ✅   |      |
+| REQ-05 Permission    | ✅   | ✅   | ✅   |      |      |      |      | ✅   |      |
+| REQ-06 Audit         | ✅   |      | ✅   |      |      |      |      | ✅   |      |
+| REQ-07 Rate limit    |      |      |      | ✅   |      |      | ✅   | ✅   |      |
+| REQ-08 Headers       |      |      |      | ✅   |      |      | ✅   | ✅   |      |
+| REQ-09 Upload MIME   |      |      |      | ✅   |      |      | ✅   | ✅   |      |
+| REQ-10 Dọn mồ côi    |      |      |      | ✅   |      |      | ✅   | ✅   |      |
+| REQ-11 Health/secret |      |      |      | ✅   |      |      | ✅   | ✅   |      |
+| REQ-12 CSV/PDF       |      |      |      |      | ✅   | ✅   | ✅   | ✅   |      |
+| REQ-13 Che PII       |      |      |      |      | ✅   | ✅   | ✅   | ✅   |      |
+| REQ-14 verify-db     | ✅   |      | ✅   |      |      |      | ✅   | ✅   |      |
+| REQ-15 Docs/release  |      |      |      |      |      |      |      | ✅   | ✅   |
 
 **Kết luận đối chiếu:** Mọi REQ-01..15 đều có task phụ trách; không bỏ sót. Mỗi task có đủ 16 trường; dependency rõ; review/test đầy đủ.

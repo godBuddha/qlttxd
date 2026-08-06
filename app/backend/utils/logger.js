@@ -1,5 +1,4 @@
 'use strict';
-const crypto = require('node:crypto');
 
 const LOG_LEVELS = { debug: 0, info: 1, warn: 2, error: 3 };
 const currentLevel = LOG_LEVELS[process.env.LOG_LEVEL || 'info'] || 1;
@@ -10,7 +9,7 @@ function log(level, message, meta = {}) {
     timestamp: new Date().toISOString(),
     level,
     message,
-    ...meta
+    ...meta,
   };
   const output = level === 'error' ? process.stderr : process.stdout;
   output.write(JSON.stringify(entry) + '\n');
@@ -26,7 +25,7 @@ const logger = {
 function requestLogger(req, res, next) {
   const start = Date.now();
   const originalEnd = res.end;
-  res.end = function(...args) {
+  res.end = function (...args) {
     const duration = Date.now() - start;
     logger.info('request', {
       method: req.method,

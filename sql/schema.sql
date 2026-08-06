@@ -231,6 +231,9 @@ CREATE TABLE bao_cao_vi_pham (
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Chỉ mục hỗ trợ "báo cáo của tôi" (tra cứu theo người gửi) — H-04
+CREATE INDEX idx_bao_cao_nguoi_gui ON bao_cao_vi_pham (nguoi_gui_id);
+
 -- Chủ thể vi phạm (cá nhân hoặc tổ chức bị xử lý).
 -- (Đặt trước ho_so vì ho_so tham chiếu nguoi_vi_pham.id)
 CREATE TABLE nguoi_vi_pham (
@@ -303,6 +306,8 @@ CREATE INDEX idx_ho_so_huyen       ON ho_so (quan_huyen_id);
 CREATE INDEX idx_ho_so_xa          ON ho_so (phuong_xa_id);
 CREATE INDEX idx_ho_so_toa_do      ON ho_so USING GIST (toa_do);
 CREATE INDEX idx_ho_so_created     ON ho_so (created_at);
+-- Partial index cho danh sách hồ sơ đang hoạt động (không bị xóa mềm) — H-04
+CREATE INDEX idx_ho_so_active ON ho_so (created_at) WHERE deleted_at IS NULL;
 
 -- ---------------------------------------------------------------------------
 -- 6. Biên bản vi phạm hành chính
@@ -388,6 +393,9 @@ CREATE TABLE thong_bao (
     ngay_gui        TIMESTAMPTZ,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Partial index cho hộp thư thông báo chưa đọc (da_gui) — H-04
+CREATE INDEX idx_thong_bao_unread ON thong_bao (nguoi_nhan_id, trang_thai) WHERE trang_thai = 'da_gui';
 
 -- ---------------------------------------------------------------------------
 -- 10. Tệp đính kèm (ảnh chứng cứ, văn bản scan...)

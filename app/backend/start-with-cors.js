@@ -12,7 +12,7 @@ const pool = createPool();
 const app = buildApp({ pool });
 
 // CORS workaround: inject at front of stack
-const allowedOrigins = process.env.CORS_ORIGIN.split(',').map(x => x.trim());
+const allowedOrigins = process.env.CORS_ORIGIN.split(',').map((x) => x.trim());
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (origin && allowedOrigins.includes(origin)) {
@@ -22,7 +22,10 @@ app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Request-Id');
   }
-  if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    return res.end();
+  }
   next();
 });
 

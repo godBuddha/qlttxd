@@ -4,6 +4,7 @@ const express = require('express');
 const helmet = require('helmet');
 const { Pool } = require('pg');
 const { TokenBlocklist } = require('./token-blocklist');
+const { ResetTokenCleanup } = require('./reset-token-cleanup');
 
 const { secret } = require('./utils/helpers');
 const { makeAuthenticate, authenticate, authorize } = require('./utils/middleware');
@@ -22,10 +23,16 @@ const banDoRoutes = require('./routes/ban-do');
 const docsRoutes = require('./routes/docs');
 
 function buildApp({ pool }) {
-  if (!secret() || secret().length < 32) throw new Error('JWT_SECRET phải được cấu hình tối thiểu 32 ký tự');
+  if (!secret() || secret().length < 32) {
+    throw new Error('JWT_SECRET phải được cấu hình tối thiểu 32 ký tự');
+  }
   const tokenBlocklist = new TokenBlocklist({ pool });
+  // H-11: dọn reset_token định kỳ (timer unref không giữ process sống)
+  new ResetTokenCleanup({ pool });
   const authenticateWithBlocklist = makeAuthenticate(tokenBlocklist);
   const app = express();
+  // Tin cậy proxy để req.ip trả về IP thật qua X-Forwarded-For khi behind proxy (C-03)
+  app.set('trust proxy', process.env.TRUST_PROXY || 1);
   const corsOrigin = process.env.CORS_ORIGIN;
   const allowedOrigins = corsOrigin ? corsOrigin.split(',').map((x) => x.trim()) : [];
 
@@ -47,7 +54,7 @@ function buildApp({ pool }) {
     next();
   });
   app.use((req, res, next) => {
-    const requestId = req.get('X-Request-Id') || (require('node:crypto').randomUUID)();
+    const requestId = req.get('X-Request-Id') || require('node:crypto').randomUUID();
     req.requestId = requestId;
     res.set({ 'X-Request-Id': requestId });
     next();
@@ -63,22 +70,24 @@ function buildApp({ pool }) {
   app.use(globalLimiter);
 
   // Security headers via helmet
-  app.use(helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        baseUri: ["'self'"],
-        frameAncestors: ["'none'"],
-        objectSrc: ["'none'"],
-        imgSrc: ["'self'", "https://*.tile.openstreetmap.org", "data:"],
-        scriptSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-      }
-    },
-    crossOriginResourcePolicy: false,
-    crossOriginOpenerPolicy: false,
-    hsts: { maxAge: 31536000, includeSubDomains: true },
-  }));
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          baseUri: ["'self'"],
+          frameAncestors: ["'none'"],
+          objectSrc: ["'none'"],
+          imgSrc: ["'self'", 'https://*.tile.openstreetmap.org', 'data:'],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+        },
+      },
+      crossOriginResourcePolicy: false,
+      crossOriginOpenerPolicy: false,
+      hsts: { maxAge: 31536000, includeSubDomains: true },
+    })
+  );
 
   // Shared deps for route modules
   const deps = {
@@ -90,7 +99,7 @@ function buildApp({ pool }) {
 
   // Write rate limiter for state-changing methods
   app.use((req, res, next) => {
-    if (['POST','PATCH','PUT','DELETE'].includes(req.method)) {
+    if (['POST', 'PATCH', 'PUT', 'DELETE'].includes(req.method)) {
       return writeLimiter(req, res, next);
     }
     next();
@@ -110,7 +119,13 @@ function buildApp({ pool }) {
   app.use(banDoRoutes(deps));
   app.use(docsRoutes(deps));
 
-  app.use((error,_req,res,_next)=>{if(error instanceof (require('multer').MulterError))return res.status(400).json({error:`Tải tệp thất bại: ${error.message}`}); console.error(error); return res.status(500).json({error:'Lỗi máy chủ nội bộ'});});
+  app.use((error, _req, res, _next) => {
+    if (error instanceof require('multer').MulterError) {
+      return res.status(400).json({ error: `Tải tệp thất bại: ${error.message}` });
+    }
+    console.error(error);
+    return res.status(500).json({ error: 'Lỗi máy chủ nội bộ' });
+  });
   return app;
 }
 
@@ -123,7 +138,7 @@ function createPool() {
     password: process.env.PGPASSWORD || undefined,
     max: 20,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000
+    connectionTimeoutMillis: 5000,
   });
 }
 if (require.main === module) {
@@ -131,19 +146,35 @@ if (require.main === module) {
   const port = Number(process.env.PORT || 3000);
   const host = process.env.HOST || '0.0.0.0';
   const app = buildApp({ pool });
-  const server = app.listen(port, host, () => console.log(`QLTTXD API đang nghe tại http://${host}:${port}`));
+  const server = app.listen(port, host, () =>
+    console.log(`QLTTXD API đang nghe tại http://${host}:${port}`)
+  );
   const shutdown = (signal) => {
     console.log(`[server] Received ${signal}, shutting down gracefully...`);
     server.close(() => {
       console.log('[server] HTTP server closed');
-      pool.end().then(() => {
-        console.log('[server] Pool drained');
-        process.exit(0);
-      }).catch(() => process.exit(1));
+      pool
+        .end()
+        .then(() => {
+          console.log('[server] Pool drained');
+          process.exit(0);
+        })
+        .catch(() => process.exit(1));
     });
-    setTimeout(() => { console.error('[server] Forced shutdown after 10s'); process.exit(1); }, 10000);
+    setTimeout(() => {
+      console.error('[server] Forced shutdown after 10s');
+      process.exit(1);
+    }, 10000);
   };
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
 }
-module.exports={buildApp,createPool,authenticate,authorize,coordinate:require('./utils/helpers').coordinate,TokenBlocklist};
+module.exports = {
+  buildApp,
+  createPool,
+  authenticate,
+  authorize,
+  coordinate: require('./utils/helpers').coordinate,
+  TokenBlocklist,
+  ResetTokenCleanup,
+};

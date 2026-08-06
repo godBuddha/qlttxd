@@ -28,14 +28,14 @@ async function setupAdmin() {
       password: TEST_ADMIN_PASSWORD,
       full_name: 'Quản trị viên hệ thống',
       email: 'admin@qlttxd.local',
-      phone: '0901000001'
-    })
+      phone: '0901000001',
+    }),
   });
   if (setup.response.status === 201) return setup.body.token;
   const login = await json('/api/v1/auth/login', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ username: TEST_ADMIN_USERNAME, password: TEST_ADMIN_PASSWORD })
+    body: JSON.stringify({ username: TEST_ADMIN_USERNAME, password: TEST_ADMIN_PASSWORD }),
   });
   return login.body.token;
 }
@@ -44,7 +44,7 @@ async function createUser(userData, adminTok) {
   const result = await json('/api/v1/admin/users', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'X-Auth-Token': adminTok },
-    body: JSON.stringify(userData)
+    body: JSON.stringify(userData),
   });
   return result.body.data;
 }
@@ -83,26 +83,69 @@ test.before(async () => {
   await pool.query(`UPDATE audit_log SET nguoi_dung_id = NULL WHERE nguoi_dung_id ${nuke}`);
   await pool.query(`DELETE FROM quyet_dinh WHERE nguoi_ky_id ${nuke}`);
   await pool.query(`DELETE FROM bien_ban WHERE nguoi_lap_id ${nuke}`);
-  await pool.query("DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE username != 'admin')");
+  await pool.query(
+    "DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE username != 'admin')"
+  );
   await pool.query("DELETE FROM users WHERE username != 'admin'");
 
   // Reset citizen role permissions to original (remove case.view if added by admin-roles test)
   const citizenRole = await pool.query("SELECT id FROM roles WHERE code='citizen'");
   if (citizenRole.rows[0]) {
-    await pool.query("DELETE FROM role_permissions WHERE role_id=$1", [citizenRole.rows[0].id]);
+    await pool.query('DELETE FROM role_permissions WHERE role_id=$1', [citizenRole.rows[0].id]);
     const reportCreate = await pool.query("SELECT id FROM permissions WHERE code='report.create'");
-    const reportViewOwn = await pool.query("SELECT id FROM permissions WHERE code='report.view_own'");
+    const reportViewOwn = await pool.query(
+      "SELECT id FROM permissions WHERE code='report.view_own'"
+    );
     const permIds = [reportCreate.rows[0]?.id, reportViewOwn.rows[0]?.id].filter(Boolean);
     if (permIds.length) {
-      await pool.query("INSERT INTO role_permissions (role_id, permission_id) SELECT $1, unnest($2::uuid[])", [citizenRole.rows[0].id, permIds]);
+      await pool.query(
+        'INSERT INTO role_permissions (role_id, permission_id) SELECT $1, unnest($2::uuid[])',
+        [citizenRole.rows[0].id, permIds]
+      );
     }
   }
 
   // Create test users via admin API
-  await createUser({ username: 'citizen.nga', password: 'Test@2026', full_name: 'Nguyễn Thị Nga', email: 'nga@example.com', roles: ['citizen'] }, adminToken);
-  await createUser({ username: 'handler.hn', password: 'Test@2026', full_name: 'Cán bộ thụ lý', email: 'handler@example.com', roles: ['case_handler'] }, adminToken);
-  await createUser({ username: 'verifier.hn', password: 'Test@2026', full_name: 'Cán bộ xác minh', email: 'verifier@example.com', roles: ['verifier'] }, adminToken);
-  await createUser({ username: 'leader.hn', password: 'Test@2026', full_name: 'Lãnh đạo', email: 'leader@example.com', roles: ['leader'] }, adminToken);
+  await createUser(
+    {
+      username: 'citizen.nga',
+      password: 'Test@2026',
+      full_name: 'Nguyễn Thị Nga',
+      email: 'nga@example.com',
+      roles: ['citizen'],
+    },
+    adminToken
+  );
+  await createUser(
+    {
+      username: 'handler.hn',
+      password: 'Test@2026',
+      full_name: 'Cán bộ thụ lý',
+      email: 'handler@example.com',
+      roles: ['case_handler'],
+    },
+    adminToken
+  );
+  await createUser(
+    {
+      username: 'verifier.hn',
+      password: 'Test@2026',
+      full_name: 'Cán bộ xác minh',
+      email: 'verifier@example.com',
+      roles: ['verifier'],
+    },
+    adminToken
+  );
+  await createUser(
+    {
+      username: 'leader.hn',
+      password: 'Test@2026',
+      full_name: 'Lãnh đạo',
+      email: 'leader@example.com',
+      roles: ['leader'],
+    },
+    adminToken
+  );
 
   // Login all users
   citizenToken = await login('citizen.nga');
@@ -120,10 +163,14 @@ test('ma trận auth/RBAC: protected 401, công dân 403, quản trị 200', asy
   const unauthenticated = await json('/api/v1/thong-ke/tong-quan');
   assert.equal(unauthenticated.response.status, 401);
 
-  const forbidden = await json('/api/v1/thong-ke/tong-quan', { headers: { authorization: `Bearer ${citizenToken}` } });
+  const forbidden = await json('/api/v1/thong-ke/tong-quan', {
+    headers: { authorization: `Bearer ${citizenToken}` },
+  });
   assert.equal(forbidden.response.status, 403);
 
-  const allowed = await json('/api/v1/thong-ke/tong-quan', { headers: { authorization: `Bearer ${adminToken}` } });
+  const allowed = await json('/api/v1/thong-ke/tong-quan', {
+    headers: { authorization: `Bearer ${adminToken}` },
+  });
   assert.equal(allowed.response.status, 200);
   assert.ok(Array.isArray(allowed.body.data.theo_trang_thai));
 });
@@ -175,7 +222,70 @@ test('JWT_SECRET fallback khi chưa cấu hình', () => {
 
 test('X-Auth-Token header cũng hoạt động', async () => {
   const result = await json('/api/v1/thong-ke/tong-quan', {
-    headers: { 'X-Auth-Token': adminToken }
+    headers: { 'X-Auth-Token': adminToken },
   });
   assert.equal(result.response.status, 200);
+});
+
+test('AUDIT-B6: JWT không lộ qua query — attachment chỉ xem qua header', async () => {
+  // Upload a valid image as owner (citizen.nga)
+  const fs = require('node:fs');
+  const png = fs.readFileSync('/tmp/test-1x1.png');
+  const form = new FormData();
+  form.set('mo_ta', 'Ảnh minh chứng hợp lệ');
+  form.set('latitude', '21.0330');
+  form.set('longitude', '105.8200');
+  form.set('anh', new Blob([png], { type: 'image/png' }), 'evidence.png');
+  const up = await json('/api/v1/bao-cao', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${citizenToken}` },
+    body: form,
+  });
+  assert.equal(up.response.status, 201, JSON.stringify(up.body));
+  const att = (
+    await pool.query(
+      "SELECT duong_dan FROM tep_dinh_kem WHERE entity_type='bao_cao' AND entity_id=$1",
+      [up.body.data.id]
+    )
+  ).rows[0];
+  assert.ok(att, 'attachment row missing');
+  const filename = att.duong_dan.split('/').pop();
+  const viewPath = `/api/v1/attachments/${filename}/view`;
+
+  // 1. Token in query param MUST NOT authenticate (leak fixed)
+  const leak = await json(`${viewPath}?token=${citizenToken}`);
+  assert.equal(leak.response.status, 401, 'query-param token must not work');
+
+  // 2. Owner via X-Auth-Token header → 200 + correct content-type, no link header leak
+  const ok = await fetch(`${base}${viewPath}`, { headers: { 'X-Auth-Token': citizenToken } });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.headers.get('content-type'), 'image/png');
+  assert.equal(ok.headers.get('content-disposition'), 'inline');
+
+  // 3. Unauthenticated → 401
+  const anon = await json(viewPath);
+  assert.equal(anon.response.status, 401);
+
+  // 4. Non-owner without case.view → 403 (other citizen has no case.view)
+  await createUser(
+    {
+      username: 'citizen.other',
+      password: 'Test@2026',
+      full_name: 'Công dân khác',
+      email: 'other@example.com',
+      roles: ['citizen'],
+    },
+    adminToken
+  );
+  const otherToken = await login('citizen.other');
+  const forb = await json(viewPath, { headers: { authorization: `Bearer ${otherToken}` } });
+  assert.equal(forb.response.status, 403, 'non-owner without case.view must be 403');
+
+  // Clean up the helper user + test attachment to avoid polluting shared DB
+  await pool
+    .query('DELETE FROM tep_dinh_kem WHERE entity_id=$1', [up.body.data.id])
+    .catch(() => {});
+  await pool
+    .query('UPDATE bao_cao_vi_pham SET nguoi_gui_id=NULL WHERE id=$1', [up.body.data.id])
+    .catch(() => {});
 });

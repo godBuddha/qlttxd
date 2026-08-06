@@ -1,4 +1,3 @@
-
 'use strict';
 const http = require('http');
 
@@ -22,7 +21,7 @@ function req(method, path, { body, headers = {} } = {}) {
       hostname: url.hostname,
       port: url.port,
       path: url.pathname + url.search,
-      headers: { ...headers }
+      headers: { ...headers },
     };
     if (body) {
       const data = typeof body === 'string' ? body : JSON.stringify(body);
@@ -31,7 +30,7 @@ function req(method, path, { body, headers = {} } = {}) {
     }
     const r = http.request(opts, (res) => {
       let d = '';
-      res.on('data', c => d += c);
+      res.on('data', (c) => (d += c));
       res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: d }));
     });
     r.on('error', reject);
@@ -52,7 +51,8 @@ async function main() {
     const results = { pass: 0, fail: 0 };
 
     function check(name, cond, detail) {
-      if (ok(name, cond, detail)) results.pass++; else results.fail++;
+      if (ok(name, cond, detail)) results.pass++;
+      else results.fail++;
     }
 
     try {
@@ -61,35 +61,69 @@ async function main() {
 
       // 1. X-Request-Id header
       const xrid = await req('GET', '/api/v1/danh-muc/quan-huyen');
-      check('X-Request-Id header present', !!xrid.headers['x-request-id'], `value=${xrid.headers['x-request-id'] || 'MISSING'}`);
+      check(
+        'X-Request-Id header present',
+        !!xrid.headers['x-request-id'],
+        `value=${xrid.headers['x-request-id'] || 'MISSING'}`
+      );
 
       // 2. CORS headers (OPTIONS)
       const corsResp = await req('OPTIONS', '/api/v1/admin/quan-huyen', {
-        headers: { 'Origin': 'http://localhost:5173', 'Access-Control-Request-Method': 'GET' }
+        headers: { Origin: 'http://localhost:5173', 'Access-Control-Request-Method': 'GET' },
       });
       check('CORS: OPTIONS returns <=204', corsResp.status <= 204, `status=${corsResp.status}`);
-      check('CORS: Access-Control-Allow-Origin present', !!corsResp.headers['access-control-allow-origin'], `value=${corsResp.headers['access-control-allow-origin'] || 'MISSING'}`);
+      check(
+        'CORS: Access-Control-Allow-Origin present',
+        !!corsResp.headers['access-control-allow-origin'],
+        `value=${corsResp.headers['access-control-allow-origin'] || 'MISSING'}`
+      );
 
       // 3. Security headers
       const secH = await req('GET', '/');
-      check('Content-Security-Policy present', !!secH.headers['content-security-policy'], `value=${(secH.headers['content-security-policy'] || '').substring(0, 100)}`);
-      check('X-Content-Type-Options: nosniff', secH.headers['x-content-type-options'] === 'nosniff', `value=${secH.headers['x-content-type-options']}`);
-      check('X-Frame-Options present', !!secH.headers['x-frame-options'], `value=${secH.headers['x-frame-options']}`);
-      check('Referrer-Policy present', !!secH.headers['referrer-policy'], `value=${secH.headers['referrer-policy']}`);
-      check('Permissions-Policy present', !!secH.headers['permissions-policy'], `value=${(secH.headers['permissions-policy'] || '').substring(0, 80)}`);
+      check(
+        'Content-Security-Policy present',
+        !!secH.headers['content-security-policy'],
+        `value=${(secH.headers['content-security-policy'] || '').substring(0, 100)}`
+      );
+      check(
+        'X-Content-Type-Options: nosniff',
+        secH.headers['x-content-type-options'] === 'nosniff',
+        `value=${secH.headers['x-content-type-options']}`
+      );
+      check(
+        'X-Frame-Options present',
+        !!secH.headers['x-frame-options'],
+        `value=${secH.headers['x-frame-options']}`
+      );
+      check(
+        'Referrer-Policy present',
+        !!secH.headers['referrer-policy'],
+        `value=${secH.headers['referrer-policy']}`
+      );
+      check(
+        'Permissions-Policy present',
+        !!secH.headers['permissions-policy'],
+        `value=${(secH.headers['permissions-policy'] || '').substring(0, 80)}`
+      );
 
       // 4. RBAC: no token → 401
       const noToken = await req('GET', '/api/v1/admin/quan-huyen');
       check('RBAC: no token → 401', noToken.status === 401, `status=${noToken.status}`);
 
       // 5. RBAC: bad token → 401
-      const badToken = await req('GET', '/api/v1/admin/quan-huyen', { headers: { 'Authorization': 'Bearer invalid.token.here' } });
+      const badToken = await req('GET', '/api/v1/admin/quan-huyen', {
+        headers: { Authorization: 'Bearer invalid.token.here' },
+      });
       check('RBAC: bad token → 401', badToken.status === 401, `status=${badToken.status}`);
 
       // 6. RBAC: expired token → 401
       const jwt = require('jsonwebtoken');
-      const expToken = jwt.sign({ sub: 'test', roles: ['admin'] }, process.env.JWT_SECRET, { expiresIn: '-1h' });
-      const expResp = await req('GET', '/api/v1/admin/quan-huyen', { headers: { 'Authorization': 'Bearer ' + expToken } });
+      const expToken = jwt.sign({ sub: 'test', roles: ['admin'] }, process.env.JWT_SECRET, {
+        expiresIn: '-1h',
+      });
+      const expResp = await req('GET', '/api/v1/admin/quan-huyen', {
+        headers: { Authorization: 'Bearer ' + expToken },
+      });
       check('RBAC: expired token → 401', expResp.status === 401, `status=${expResp.status}`);
 
       // ============ AUTH FLOW ============
@@ -97,18 +131,20 @@ async function main() {
 
       // 7. Login as admin
       const login = await req('POST', '/api/v1/auth/login', {
-        body: { username: 'admin', password: 'Qlttxd@2026' }
+        body: { username: 'admin', password: 'Qlttxd@2026' },
       });
       check('Admin login → 200', login.status === 200, `status=${login.status}`);
       let adminToken;
-      try { adminToken = JSON.parse(login.body).token; } catch(e) {}
+      try {
+        adminToken = JSON.parse(login.body).token;
+      } catch {}
       check('Admin login returns JWT', !!adminToken, adminToken ? 'token present' : 'MISSING');
 
       if (!adminToken) {
         console.log('\nCannot proceed without admin token.');
         results.fail += 10;
       } else {
-        const AH = { 'Authorization': 'Bearer ' + adminToken };
+        const AH = { Authorization: 'Bearer ' + adminToken };
 
         // 8. Protected with admin → 200
         const adminAccess = await req('GET', '/api/v1/admin/quan-huyen', { headers: AH });
@@ -121,34 +157,45 @@ async function main() {
         const listQH = await req('GET', '/api/v1/admin/quan-huyen', { headers: AH });
         check('API: GET quan-huyen → 200', listQH.status === 200, `status=${listQH.status}`);
         let qhList;
-        try { qhList = JSON.parse(listQH.body).data; } catch(e) {}
-        check('API: quan-huyen returns array', Array.isArray(qhList), `count=${qhList ? qhList.length : 'N/A'}`);
+        try {
+          qhList = JSON.parse(listQH.body).data;
+        } catch {}
+        check(
+          'API: quan-huyen returns array',
+          Array.isArray(qhList),
+          `count=${qhList ? qhList.length : 'N/A'}`
+        );
 
         // 10. POST create district
         const createQH = await req('POST', '/api/v1/admin/quan-huyen', {
           body: { ma: 'SMOKE01', ten: 'Quận Smoke Test' },
-          headers: AH
+          headers: AH,
         });
         check('API: POST quan-huyen → 201', createQH.status === 201, `status=${createQH.status}`);
         let newQHId;
-        try { newQHId = JSON.parse(createQH.body).data?.id; } catch(e) {}
+        try {
+          newQHId = JSON.parse(createQH.body).data?.id;
+        } catch {}
 
         // 11. POST duplicate → 409
         const dupQH = await req('POST', '/api/v1/admin/quan-huyen', {
-          body: { ma: 'SMOKE01', ten: 'Dup' }, headers: AH
+          body: { ma: 'SMOKE01', ten: 'Dup' },
+          headers: AH,
         });
         check('API: POST duplicate ma → 409', dupQH.status === 409, `status=${dupQH.status}`);
 
         // 12. POST missing ma → 400
         const badQH = await req('POST', '/api/v1/admin/quan-huyen', {
-          body: { ten: 'No ma' }, headers: AH
+          body: { ten: 'No ma' },
+          headers: AH,
         });
         check('API: POST missing ma → 400', badQH.status === 400, `status=${badQH.status}`);
 
         // 13. PATCH update
         if (newQHId) {
           const patchQH = await req('PATCH', `/api/v1/admin/quan-huyen/${newQHId}`, {
-            body: { ten: 'Quận Smoke Updated' }, headers: AH
+            body: { ten: 'Quận Smoke Updated' },
+            headers: AH,
           });
           check('API: PATCH quan-huyen → 200', patchQH.status === 200, `status=${patchQH.status}`);
         }
@@ -159,12 +206,18 @@ async function main() {
 
         // 15. POST create ward
         const createPX = await req('POST', '/api/v1/admin/phuong-xa', {
-          body: { ma: 'SMOKEPX01', ten: 'Phường Smoke Test', quan_huyen_id: newQHId || '00000000-0000-0000-0000-000000000000' },
-          headers: AH
+          body: {
+            ma: 'SMOKEPX01',
+            ten: 'Phường Smoke Test',
+            quan_huyen_id: newQHId || '00000000-0000-0000-0000-000000000000',
+          },
+          headers: AH,
         });
         check('API: POST phuong-xa → 201', createPX.status === 201, `status=${createPX.status}`);
         let newPXId;
-        try { newPXId = JSON.parse(createPX.body).data?.id; } catch(e) {}
+        try {
+          newPXId = JSON.parse(createPX.body).data?.id;
+        } catch {}
 
         // 16. DELETE ward
         if (newPXId) {
@@ -180,20 +233,30 @@ async function main() {
 
         // 18. GET public danh-muc
         const pubQH = await req('GET', '/api/v1/danh-muc/quan-huyen');
-        check('Public: GET danh-muc/quan-huyen → 200', pubQH.status === 200, `status=${pubQH.status}`);
+        check(
+          'Public: GET danh-muc/quan-huyen → 200',
+          pubQH.status === 200,
+          `status=${pubQH.status}`
+        );
         const pubPX = await req('GET', '/api/v1/danh-muc/phuong-xa');
-        check('Public: GET danh-muc/phuong-xa → 200', pubPX.status === 200, `status=${pubPX.status}`);
+        check(
+          'Public: GET danh-muc/phuong-xa → 200',
+          pubPX.status === 200,
+          `status=${pubPX.status}`
+        );
 
         // 19. Rate limit test (setup-admin should respect rate)
         const rl1 = await req('POST', '/api/v1/auth/login', {
-          body: { username: 'admin', password: 'WrongPassword123!' }
+          body: { username: 'admin', password: 'WrongPassword123!' },
         });
         check('Rate limit: login wrong pw returns 401', rl1.status === 401, `status=${rl1.status}`);
       }
 
       // ============ SUMMARY ============
       console.log('\n=== SMOKE SUMMARY ===');
-      console.log(`Total: ${results.pass + results.fail} | PASS: ${results.pass} | FAIL: ${results.fail}`);
+      console.log(
+        `Total: ${results.pass + results.fail} | PASS: ${results.pass} | FAIL: ${results.fail}`
+      );
 
       if (results.fail > 0) {
         console.log('\nSMOKE TEST FAILED');

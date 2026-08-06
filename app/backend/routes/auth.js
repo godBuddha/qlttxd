@@ -6,24 +6,26 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
-const { secret, requirePool, audit } = require('../utils/helpers');
-const { upload } = require('../utils/upload');
+const { secret, requirePool, audit, invalidateUserTokens } = require('../utils/helpers');
 
 const startTime = Date.now();
 
-module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, authorize }) {
+module.exports = function authRoutes({ pool, tokenBlocklist, authenticate }) {
   const router = express.Router();
 
   // Rate limit for login/auth endpoints (disabled in test/debug mode)
-  const authLimiter = (process.env.NODE_ENV === 'test' || process.env.RATE_LIMIT_DISABLED === 'true' || process.env.QLTTXD_DEBUG_TOKENS === 'true')
-    ? ((_req, _res, next) => next())
-    : rateLimit({
-        windowMs: 15 * 60 * 1000,
-        max: 10,
-        standardHeaders: true,
-        legacyHeaders: false,
-        message: { error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' }
-      });
+  const authLimiter =
+    process.env.NODE_ENV === 'test' ||
+    process.env.RATE_LIMIT_DISABLED === 'true' ||
+    process.env.QLTTXD_DEBUG_TOKENS === 'true'
+      ? (_req, _res, next) => next()
+      : rateLimit({
+          windowMs: 15 * 60 * 1000,
+          max: 10,
+          standardHeaders: true,
+          legacyHeaders: false,
+          message: { error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' },
+        });
 
   router.get('/health', async (_req, res) => {
     try {
@@ -34,7 +36,10 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
         uptime: Math.floor((Date.now() - startTime) / 1000),
         version: process.env.npm_package_version || '0.3.2',
         pool: { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount },
-        process: { pid: process.pid, memory: Math.round(process.memoryUsage().rss / 1024 / 1024) + 'MB' }
+        process: {
+          pid: process.pid,
+          memory: Math.round(process.memoryUsage().rss / 1024 / 1024) + 'MB',
+        },
       });
     } catch (e) {
       res.status(503).json({ status: 'error', db: 'disconnected', error: e.message });
@@ -49,18 +54,28 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
         `SELECT EXISTS(SELECT 1 FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id WHERE r.code='admin' AND u.is_active=true) AS has_admin`
       );
       res.json({ needsSetup: !result.rows[0].has_admin });
-    } catch (error) { next(error); }
+    } catch (error) {
+      next(error);
+    }
   });
 
   router.post('/api/v1/auth/setup-admin', authLimiter, async (req, res, next) => {
     if (!requirePool(pool, res)) return;
     try {
       const { username, password, full_name, email, phone } = req.body || {};
-      if (!username || username.length < 3 || username.length > 50) return res.status(400).json({ error: 'Tên đăng nhập phải từ 3-50 ký tự' });
-      if (!password || password.length < 8) return res.status(400).json({ error: 'Mật khẩu phải tối thiểu 8 ký tự' });
-      if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) return res.status(400).json({ error: 'Mật khẩu phải chứa cả chữ và chữ số' });
+      if (!username || username.length < 3 || username.length > 50) {
+        return res.status(400).json({ error: 'Tên đăng nhập phải từ 3-50 ký tự' });
+      }
+      if (!password || password.length < 8) {
+        return res.status(400).json({ error: 'Mật khẩu phải tối thiểu 8 ký tự' });
+      }
+      if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+        return res.status(400).json({ error: 'Mật khẩu phải chứa cả chữ và chữ số' });
+      }
       if (!full_name?.trim()) return res.status(400).json({ error: 'Họ tên là bắt buộc' });
-      if (!email && !phone) return res.status(400).json({ error: 'Email hoặc số điện thoại là bắt buộc' });
+      if (!email && !phone) {
+        return res.status(400).json({ error: 'Email hoặc số điện thoại là bắt buộc' });
+      }
 
       const client = await pool.connect();
       try {
@@ -71,7 +86,9 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
         );
         if (hasAdmin.rows[0].has_admin) {
           await client.query('ROLLBACK');
-          return res.status(409).json({ error: 'Quản trị viên đã tồn tại. Không thể đăng ký lại.' });
+          return res
+            .status(409)
+            .json({ error: 'Quản trị viên đã tồn tại. Không thể đăng ký lại.' });
         }
         const passwordHash = await bcrypt.hash(password, 10);
         const userResult = await client.query(
@@ -95,33 +112,104 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
         await client.query('COMMIT');
         const claims = { id: user.id, username: user.username, roles: ['admin'], permissions };
         const token = jwt.sign(claims, secret(), { expiresIn: '15m', jwtid: crypto.randomUUID() });
-        await pool.query('INSERT INTO user_tokens (user_id, jti) VALUES ($1, $2) ON CONFLICT (jti) DO NOTHING', [user.id, claims.jti]).catch(() => {});
-        const refreshToken = jwt.sign({ id: user.id, type: 'refresh' }, secret(), { expiresIn: '7d', jwtid: crypto.randomUUID() });
+        await pool
+          .query(
+            'INSERT INTO user_tokens (user_id, jti) VALUES ($1, $2) ON CONFLICT (jti) DO NOTHING',
+            [user.id, claims.jti]
+          )
+          .catch(() => {});
+        const refreshToken = jwt.sign({ id: user.id, type: 'refresh' }, secret(), {
+          expiresIn: '7d',
+          jwtid: crypto.randomUUID(),
+        });
         const rtDecoded = jwt.decode(refreshToken);
-        await pool.query('INSERT INTO refresh_tokens (user_id, jti, expires_at) VALUES ($1, $2, now() + interval \'7 days\')', [user.id, rtDecoded.jti]).catch(() => {});
-        res.status(201).json({ token, refreshToken, user: { id: user.id, username: user.username, full_name: user.full_name, email: user.email, phone: user.phone, roles: ['admin'], permissions } });
-      } catch (e) { await client.query('ROLLBACK'); next(e); } finally { client.release(); }
-    } catch (error) { next(error); }
+        await pool
+          .query(
+            "INSERT INTO refresh_tokens (user_id, jti, expires_at) VALUES ($1, $2, now() + interval '7 days')",
+            [user.id, rtDecoded.jti]
+          )
+          .catch(() => {});
+        res.status(201).json({
+          token,
+          refreshToken,
+          user: {
+            id: user.id,
+            username: user.username,
+            full_name: user.full_name,
+            email: user.email,
+            phone: user.phone,
+            roles: ['admin'],
+            permissions,
+          },
+        });
+      } catch (e) {
+        await client.query('ROLLBACK');
+        next(e);
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      next(error);
+    }
   });
 
   router.post('/api/v1/auth/login', authLimiter, async (req, res, next) => {
     if (!requirePool(pool, res)) return;
     try {
       const { username, password } = req.body || {};
-      if (!username || !password) return res.status(400).json({ error: 'Tên đăng nhập và mật khẩu là bắt buộc' });
-      const result = await pool.query(`SELECT u.id,u.username,u.full_name,u.email,u.phone,u.password_hash, array_remove(array_agg(DISTINCT r.code),NULL) roles, array_remove(array_agg(DISTINCT p.code),NULL) permissions FROM users u LEFT JOIN user_roles ur ON ur.user_id=u.id LEFT JOIN roles r ON r.id=ur.role_id LEFT JOIN role_permissions rp ON rp.role_id=r.id LEFT JOIN permissions p ON p.id=rp.permission_id WHERE u.username=$1 AND u.is_active=true GROUP BY u.id`, [username]);
+      if (!username || !password) {
+        return res.status(400).json({ error: 'Tên đăng nhập và mật khẩu là bắt buộc' });
+      }
+      const result = await pool.query(
+        `SELECT u.id,u.username,u.full_name,u.email,u.phone,u.password_hash, array_remove(array_agg(DISTINCT r.code),NULL) roles, array_remove(array_agg(DISTINCT p.code),NULL) permissions FROM users u LEFT JOIN user_roles ur ON ur.user_id=u.id LEFT JOIN roles r ON r.id=ur.role_id LEFT JOIN role_permissions rp ON rp.role_id=r.id LEFT JOIN permissions p ON p.id=rp.permission_id WHERE u.username=$1 AND u.is_active=true GROUP BY u.id`,
+        [username]
+      );
       const user = result.rows[0];
-      if (!user || !await bcrypt.compare(password, user.password_hash)) return res.status(401).json({ error: 'Tên đăng nhập hoặc mật khẩu không đúng' });
-      const claims = { id: user.id, username: user.username, roles: user.roles || [], permissions: user.permissions || [] };
+      if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+        return res.status(401).json({ error: 'Tên đăng nhập hoặc mật khẩu không đúng' });
+      }
+      const claims = {
+        id: user.id,
+        username: user.username,
+        roles: user.roles || [],
+        permissions: user.permissions || [],
+      };
       await pool.query('UPDATE users SET last_login_at=now() WHERE id=$1', [user.id]);
       await audit(pool, { user: claims, ip: req.ip }, 'login', 'users', user.id);
       const token = jwt.sign(claims, secret(), { expiresIn: '15m', jwtid: crypto.randomUUID() });
-      await pool.query('INSERT INTO user_tokens (user_id, jti) VALUES ($1, $2) ON CONFLICT (jti) DO NOTHING', [user.id, claims.jti]).catch(() => {});
-      const refreshToken = jwt.sign({ id: user.id, type: 'refresh' }, secret(), { expiresIn: '7d', jwtid: crypto.randomUUID() });
+      await pool
+        .query(
+          'INSERT INTO user_tokens (user_id, jti) VALUES ($1, $2) ON CONFLICT (jti) DO NOTHING',
+          [user.id, claims.jti]
+        )
+        .catch(() => {});
+      const refreshToken = jwt.sign({ id: user.id, type: 'refresh' }, secret(), {
+        expiresIn: '7d',
+        jwtid: crypto.randomUUID(),
+      });
       const rtDecoded = jwt.decode(refreshToken);
-      await pool.query('INSERT INTO refresh_tokens (user_id, jti, expires_at) VALUES ($1, $2, now() + interval \'7 days\')', [user.id, rtDecoded.jti]).catch(() => {});
-      return res.json({ token, refreshToken, user: { id: user.id, username: user.username, full_name: user.full_name, email: user.email, phone: user.phone, roles: claims.roles, permissions: claims.permissions } });
-    } catch (error) { next(error); }
+      await pool
+        .query(
+          "INSERT INTO refresh_tokens (user_id, jti, expires_at) VALUES ($1, $2, now() + interval '7 days')",
+          [user.id, rtDecoded.jti]
+        )
+        .catch(() => {});
+      return res.json({
+        token,
+        refreshToken,
+        user: {
+          id: user.id,
+          username: user.username,
+          full_name: user.full_name,
+          email: user.email,
+          phone: user.phone,
+          roles: claims.roles,
+          permissions: claims.permissions,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
   });
 
   router.post('/api/v1/auth/logout', authenticate, async (req, res) => {
@@ -135,22 +223,66 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
       const { refreshToken } = req.body || {};
       if (!refreshToken) return res.status(400).json({ error: 'Thiếu refresh token' });
       let decoded;
-      try { decoded = jwt.verify(refreshToken, secret()); } catch { return res.status(401).json({ error: 'Refresh token không hợp lệ hoặc đã hết hạn' }); }
+      try {
+        decoded = jwt.verify(refreshToken, secret());
+      } catch {
+        return res.status(401).json({ error: 'Refresh token không hợp lệ hoặc đã hết hạn' });
+      }
       if (decoded.type !== 'refresh') return res.status(401).json({ error: 'Token không hợp lệ' });
-      const stored = await pool.query('SELECT id FROM refresh_tokens WHERE jti=$1 AND expires_at > now()', [decoded.jti]);
-      if (!stored.rows[0]) return res.status(401).json({ error: 'Refresh token đã bị thu hồi hoặc hết hạn' });
+      const stored = await pool.query(
+        'SELECT id FROM refresh_tokens WHERE jti=$1 AND expires_at > now()',
+        [decoded.jti]
+      );
+      if (!stored.rows[0]) {
+        return res.status(401).json({ error: 'Refresh token đã bị thu hồi hoặc hết hạn' });
+      }
       await pool.query('DELETE FROM refresh_tokens WHERE jti=$1', [decoded.jti]);
-      const userResult = await pool.query(`SELECT u.id,u.username,u.full_name,u.email,u.phone, array_remove(array_agg(DISTINCT r.code),NULL) roles, array_remove(array_agg(DISTINCT p.code),NULL) permissions FROM users u LEFT JOIN user_roles ur ON ur.user_id=u.id LEFT JOIN roles r ON r.id=ur.role_id LEFT JOIN role_permissions rp ON rp.role_id=r.id LEFT JOIN permissions p ON p.id=rp.permission_id WHERE u.id=$1 AND u.is_active=true GROUP BY u.id`, [decoded.id]);
+      const userResult = await pool.query(
+        `SELECT u.id,u.username,u.full_name,u.email,u.phone, array_remove(array_agg(DISTINCT r.code),NULL) roles, array_remove(array_agg(DISTINCT p.code),NULL) permissions FROM users u LEFT JOIN user_roles ur ON ur.user_id=u.id LEFT JOIN roles r ON r.id=ur.role_id LEFT JOIN role_permissions rp ON rp.role_id=r.id LEFT JOIN permissions p ON p.id=rp.permission_id WHERE u.id=$1 AND u.is_active=true GROUP BY u.id`,
+        [decoded.id]
+      );
       const user = userResult.rows[0];
       if (!user) return res.status(401).json({ error: 'Người dùng không tồn tại' });
-      const claims = { id: user.id, username: user.username, roles: user.roles || [], permissions: user.permissions || [] };
+      const claims = {
+        id: user.id,
+        username: user.username,
+        roles: user.roles || [],
+        permissions: user.permissions || [],
+      };
       const token = jwt.sign(claims, secret(), { expiresIn: '15m', jwtid: crypto.randomUUID() });
-      await pool.query('INSERT INTO user_tokens (user_id, jti) VALUES ($1, $2) ON CONFLICT (jti) DO NOTHING', [user.id, claims.jti]).catch(() => {});
-      const newRefreshToken = jwt.sign({ id: user.id, type: 'refresh' }, secret(), { expiresIn: '7d', jwtid: crypto.randomUUID() });
+      await pool
+        .query(
+          'INSERT INTO user_tokens (user_id, jti) VALUES ($1, $2) ON CONFLICT (jti) DO NOTHING',
+          [user.id, claims.jti]
+        )
+        .catch(() => {});
+      const newRefreshToken = jwt.sign({ id: user.id, type: 'refresh' }, secret(), {
+        expiresIn: '7d',
+        jwtid: crypto.randomUUID(),
+      });
       const newRtDecoded = jwt.decode(newRefreshToken);
-      await pool.query('INSERT INTO refresh_tokens (user_id, jti, expires_at) VALUES ($1, $2, now() + interval \'7 days\')', [user.id, newRtDecoded.jti]).catch(() => {});
-      return res.json({ token, refreshToken: newRefreshToken, user: { id: user.id, username: user.username, full_name: user.full_name, email: user.email, phone: user.phone, roles: claims.roles, permissions: claims.permissions } });
-    } catch (error) { next(error); }
+      await pool
+        .query(
+          "INSERT INTO refresh_tokens (user_id, jti, expires_at) VALUES ($1, $2, now() + interval '7 days')",
+          [user.id, newRtDecoded.jti]
+        )
+        .catch(() => {});
+      return res.json({
+        token,
+        refreshToken: newRefreshToken,
+        user: {
+          id: user.id,
+          username: user.username,
+          full_name: user.full_name,
+          email: user.email,
+          phone: user.phone,
+          roles: claims.roles,
+          permissions: claims.permissions,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
   });
 
   router.get('/api/v1/auth/me', authenticate, (req, res) => res.json({ user: req.user }));
@@ -159,60 +291,130 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
   router.patch('/api/v1/auth/password', authenticate, async (req, res, next) => {
     try {
       const { old_password, new_password } = req.body || {};
-      if (!old_password || !new_password) return res.status(400).json({ error: 'Mật khẩu cũ và mới là bắt buộc' });
-      if (new_password.length < 8 || !/[a-zA-Z]/.test(new_password) || !/[0-9]/.test(new_password))
-        return res.status(400).json({ error: 'Mật khẩu mới phải tối thiểu 8 ký tự, chứa cả chữ và chữ số' });
+      if (!old_password || !new_password) {
+        return res.status(400).json({ error: 'Mật khẩu cũ và mới là bắt buộc' });
+      }
+      if (
+        new_password.length < 8 ||
+        !/[a-zA-Z]/.test(new_password) ||
+        !/[0-9]/.test(new_password)
+      ) {
+        return res
+          .status(400)
+          .json({ error: 'Mật khẩu mới phải tối thiểu 8 ký tự, chứa cả chữ và chữ số' });
+      }
       const user = await pool.query('SELECT password_hash FROM users WHERE id=$1', [req.user.id]);
-      if (!user.rows[0] || !await bcrypt.compare(old_password, user.rows[0].password_hash))
+      if (!user.rows[0] || !(await bcrypt.compare(old_password, user.rows[0].password_hash))) {
         return res.status(401).json({ error: 'Mật khẩu cũ không đúng' });
-      await pool.query('UPDATE users SET password_hash=$1 WHERE id=$2', [await bcrypt.hash(new_password, 10), req.user.id]);
+      }
+      await pool.query('UPDATE users SET password_hash=$1 WHERE id=$2', [
+        await bcrypt.hash(new_password, 10),
+        req.user.id,
+      ]);
+      // Sau khi đổi mật khẩu, thu hồi toàn bộ token của user (C-02)
+      await invalidateUserTokens(pool, req.user.id);
       await audit(pool, req, 'change_password', 'users', req.user.id);
       res.json({ message: 'Đã đổi mật khẩu thành công' });
-    } catch (e) { next(e); }
+    } catch (e) {
+      next(e);
+    }
   });
 
-  router.get('/uploads/:filename', async (req, res, next) => {
+  // =========================================================================
+  // Attachment / evidence image serving
+  // Auth via Authorization / X-Auth-Token header ONLY — never via query param
+  // (JWT in ?token= leaks into logs, history and Referer headers).
+  // =========================================================================
+  const CONTENT_TYPES = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+  };
+
+  async function serveAttachment(req, res, next) {
     try {
       const filename = req.params.filename;
-      if (!/^\d{13}-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:jpe?g|png|gif|webp)$/i.test(filename)) return res.status(404).json({ error: 'Không tìm thấy tệp' });
-      const token = req.query.token || req.get('authorization')?.replace(/^Bearer /, '') || req.get('x-auth-token');
+      if (
+        !/^\d{13}-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:jpe?g|png|gif|webp)$/i.test(
+          filename
+        )
+      ) {
+        return res.status(404).json({ error: 'Không tìm thấy tệp' });
+      }
+      const auth = req.get('authorization') || '';
+      const token = auth.startsWith('Bearer ') ? auth.slice(7) : req.get('x-auth-token');
       if (!token) return res.status(401).json({ error: 'Thiếu mã xác thực' });
       let user;
-      try { user = jwt.verify(token, secret()); } catch { return res.status(401).json({ error: 'Mã xác thực không hợp lệ hoặc đã hết hạn' }); }
-      if (await tokenBlocklist.has(user.jti)) return res.status(401).json({ error: 'Mã xác thực đã bị thu hồi' });
-      const attachment = await pool.query("SELECT b.nguoi_gui_id FROM tep_dinh_kem t JOIN bao_cao_vi_pham b ON t.entity_type='bao_cao' AND b.id=t.entity_id WHERE t.duong_dan=$1", [`/uploads/${filename}`]);
+      try {
+        user = jwt.verify(token, secret());
+      } catch {
+        return res.status(401).json({ error: 'Mã xác thực không hợp lệ hoặc đã hết hạn' });
+      }
+      if (await tokenBlocklist.has(user.jti)) {
+        return res.status(401).json({ error: 'Mã xác thực đã bị thu hồi' });
+      }
+      const attachment = await pool.query(
+        "SELECT b.nguoi_gui_id FROM tep_dinh_kem t JOIN bao_cao_vi_pham b ON t.entity_type='bao_cao' AND b.id=t.entity_id WHERE t.duong_dan=$1",
+        [`/uploads/${filename}`]
+      );
       if (!attachment.rows[0]) return res.status(404).json({ error: 'Không tìm thấy tệp' });
-      if (!user.permissions.includes('case.view') && attachment.rows[0].nguoi_gui_id !== user.id) return res.status(403).json({ error: 'Bạn không có quyền xem tệp này' });
+      if (!user.permissions.includes('case.view') && attachment.rows[0].nguoi_gui_id !== user.id) {
+        return res.status(403).json({ error: 'Bạn không có quyền xem tệp này' });
+      }
       const uploadDirectory = require('../utils/upload').uploadDirectory;
-      return res.sendFile(path.join(uploadDirectory, filename), { dotfiles: 'deny' }, (error) => { if (error) next(error); });
-    } catch (error) { next(error); }
-  });
+      const ext = path.extname(filename).toLowerCase();
+      res.set('Content-Type', CONTENT_TYPES[ext] || 'application/octet-stream');
+      res.set('Content-Disposition', 'inline');
+      res.set('Cache-Control', 'private, no-store');
+      return res.sendFile(path.join(uploadDirectory, filename), { dotfiles: 'deny' }, (error) => {
+        if (error) next(error);
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  router.get('/uploads/:filename', serveAttachment);
+  router.get('/api/v1/attachments/:filename/view', serveAttachment);
 
   // =========================================================================
   // T51: FORGOT PASSWORD / RESET PASSWORD
   // =========================================================================
-  const forgotLimiter = (process.env.NODE_ENV === 'test' || process.env.RATE_LIMIT_DISABLED === 'true' || process.env.QLTTXD_DEBUG_TOKENS === 'true')
-    ? ((_req, _res, next) => next())
-    : rateLimit({
-        windowMs: 15 * 60 * 1000,
-        max: Number(process.env.RATE_LIMIT_MAX || 200),
-        standardHeaders: true,
-        legacyHeaders: false,
-        message: { error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' }
-      });
+  const forgotLimiter =
+    process.env.NODE_ENV === 'test' ||
+    process.env.RATE_LIMIT_DISABLED === 'true' ||
+    process.env.QLTTXD_DEBUG_TOKENS === 'true'
+      ? (_req, _res, next) => next()
+      : rateLimit({
+          windowMs: 15 * 60 * 1000,
+          max: Number(process.env.RATE_LIMIT_MAX || 200),
+          standardHeaders: true,
+          legacyHeaders: false,
+          message: { error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' },
+        });
 
   router.post('/api/v1/auth/forgot-password', forgotLimiter, async (req, res, next) => {
     if (!requirePool(pool, res)) return;
     try {
       const { identifier } = req.body || {};
-      if (!identifier?.trim()) return res.status(400).json({ error: 'Tên đăng nhập hoặc email là bắt buộc' });
+      if (!identifier?.trim()) {
+        return res.status(400).json({ error: 'Tên đăng nhập hoặc email là bắt buộc' });
+      }
 
-      const user = (await pool.query(
-        'SELECT id, username FROM users WHERE (username=$1 OR email=$1) AND is_active=true LIMIT 1',
-        [identifier.trim()]
-      )).rows[0];
+      const user = (
+        await pool.query(
+          'SELECT id, username FROM users WHERE (username=$1 OR email=$1) AND is_active=true LIMIT 1',
+          [identifier.trim()]
+        )
+      ).rows[0];
 
-      if (!user) return res.json({ message: 'Nếu tài khoản tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi.' });
+      if (!user) {
+        return res.json({
+          message: 'Nếu tài khoản tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi.',
+        });
+      }
 
       const rawToken = crypto.randomBytes(32).toString('hex');
       const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
@@ -228,7 +430,10 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
       );
 
       if (process.env.SMTP_HOST) {
-        const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+        const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(
+          /\/$/,
+          ''
+        );
         const resetLink = `${frontendUrl}/reset-password?token=${rawToken}`;
         try {
           const nodemailer = require('nodemailer');
@@ -236,7 +441,9 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
             host: process.env.SMTP_HOST,
             port: Number(process.env.SMTP_PORT || 587),
             secure: Number(process.env.SMTP_PORT || 587) === 465,
-            auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
+            auth: process.env.SMTP_USER
+              ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+              : undefined,
           });
           await transporter.sendMail({
             from: process.env.SMTP_FROM || `QLTTXD <no-reply@${process.env.SMTP_HOST}>`,
@@ -247,13 +454,19 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
         } catch (mailErr) {
           console.error('[forgot-password] Gửi email thất bại:', mailErr.message);
         }
-        return res.json({ message: 'Nếu tài khoản tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi.' });
+        return res.json({
+          message: 'Nếu tài khoản tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi.',
+        });
       }
 
       const resp = { message: 'Nếu tài khoản tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi.' };
-      if (process.env.NODE_ENV === 'development' && process.env.QLTTXD_DEBUG_TOKENS === 'true') resp.dev_token = rawToken;
+      if (process.env.NODE_ENV === 'development' && process.env.QLTTXD_DEBUG_TOKENS === 'true') {
+        resp.dev_token = rawToken;
+      }
       res.json(resp);
-    } catch (error) { next(error); }
+    } catch (error) {
+      next(error);
+    }
   });
 
   router.post('/api/v1/auth/reset-password', forgotLimiter, async (req, res, next) => {
@@ -261,9 +474,12 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
     try {
       const { token, new_password } = req.body || {};
       if (!token) return res.status(400).json({ error: 'Token là bắt buộc' });
-      if (!new_password || new_password.length < 8) return res.status(400).json({ error: 'Mật khẩu phải tối thiểu 8 ký tự' });
-      if (!/[a-zA-Z]/.test(new_password) || !/[0-9]/.test(new_password))
+      if (!new_password || new_password.length < 8) {
+        return res.status(400).json({ error: 'Mật khẩu phải tối thiểu 8 ký tự' });
+      }
+      if (!/[a-zA-Z]/.test(new_password) || !/[0-9]/.test(new_password)) {
         return res.status(400).json({ error: 'Mật khẩu phải chứa cả chữ và chữ số' });
+      }
 
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
       const result = await pool.query(
@@ -271,11 +487,15 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
         [tokenHash]
       );
       const record = result.rows[0];
-      if (!record || record.used || new Date(record.expires_at) < new Date())
+      if (!record || record.used || new Date(record.expires_at) < new Date()) {
         return res.status(400).json({ error: 'Token không hợp lệ hoặc đã hết hạn' });
+      }
 
       const passwordHash = await bcrypt.hash(new_password, 10);
-      await pool.query('UPDATE users SET password_hash=$1 WHERE id=$2', [passwordHash, record.user_id]);
+      await pool.query('UPDATE users SET password_hash=$1 WHERE id=$2', [
+        passwordHash,
+        record.user_id,
+      ]);
       await pool.query('UPDATE reset_token SET used=true WHERE id=$1', [record.id]);
       await pool.query(
         "INSERT INTO audit_log (nguoi_dung_id, hanh_dong, bang_bi_tac_dong, id_ban_ghi, chi_tiet, ip) VALUES ($1, 'reset_password', 'users', $2, $3, $4)",
@@ -283,7 +503,9 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
       );
 
       res.json({ message: 'Đặt lại mật khẩu thành công' });
-    } catch (error) { next(error); }
+    } catch (error) {
+      next(error);
+    }
   });
 
   return router;

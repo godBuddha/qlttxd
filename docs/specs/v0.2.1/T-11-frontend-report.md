@@ -3,15 +3,18 @@
 > Task: coder (frontend) | Priority: P1 | Dependency: T-05, T-06
 
 ## Mục tiêu
+
 Trang báo cáo thống kê nâng cao với nút xuất CSV/PDF.
 
 ## Files thay đổi
+
 1. `app/frontend/src/main.jsx` — thêm `ReportPage`
 2. `app/frontend/src/styles.css` — CSS cho report
 
 ## Chi tiết
 
 ### Component `ReportPage`
+
 ```jsx
 function ReportPage({ api, user, notify }) {
   const [filters, setFilters] = useState({ trang_thai: '', quan_huyen_id: '', tu_ngay: '', den_ngay: '' });
@@ -58,12 +61,17 @@ function ReportPage({ api, user, notify }) {
 ```
 
 ### Menu
+
 Thêm vào nav (chỉ khi `can(user, 'report.statistics')`):
+
 ```jsx
-<button className={route.page === 'report' ? 'selected' : ''} onClick={() => nav('report')}>📊 Báo cáo</button>
+<button className={route.page === 'report' ? 'selected' : ''} onClick={() => nav('report')}>
+  📊 Báo cáo
+</button>
 ```
 
 ## Acceptance Criteria
+
 - [ ] Trang hiển thị thống kê theo trạng thái và quận
 - [ ] Nút Xuất CSV download file .csv
 - [ ] Nút Xuất PDF download file .pdf

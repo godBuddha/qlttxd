@@ -9,7 +9,6 @@ let server;
 let pool;
 let adminToken;
 let citizenRoleId;
-let citizenUserId;
 
 async function json(path, options = {}) {
   const response = await fetch(`${base}${path}`, options);
@@ -26,14 +25,14 @@ async function setupAdmin() {
       password: TEST_ADMIN_PASSWORD,
       full_name: 'Quản trị viên hệ thống',
       email: 'admin@qlttxd.local',
-      phone: '0901000001'
-    })
+      phone: '0901000001',
+    }),
   });
   if (setup.response.status === 201) return setup.body.token;
   const login = await json('/api/v1/auth/login', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ username: TEST_ADMIN_USERNAME, password: TEST_ADMIN_PASSWORD })
+    body: JSON.stringify({ username: TEST_ADMIN_USERNAME, password: TEST_ADMIN_PASSWORD }),
   });
   return login.body.token;
 }
@@ -57,7 +56,7 @@ test.after(async () => {
 
 test('lấy danh sách roles', async () => {
   const result = await json('/api/v1/admin/roles', {
-    headers: { 'X-Auth-Token': adminToken }
+    headers: { 'X-Auth-Token': adminToken },
   });
   assert.equal(result.response.status, 200);
   assert.ok(Array.isArray(result.body.data));
@@ -70,7 +69,7 @@ test('lấy danh sách roles', async () => {
 
 test('lấy danh sách permissions nhóm theo module', async () => {
   const result = await json('/api/v1/admin/permissions', {
-    headers: { 'X-Auth-Token': adminToken }
+    headers: { 'X-Auth-Token': adminToken },
   });
   assert.equal(result.response.status, 200);
   assert.ok(Array.isArray(result.body.data));
@@ -84,7 +83,7 @@ test('lấy danh sách permissions nhóm theo module', async () => {
 test('sửa quyền role citizen → thêm case.view', async () => {
   // Get all permissions
   const perms = await json('/api/v1/admin/permissions', {
-    headers: { 'X-Auth-Token': adminToken }
+    headers: { 'X-Auth-Token': adminToken },
   });
   const allPerms = perms.body.data.flatMap((m) => m.permissions);
   const caseViewPerm = allPerms.find((p) => p.code === 'case.view');
@@ -96,8 +95,8 @@ test('sửa quyền role citizen → thêm case.view', async () => {
     method: 'PATCH',
     headers: { 'content-type': 'application/json', 'X-Auth-Token': adminToken },
     body: JSON.stringify({
-      permission_ids: [reportCreatePerm.id, reportViewOwnPerm.id, caseViewPerm.id]
-    })
+      permission_ids: [reportCreatePerm.id, reportViewOwnPerm.id, caseViewPerm.id],
+    }),
   });
   assert.equal(result.response.status, 200);
   const permCodes = result.body.data.permissions.map((p) => p.code);
@@ -116,28 +115,30 @@ test('user với role citizen giờ có quyền case.view', async () => {
       password: 'Citizen@2026',
       full_name: 'Test Citizen',
       email: 'citizen@test.com',
-      roles: ['citizen']
-    })
+      roles: ['citizen'],
+    }),
   });
   assert.equal(createResult.response.status, 201);
-  citizenUserId = createResult.body.data.id;
 
   // Login as citizen
   const login = await json('/api/v1/auth/login', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ username: 'citizen.test', password: 'Citizen@2026' })
+    body: JSON.stringify({ username: 'citizen.test', password: 'Citizen@2026' }),
   });
   assert.equal(login.response.status, 200);
   assert.ok(login.body.user.permissions.includes('case.view'));
 });
 
 test('không thể sửa role không tồn tại → 404', async () => {
-  const result = await json('/api/v1/admin/roles/00000000-0000-0000-0000-000000000000/permissions', {
-    method: 'PATCH',
-    headers: { 'content-type': 'application/json', 'X-Auth-Token': adminToken },
-    body: JSON.stringify({ permission_ids: [] })
-  });
+  const result = await json(
+    '/api/v1/admin/roles/00000000-0000-0000-0000-000000000000/permissions',
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', 'X-Auth-Token': adminToken },
+      body: JSON.stringify({ permission_ids: [] }),
+    }
+  );
   assert.equal(result.response.status, 404);
 });
 
@@ -145,7 +146,7 @@ test('permission_ids không hợp lệ → 400', async () => {
   const result = await json(`/api/v1/admin/roles/${citizenRoleId}/permissions`, {
     method: 'PATCH',
     headers: { 'content-type': 'application/json', 'X-Auth-Token': adminToken },
-    body: JSON.stringify({ permission_ids: 'not-an-array' })
+    body: JSON.stringify({ permission_ids: 'not-an-array' }),
   });
   assert.equal(result.response.status, 400);
   assert.match(result.body.error, /không hợp lệ/);

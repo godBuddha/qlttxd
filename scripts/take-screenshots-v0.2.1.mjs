@@ -2,7 +2,6 @@ import { chromium } from '@playwright/test';
 import { mkdirSync } from 'fs';
 
 const BASE = 'http://localhost:5174';
-const API = 'http://localhost:3001';
 const DIR = '/workspace/ssd/qlttxd/docs/screenshots/v0.2.1';
 mkdirSync(DIR, { recursive: true });
 
@@ -42,7 +41,7 @@ const navLinks = await page.$$eval('nav a, [class*="nav"] a, aside a', links =>
 console.log(`Found ${navLinks.length} nav links:`, navLinks.map(l => l.text));
 
 // Screenshot each navigation target
-const sections = [
+const _sections = [
   { name: 'dashboard', selector: 'button:has-text("Bảng điều khiển"), a:has-text("Bảng điều khiển"), [class*="nav"]:has-text("Dashboard")' },
   { name: 'cases', selector: 'button:has-text("Hồ sơ"), a:has-text("Hồ sơ")' },
   { name: 'audit-log', selector: 'button:has-text("Nhật ký"), a:has-text("Nhật ký"), a:has-text("Audit")' },
@@ -63,7 +62,7 @@ for (const text of allNavTexts) {
       const safeName = text.replace(/[^a-zA-Z0-9à-ỹ]/g, '-');
       await snap(page, `admin-${safeName}`);
     }
-  } catch (e) {
+  } catch {
     // skip
   }
 }
@@ -76,7 +75,7 @@ for (const route of routes) {
     await page.waitForTimeout(1500);
     const safeName = route.replace(/\//g, '-');
     await snap(page, `admin-route-${safeName}`);
-  } catch (e) {}
+  } catch {}
 }
 
 // === 4. Check what's on the page ===
@@ -98,9 +97,9 @@ try {
         await page.waitForTimeout(1000);
         await snap(page, `admin-case-${tabName}`);
       }
-    } catch (e) {}
+    } catch {}
   }
-} catch (e) {}
+} catch {}
 
 // === 6. Citizen view ===
 try {
@@ -111,7 +110,7 @@ try {
     await page.waitForTimeout(1000);
   }
   await snap(page, 'logged-out');
-} catch (e) {}
+} catch {}
 
 // === 7. Login as citizen if exists ===
 try {

@@ -3,9 +3,11 @@
 > Task: qa | Priority: P1 | Dependency: T-04, T-05, T-06
 
 ## Mục tiêu
+
 Tests cho CSV/PDF export, audit log, password change.
 
 ## Files thay đổi
+
 1. `app/backend/test/reporting.test.js` — NEW
 
 ## Chi tiết
@@ -25,13 +27,17 @@ test.before(async () => {
   pool = createPool();
   server = buildApp({ pool }).listen(PORT, '127.0.0.1');
   const r = await fetch(`${base}/api/v1/auth/login`, {
-    method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ username: TEST_ADMIN_USERNAME, password: TEST_ADMIN_PASSWORD })
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ username: TEST_ADMIN_USERNAME, password: TEST_ADMIN_PASSWORD }),
   });
   token = (await r.json()).token;
 });
 
-test.after(async () => { server.close(); await pool.end(); });
+test.after(async () => {
+  server.close();
+  await pool.end();
+});
 
 const headers = () => ({ authorization: `Bearer ${token}` });
 
@@ -60,23 +66,26 @@ test('GET /api/v1/admin/audit-log trả audit log', async () => {
 test('PATCH /api/v1/auth/password đổi mật khẩu', async () => {
   // Đổi sang mật khẩu mới
   const r = await fetch(`${base}/api/v1/auth/password`, {
-    method: 'PATCH', headers: { ...headers(), 'content-type': 'application/json' },
-    body: JSON.stringify({ old_password: TEST_ADMIN_PASSWORD, new_password: 'NewPass123' })
+    method: 'PATCH',
+    headers: { ...headers(), 'content-type': 'application/json' },
+    body: JSON.stringify({ old_password: TEST_ADMIN_PASSWORD, new_password: 'NewPass123' }),
   });
   assert.equal(r.status, 200);
 
   // Login với mật khẩu mới
   const login = await fetch(`${base}/api/v1/auth/login`, {
-    method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ username: TEST_ADMIN_USERNAME, password: 'NewPass123' })
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ username: TEST_ADMIN_USERNAME, password: 'NewPass123' }),
   });
   assert.equal(login.status, 200);
 
   // Đổi lại mật khẩu cũ
   const b = await login.json();
   await fetch(`${base}/api/v1/auth/password`, {
-    method: 'PATCH', headers: { authorization: `Bearer ${b.token}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ old_password: 'NewPass123', new_password: TEST_ADMIN_PASSWORD })
+    method: 'PATCH',
+    headers: { authorization: `Bearer ${b.token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ old_password: 'NewPass123', new_password: TEST_ADMIN_PASSWORD }),
   });
 });
 
@@ -94,6 +103,7 @@ test('GET /api/v1/ho-so/:id trả khac_phuc[]', async () => {
 ```
 
 ## Acceptance Criteria
+
 - [ ] CSV export test pass
 - [ ] PDF export test pass
 - [ ] Audit log test pass

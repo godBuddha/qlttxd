@@ -25,15 +25,15 @@ async function setupAdmin() {
       password: TEST_ADMIN_PASSWORD,
       full_name: 'Quản trị viên hệ thống',
       email: 'admin@qlttxd.local',
-      phone: '0901000001'
-    })
+      phone: '0901000001',
+    }),
   });
   if (setup.response.status === 201) return setup.body.token;
   // Admin already exists — login instead
   const login = await json('/api/v1/auth/login', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ username: TEST_ADMIN_USERNAME, password: TEST_ADMIN_PASSWORD })
+    body: JSON.stringify({ username: TEST_ADMIN_USERNAME, password: TEST_ADMIN_PASSWORD }),
   });
   return login.body.token;
 }
@@ -49,7 +49,9 @@ test.before(async () => {
   server = buildApp({ pool }).listen(PORT, '127.0.0.1');
   adminToken = await setupAdmin();
   // Clean up non-admin users from previous test runs
-  await pool.query("DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE username != 'admin')");
+  await pool.query(
+    "DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE username != 'admin')"
+  );
   await pool.query("DELETE FROM users WHERE username != 'admin'");
 });
 
@@ -65,7 +67,7 @@ test('không token → 401', async () => {
 
 test('token sai → 401', async () => {
   const result = await json('/api/v1/admin/users', {
-    headers: { 'X-Auth-Token': 'invalid-token' }
+    headers: { 'X-Auth-Token': 'invalid-token' },
   });
   assert.equal(result.response.status, 401);
 });
@@ -80,8 +82,8 @@ test('tạo user mới với role citizen', async () => {
       full_name: 'Nguyễn Thị Nga',
       email: 'nga@example.com',
       phone: '0901000005',
-      roles: ['citizen']
-    })
+      roles: ['citizen'],
+    }),
   });
   assert.equal(result.response.status, 201);
   assert.equal(result.body.data.username, 'citizen.nga');
@@ -93,7 +95,7 @@ test('user mới có thể đăng nhập', async () => {
   const result = await json('/api/v1/auth/login', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ username: 'citizen.nga', password: 'Citizen@2026' })
+    body: JSON.stringify({ username: 'citizen.nga', password: 'Citizen@2026' }),
   });
   assert.equal(result.response.status, 200);
   assert.ok(result.body.token);
@@ -105,12 +107,12 @@ test('user citizen không thể truy cập admin endpoints → 403', async () =>
   const login = await json('/api/v1/auth/login', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ username: 'citizen.nga', password: 'Citizen@2026' })
+    body: JSON.stringify({ username: 'citizen.nga', password: 'Citizen@2026' }),
   });
   const citizenToken = login.body.token;
 
   const result = await json('/api/v1/admin/users', {
-    headers: { 'X-Auth-Token': citizenToken }
+    headers: { 'X-Auth-Token': citizenToken },
   });
   assert.equal(result.response.status, 403);
 });
@@ -121,8 +123,8 @@ test('admin có thể sửa user', async () => {
     headers: { 'content-type': 'application/json', 'X-Auth-Token': adminToken },
     body: JSON.stringify({
       full_name: 'Nguyễn Thị Nga (updated)',
-      roles: ['citizen', 'case_handler']
-    })
+      roles: ['citizen', 'case_handler'],
+    }),
   });
   assert.equal(result.response.status, 200);
   assert.equal(result.body.data.full_name, 'Nguyễn Thị Nga (updated)');
@@ -133,7 +135,7 @@ test('admin có thể khóa user', async () => {
   const result = await json(`/api/v1/admin/users/${citizenUserId}`, {
     method: 'PATCH',
     headers: { 'content-type': 'application/json', 'X-Auth-Token': adminToken },
-    body: JSON.stringify({ is_active: false })
+    body: JSON.stringify({ is_active: false }),
   });
   assert.equal(result.response.status, 200);
   assert.equal(result.body.data.is_active, false);
@@ -143,7 +145,7 @@ test('user bị khóa không thể đăng nhập', async () => {
   const result = await json('/api/v1/auth/login', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ username: 'citizen.nga', password: 'Citizen@2026' })
+    body: JSON.stringify({ username: 'citizen.nga', password: 'Citizen@2026' }),
   });
   assert.equal(result.response.status, 401);
 });
@@ -152,7 +154,7 @@ test('admin có thể mở khóa user', async () => {
   const result = await json(`/api/v1/admin/users/${citizenUserId}`, {
     method: 'PATCH',
     headers: { 'content-type': 'application/json', 'X-Auth-Token': adminToken },
-    body: JSON.stringify({ is_active: true })
+    body: JSON.stringify({ is_active: true }),
   });
   assert.equal(result.response.status, 200);
   assert.equal(result.body.data.is_active, true);
@@ -160,7 +162,7 @@ test('admin có thể mở khóa user', async () => {
 
 test('danh sách users trả về đúng', async () => {
   const result = await json('/api/v1/admin/users', {
-    headers: { 'X-Auth-Token': adminToken }
+    headers: { 'X-Auth-Token': adminToken },
   });
   assert.equal(result.response.status, 200);
   assert.ok(Array.isArray(result.body.data));
@@ -174,14 +176,14 @@ test('danh sách users trả về đúng', async () => {
 test('không thể khóa admin cuối cùng', async () => {
   // Get admin user id
   const users = await json('/api/v1/admin/users', {
-    headers: { 'X-Auth-Token': adminToken }
+    headers: { 'X-Auth-Token': adminToken },
   });
   const adminUser = users.body.data.find((u) => u.roles?.includes('admin'));
 
   const result = await json(`/api/v1/admin/users/${adminUser.id}`, {
     method: 'PATCH',
     headers: { 'content-type': 'application/json', 'X-Auth-Token': adminToken },
-    body: JSON.stringify({ is_active: false })
+    body: JSON.stringify({ is_active: false }),
   });
   assert.equal(result.response.status, 400);
   assert.match(result.body.error, /cuối cùng/);

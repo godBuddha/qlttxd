@@ -1,33 +1,601 @@
 import { useState, useEffect } from 'react';
 import { API_BASE, can, errorText, dateText, money, downloadDocx } from '../lib/api.js';
-import { STATES, STATE_LABELS } from '../lib/constants.js';
+import { STATE_LABELS, TRANSITIONS } from '../lib/constants.js';
 import { Loading } from '../components/Loading.jsx';
 import { Status } from '../components/Status.jsx';
 import { MapView } from '../components/MapView.jsx';
+import { EvidenceImage } from '../components/EvidenceImage.jsx';
 
 export function CaseDetail({ id, api, user, navigate, notify }) {
-  const [item, setItem] = useState(null); const [tab, setTab] = useState('overview'); const [busy, setBusy] = useState(false); const [state, setState] = useState('');
-  const load = () => api(`/api/v1/ho-so/${id}`).then((r) => { setItem(r.data); setState(r.data.trang_thai); }).catch((e) => notify(errorText(e), 'error'));
-  useEffect(() => { load(); }, [id]);
+  const [item, setItem] = useState(null);
+  const [tab, setTab] = useState('overview');
+  const [busy, setBusy] = useState(false);
+  const [state, setState] = useState('');
+  const load = () =>
+    api(`/api/v1/ho-so/${id}`)
+      .then((r) => {
+        setItem(r.data);
+        setState(r.data.trang_thai);
+      })
+      .catch((e) => notify(errorText(e), 'error'));
+  useEffect(() => {
+    load();
+  }, [id]);
+
+  // NOTE: this effect must be declared BEFORE the `if (!item)` early return so
+  // the hook count stays constant across renders (Rules of Hooks). Guard on
+  // item since it is null while the case is still loading.
+  useEffect(() => {
+    if (!item) return;
+    const TAB_KEYS = ['overview', 'images', 'minutes', 'decision', 'remedy'];
+    const handler = (e) => {
+      const tag = e.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+        if (e.key === 'Escape') {
+          setState(item.trang_thai);
+          e.target.blur();
+        }
+        return;
+      }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        setTab((prev) => {
+          const idx = TAB_KEYS.indexOf(prev);
+          if (idx < 0) return TAB_KEYS[0];
+          return e.key === 'ArrowRight'
+            ? TAB_KEYS[(idx + 1) % TAB_KEYS.length]
+            : TAB_KEYS[(idx - 1 + TAB_KEYS.length) % TAB_KEYS.length];
+        });
+      } else if (
+        e.key === 'Enter' &&
+        can(user, 'case.update') &&
+        state &&
+        state !== item.trang_thai &&
+        !busy
+      ) {
+        transition();
+      } else if (e.key === 'Escape') {
+        setState(item.trang_thai);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [item, state, busy, user]);
   if (!item) return <Loading />;
-  async function transition() { if (!state || state === item.trang_thai) return; setBusy(true); try { await api(`/api/v1/ho-so/${id}/trang-thai`, { method: 'PATCH', body: JSON.stringify({ trang_thai: state }) }); notify('Đã cập nhật trạng thái.', 'success'); load(); } catch (e) { notify(errorText(e), 'error'); setState(item.trang_thai); } finally { setBusy(false); } }
-  useEffect(() => { const TAB_KEYS = ['overview', 'images', 'minutes', 'decision', 'remedy']; const handler = (e) => { const tag = e.target.tagName; if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') { if (e.key === 'Escape') { setState(item.trang_thai); e.target.blur(); } return; } if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setTab((prev) => { const idx = TAB_KEYS.indexOf(prev); if (idx < 0) return TAB_KEYS[0]; return e.key === 'ArrowRight' ? TAB_KEYS[(idx + 1) % TAB_KEYS.length] : TAB_KEYS[(idx - 1 + TAB_KEYS.length) % TAB_KEYS.length]; }); } else if (e.key === 'Enter' && can(user, 'case.update') && state && state !== item.trang_thai && !busy) { transition(); } else if (e.key === 'Escape') { setState(item.trang_thai); } }; window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler); }, [item, state, busy, user]);
-  return <><div className="page-title"><div><button className="back" onClick={() => navigate('cases')}>← Danh sách hồ sơ</button><h2>{item.ma_ho_so}</h2><Status value={item.trang_thai} /></div></div><div className="detail-grid"><section className="panel"><h3>Thông tin hồ sơ</h3><dl><dt>Địa chỉ</dt><dd>{item.dia_chi || '—'}</dd><dt>Mô tả</dt><dd>{item.mo_ta || item.bao_cao?.mo_ta || '—'}</dd><dt>Thời gian xảy ra</dt><dd>{dateText(item.thoi_gian_xay_ra)}</dd><dt>Người vi phạm</dt><dd>{item.nguoi_vi_pham?.ten || 'Chưa cập nhật'}</dd><dt>Trạng thái</dt><dd><Status value={item.trang_thai} /></dd></dl>{can(user, 'case.update') && <div className="action-box"><label>Chuyển trạng thái<select value={state} onChange={(e) => setState(e.target.value)}>{STATES.map((x) => <option key={x} value={x}>{STATE_LABELS[x]}</option>)}</select></label><button disabled={busy || state === item.trang_thai} onClick={transition}>Cập nhật</button><small>Hệ thống chỉ chấp nhận các chuyển trạng thái hợp lệ.</small></div>}</section><section className="panel"><h3>Vị trí GIS</h3>{item.toa_do ? <MapView point={item.toa_do} height="350px" /> : <p className="empty">Hồ sơ chưa có tọa độ.</p>}</section></div><section className="panel"><div className="tabs">{[['overview', 'Timeline'], ['images', `Ảnh (${item.anh?.length || 0})`], ['minutes', 'Biên bản'], ['decision', 'Quyết định'], ['remedy', 'Khắc phục']].map(([key, label]) => <button key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>{label}</button>)}</div>{tab === 'overview' && <Timeline item={item} />}{tab === 'images' && <EvidenceGallery images={item.anh || []} />}{tab === 'minutes' && <Minutes caseItem={item} api={api} allow={can(user, 'bien_ban.create')} notify={notify} refresh={load} />}{tab === 'decision' && <Decision caseItem={item} api={api} allow={can(user, 'quyet_dinh.issue')} notify={notify} refresh={load} />}{tab === 'remedy' && <Remedy caseItem={item} api={api} allow={can(user, 'khac_phuc.manage')} notify={notify} refresh={load} />}</section></>;
+  async function transition() {
+    if (!state || state === item.trang_thai) return;
+    setBusy(true);
+    try {
+      await api(`/api/v1/ho-so/${id}/trang-thai`, {
+        method: 'PATCH',
+        body: JSON.stringify({ trang_thai: state }),
+      });
+      notify('Đã cập nhật trạng thái.', 'success');
+      load();
+    } catch (e) {
+      notify(errorText(e), 'error');
+      setState(item.trang_thai);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <>
+      <div className="page-title">
+        <div>
+          <button className="back" onClick={() => navigate('cases')}>
+            ← Danh sách hồ sơ
+          </button>
+          <h2>{item.ma_ho_so}</h2>
+          <Status value={item.trang_thai} />
+        </div>
+      </div>
+      <div className="detail-grid">
+        <section className="panel">
+          <h3>Thông tin hồ sơ</h3>
+          <dl>
+            <dt>Địa chỉ</dt>
+            <dd>{item.dia_chi || '—'}</dd>
+            <dt>Mô tả</dt>
+            <dd>{item.mo_ta || item.bao_cao?.mo_ta || '—'}</dd>
+            <dt>Thời gian xảy ra</dt>
+            <dd>{dateText(item.thoi_gian_xay_ra)}</dd>
+            <dt>Người vi phạm</dt>
+            <dd>{item.nguoi_vi_pham?.ten || 'Chưa cập nhật'}</dd>
+            <dt>Trạng thái</dt>
+            <dd>
+              <Status value={item.trang_thai} />
+            </dd>
+          </dl>
+          {can(user, 'case.update') && (
+            <div className="action-box">
+              <label>
+                Chuyển trạng thái
+                <select value={state} onChange={(e) => setState(e.target.value)}>
+                  {(TRANSITIONS[item.trang_thai] || []).map((x) => (
+                    <option key={x} value={x}>
+                      {STATE_LABELS[x]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button disabled={busy || state === item.trang_thai} onClick={transition}>
+                Cập nhật
+              </button>
+              <small>Hệ thống chỉ chấp nhận các chuyển trạng thái hợp lệ.</small>
+            </div>
+          )}
+        </section>
+        <section className="panel">
+          <h3>Vị trí GIS</h3>
+          {item.toa_do ? (
+            <MapView point={item.toa_do} height="350px" />
+          ) : (
+            <p className="empty">Hồ sơ chưa có tọa độ.</p>
+          )}
+        </section>
+      </div>
+      <section className="panel">
+        <div className="tabs">
+          {[
+            ['overview', 'Timeline'],
+            ['images', `Ảnh (${item.anh?.length || 0})`],
+            ['minutes', 'Biên bản'],
+            ['decision', 'Quyết định'],
+            ['remedy', 'Khắc phục'],
+          ].map(([key, label]) => (
+            <button key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>
+              {label}
+            </button>
+          ))}
+        </div>
+        {tab === 'overview' && <Timeline item={item} />}
+        {tab === 'images' && <EvidenceGallery images={item.anh || []} />}
+        {tab === 'minutes' && (
+          <Minutes
+            caseItem={item}
+            api={api}
+            allow={can(user, 'bien_ban.create')}
+            notify={notify}
+            refresh={load}
+          />
+        )}
+        {tab === 'decision' && (
+          <Decision
+            caseItem={item}
+            api={api}
+            allow={can(user, 'quyet_dinh.issue')}
+            notify={notify}
+            refresh={load}
+          />
+        )}
+        {tab === 'remedy' && (
+          <Remedy
+            caseItem={item}
+            api={api}
+            allow={can(user, 'khac_phuc.manage')}
+            notify={notify}
+            refresh={load}
+          />
+        )}
+      </section>
+    </>
+  );
 }
 
 export function EvidenceGallery({ images }) {
   const [lightbox, setLightbox] = useState(null);
-  useEffect(() => { if (lightbox === null) return; const h = (e) => { if (e.key === 'Escape') setLightbox(null); else if (e.key === 'ArrowLeft') setLightbox((lightbox - 1 + images.length) % images.length); else if (e.key === 'ArrowRight') setLightbox((lightbox + 1) % images.length); }; window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h); }, [lightbox, images.length]);
-  const token = localStorage.getItem('qlttxd_token');
-  if (!images.length) return <div className="tab-body"><p className="empty">Chưa có ảnh minh chứng.</p></div>;
-  const imgSrc = (a) => `${API_BASE}${a.duong_dan}?token=${token}`;
-  return <div className="tab-body"><h3>Ảnh minh chứng</h3><div className="evidence-gallery">{images.map((a, i) => <img key={a.id} src={imgSrc(a)} alt={a.ten_goc} className="evidence-img" onClick={() => setLightbox(i)} loading="lazy" />)}</div>{lightbox !== null && <div className="lightbox-overlay" onClick={() => setLightbox(null)}><button className="lightbox-close" onClick={() => setLightbox(null)}>×</button><button className="lightbox-prev" onClick={(e) => { e.stopPropagation(); setLightbox((lightbox - 1 + images.length) % images.length); }}>‹</button><img className="lightbox-img" src={imgSrc(images[lightbox])} alt={images[lightbox].ten_goc} onClick={(e) => e.stopPropagation()} /><button className="lightbox-next" onClick={(e) => { e.stopPropagation(); setLightbox((lightbox + 1) % images.length); }}>›</button><div className="lightbox-caption">{images[lightbox].ten_goc}</div></div>}</div>;
+  useEffect(() => {
+    if (lightbox === null) return;
+    const h = (e) => {
+      if (e.key === 'Escape') setLightbox(null);
+      else if (e.key === 'ArrowLeft') setLightbox((lightbox - 1 + images.length) % images.length);
+      else if (e.key === 'ArrowRight') setLightbox((lightbox + 1) % images.length);
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [lightbox, images.length]);
+  if (!images.length)
+    return (
+      <div className="tab-body">
+        <p className="empty">Chưa có ảnh minh chứng.</p>
+      </div>
+    );
+  return (
+    <div className="tab-body">
+      <h3>Ảnh minh chứng</h3>
+      <div className="evidence-gallery">
+        {images.map((a, i) => (
+          <EvidenceImage
+            key={a.id}
+            duongDan={a.duong_dan}
+            alt={a.ten_goc}
+            className="evidence-img"
+            onClick={() => setLightbox(i)}
+            loading="lazy"
+          />
+        ))}
+      </div>
+      {lightbox !== null && (
+        <div className="lightbox-overlay" onClick={() => setLightbox(null)}>
+          <button className="lightbox-close" onClick={() => setLightbox(null)}>
+            ×
+          </button>
+          <button
+            className="lightbox-prev"
+            onClick={(e) => {
+              e.stopPropagation();
+              setLightbox((lightbox - 1 + images.length) % images.length);
+            }}
+          >
+            ‹
+          </button>
+          <EvidenceImage
+            className="lightbox-img"
+            duongDan={images[lightbox].duong_dan}
+            alt={images[lightbox].ten_goc}
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            className="lightbox-next"
+            onClick={(e) => {
+              e.stopPropagation();
+              setLightbox((lightbox + 1) % images.length);
+            }}
+          >
+            ›
+          </button>
+          <div className="lightbox-caption">{images[lightbox].ten_goc}</div>
+        </div>
+      )}
+    </div>
+  );
 }
 
-export function Timeline({ item }) { return <div><h3>Tiến trình xử lý</h3><ol className="timeline"><li><b>Khởi tạo hồ sơ</b><span>{dateText(item.created_at)}</span></li><li className="current"><b>{STATE_LABELS[item.trang_thai]}</b><span>Cập nhật {dateText(item.updated_at)}</span></li></ol></div>; }
+export function Timeline({ item }) {
+  return (
+    <div>
+      <h3>Tiến trình xử lý</h3>
+      <ol className="timeline">
+        <li>
+          <b>Khởi tạo hồ sơ</b>
+          <span>{dateText(item.created_at)}</span>
+        </li>
+        <li className="current">
+          <b>{STATE_LABELS[item.trang_thai]}</b>
+          <span>Cập nhật {dateText(item.updated_at)}</span>
+        </li>
+      </ol>
+    </div>
+  );
+}
 
-export function Minutes({ caseItem, api, allow, notify, refresh }) { const [noi_dung, setNoiDung] = useState(''); const [muc_phat_du_kien, setFine] = useState(''); async function submit(e) { e.preventDefault(); try { await api(`/api/v1/ho-so/${caseItem.id}/bien-ban`, { method: 'POST', body: JSON.stringify({ noi_dung, muc_phat_du_kien: muc_phat_du_kien || null }) }); notify('Đã lập biên bản.', 'success'); refresh(); } catch (x) { notify(errorText(x), 'error'); } } return <div className="tab-body"><h3>Biên bản</h3>{caseItem.bien_ban?.length ? <ul className="record-list">{caseItem.bien_ban.map((x) => <li key={x.id}><b>{x.ma_bien_ban}</b><span>{x.noi_dung || 'Không có nội dung'} — {money(x.muc_phat_du_kien)}</span></li>)}</ul> : <p className="empty">Chưa có biên bản.</p>}{allow && <form className="inline-form" onSubmit={submit}><h4>Lập biên bản</h4><label>Nội dung<textarea value={noi_dung} onChange={(e) => setNoiDung(e.target.value)} /></label><label>Mức phạt dự kiến<input type="number" min="0" value={muc_phat_du_kien} onChange={(e) => setFine(e.target.value)} /></label><button>Lập biên bản</button></form>}{caseItem.bien_ban?.length > 0 && <div className="export-actions"><button onClick={() => downloadDocx(API_BASE + "/api/v1/ho-so/" + caseItem.id + "/xuat-bien-ban.docx", "bien-ban-" + (caseItem.ma_ho_so || "export") + ".docx", notify)}>📄 Xuất Word</button><button onClick={() => downloadDocx(API_BASE + "/api/v1/ho-so/" + caseItem.id + "/xuat-bien-ban.pdf", "bien-ban-" + (caseItem.ma_ho_so || "export") + ".pdf", notify)}>📄 Xuất PDF</button></div>}</div>; }
+export function Minutes({ caseItem, api, allow, notify, refresh }) {
+  const [noi_dung, setNoiDung] = useState('');
+  const [muc_phat_du_kien, setFine] = useState('');
+  async function submit(e) {
+    e.preventDefault();
+    try {
+      await api(`/api/v1/ho-so/${caseItem.id}/bien-ban`, {
+        method: 'POST',
+        body: JSON.stringify({ noi_dung, muc_phat_du_kien: muc_phat_du_kien || null }),
+      });
+      notify('Đã lập biên bản.', 'success');
+      refresh();
+    } catch (x) {
+      notify(errorText(x), 'error');
+    }
+  }
+  return (
+    <div className="tab-body">
+      <h3>Biên bản</h3>
+      {caseItem.bien_ban?.length ? (
+        <ul className="record-list">
+          {caseItem.bien_ban.map((x) => (
+            <li key={x.id}>
+              <b>{x.ma_bien_ban}</b>
+              <span>
+                {x.noi_dung || 'Không có nội dung'} — {money(x.muc_phat_du_kien)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="empty">Chưa có biên bản.</p>
+      )}
+      {allow && (
+        <form className="inline-form" onSubmit={submit}>
+          <h4>Lập biên bản</h4>
+          <label>
+            Nội dung
+            <textarea value={noi_dung} onChange={(e) => setNoiDung(e.target.value)} />
+          </label>
+          <label>
+            Mức phạt dự kiến
+            <input
+              type="number"
+              min="0"
+              value={muc_phat_du_kien}
+              onChange={(e) => setFine(e.target.value)}
+            />
+          </label>
+          <button>Lập biên bản</button>
+        </form>
+      )}
+      {caseItem.bien_ban?.length > 0 && (
+        <div className="export-actions">
+          <button
+            onClick={() =>
+              downloadDocx(
+                API_BASE + '/api/v1/ho-so/' + caseItem.id + '/xuat-bien-ban.docx',
+                'bien-ban-' + (caseItem.ma_ho_so || 'export') + '.docx',
+                notify
+              )
+            }
+          >
+            📄 Xuất Word
+          </button>
+          <button
+            onClick={() =>
+              downloadDocx(
+                API_BASE + '/api/v1/ho-so/' + caseItem.id + '/xuat-bien-ban.pdf',
+                'bien-ban-' + (caseItem.ma_ho_so || 'export') + '.pdf',
+                notify
+              )
+            }
+          >
+            📄 Xuất PDF
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
-export function Decision({ caseItem, api, allow, notify, refresh }) { const [form, setForm] = useState({ bien_ban_id: '', nhom_cong_trinh: '1', can_cu_phap_ly: '', hinh_thuc_phat_bo_sung: '', bien_phap_khac_phuc_hau_qua: '' }); const [banBusy, setBanBusy] = useState(false); const set = (e) => setForm({ ...form, [e.target.name]: e.target.value }); async function submit(e) { e.preventDefault(); try { await api(`/api/v1/ho-so/${caseItem.id}/quyet-dinh`, { method: 'POST', body: JSON.stringify({ ...form, bien_ban_id: form.bien_ban_id || null, nhom_cong_trinh: Number(form.nhom_cong_trinh) }) }); notify('Đã tạo quyết định nháp.', 'success'); refresh(); } catch (x) { notify(errorText(x), 'error'); } } async function banHanh(qdId) { setBanBusy(true); try { await api(`/api/v1/ho-so/${caseItem.id}/quyet-dinh/ban-hanh`, { method: 'POST', body: JSON.stringify({}) }); notify('Đã ban hành quyết định.', 'success'); refresh(); } catch (x) { notify(errorText(x), 'error'); } finally { setBanBusy(false); } } return <div className="tab-body"><h3>Quyết định xử phạt</h3>{caseItem.quyet_dinh?.length ? <ul className="record-list">{caseItem.quyet_dinh.map((x) => <li key={x.id}><b>{x.ma_quyet_dinh}</b><span>{money(x.so_tien_phat)} · {x.trang_thai === 'draft' ? <span className="badge draft">Nháp</span> : <>{dateText(x.ngay_ban_hanh)} · <span className="badge da_ra_quyet_dinh">Đã ban hành</span></>}</span>{allow && x.trang_thai === 'draft' && <button className="text-button" disabled={banBusy} onClick={() => banHanh(x.id)}>{banBusy ? 'Đang ban hành…' : 'Ban hành'}</button>}</li>)}</ul> : <p className="empty">Chưa có quyết định.</p>}{allow && <form className="inline-form form-grid" onSubmit={submit}><h4 className="full">Tạo quyết định</h4><label>Biên bản<select name="bien_ban_id" value={form.bien_ban_id} onChange={set}><option value="">Không chọn</option>{(caseItem.bien_ban || []).map((x) => <option key={x.id} value={x.id}>{x.ma_bien_ban}</option>)}</select></label><label>Nhóm công trình<input type="number" min="1" name="nhom_cong_trinh" value={form.nhom_cong_trinh} onChange={set} /></label><label>Căn cứ pháp lý<input name="can_cu_phap_ly" value={form.can_cu_phap_ly} onChange={set} /></label><label className="full">Hình thức phạt bổ sung<textarea name="hinh_thuc_phat_bo_sung" value={form.hinh_thuc_phat_bo_sung} onChange={set} /></label><label className="full">Biện pháp khắc phục hậu quả<textarea name="bien_phap_khac_phuc_hau_qua" value={form.bien_phap_khac_phuc_hau_qua} onChange={set} /></label><button className="full">Ban hành quyết định</button></form>}{caseItem.quyet_dinh?.length > 0 && <div className="export-actions"><button onClick={() => downloadDocx(API_BASE + "/api/v1/ho-so/" + caseItem.id + "/xuat-quyet-dinh.docx", "quyet-dinh-" + (caseItem.ma_ho_so || "export") + ".docx", notify)}>📄 Xuất Word</button><button onClick={() => downloadDocx(API_BASE + "/api/v1/ho-so/" + caseItem.id + "/xuat-quyet-dinh.pdf", "quyet-dinh-" + (caseItem.ma_ho_so || "export") + ".pdf", notify)}>📄 Xuất PDF</button></div>}</div>; }
+export function Decision({ caseItem, api, allow, notify, refresh }) {
+  const [form, setForm] = useState({
+    bien_ban_id: '',
+    nhom_cong_trinh: '1',
+    can_cu_phap_ly: '',
+    hinh_thuc_phat_bo_sung: '',
+    bien_phap_khac_phuc_hau_qua: '',
+  });
+  const [banBusy, setBanBusy] = useState(false);
+  const set = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  async function submit(e) {
+    e.preventDefault();
+    try {
+      await api(`/api/v1/ho-so/${caseItem.id}/quyet-dinh`, {
+        method: 'POST',
+        body: JSON.stringify({
+          ...form,
+          bien_ban_id: form.bien_ban_id || null,
+          nhom_cong_trinh: Number(form.nhom_cong_trinh),
+        }),
+      });
+      notify('Đã tạo quyết định nháp.', 'success');
+      refresh();
+    } catch (x) {
+      notify(errorText(x), 'error');
+    }
+  }
+  async function banHanh(_qdId) {
+    setBanBusy(true);
+    try {
+      await api(`/api/v1/ho-so/${caseItem.id}/quyet-dinh/ban-hanh`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      notify('Đã ban hành quyết định.', 'success');
+      refresh();
+    } catch (x) {
+      notify(errorText(x), 'error');
+    } finally {
+      setBanBusy(false);
+    }
+  }
+  return (
+    <div className="tab-body">
+      <h3>Quyết định xử phạt</h3>
+      {caseItem.quyet_dinh?.length ? (
+        <ul className="record-list">
+          {caseItem.quyet_dinh.map((x) => (
+            <li key={x.id}>
+              <b>{x.ma_quyet_dinh}</b>
+              <span>
+                {money(x.so_tien_phat)} ·{' '}
+                {x.trang_thai === 'draft' ? (
+                  <span className="badge draft">Nháp</span>
+                ) : (
+                  <>
+                    {dateText(x.ngay_ban_hanh)} ·{' '}
+                    <span className="badge da_ra_quyet_dinh">Đã ban hành</span>
+                  </>
+                )}
+              </span>
+              {allow && x.trang_thai === 'draft' && (
+                <button className="text-button" disabled={banBusy} onClick={() => banHanh(x.id)}>
+                  {banBusy ? 'Đang ban hành…' : 'Ban hành'}
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="empty">Chưa có quyết định.</p>
+      )}
+      {allow && (
+        <form className="inline-form form-grid" onSubmit={submit}>
+          <h4 className="full">Tạo quyết định</h4>
+          <label>
+            Biên bản
+            <select name="bien_ban_id" value={form.bien_ban_id} onChange={set}>
+              <option value="">Không chọn</option>
+              {(caseItem.bien_ban || []).map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.ma_bien_ban}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Nhóm công trình
+            <input
+              type="number"
+              min="1"
+              name="nhom_cong_trinh"
+              value={form.nhom_cong_trinh}
+              onChange={set}
+            />
+          </label>
+          <label>
+            Căn cứ pháp lý
+            <input name="can_cu_phap_ly" value={form.can_cu_phap_ly} onChange={set} />
+          </label>
+          <label className="full">
+            Hình thức phạt bổ sung
+            <textarea
+              name="hinh_thuc_phat_bo_sung"
+              value={form.hinh_thuc_phat_bo_sung}
+              onChange={set}
+            />
+          </label>
+          <label className="full">
+            Biện pháp khắc phục hậu quả
+            <textarea
+              name="bien_phap_khac_phuc_hau_qua"
+              value={form.bien_phap_khac_phuc_hau_qua}
+              onChange={set}
+            />
+          </label>
+          <button className="full">Ban hành quyết định</button>
+        </form>
+      )}
+      {caseItem.quyet_dinh?.length > 0 && (
+        <div className="export-actions">
+          <button
+            onClick={() =>
+              downloadDocx(
+                API_BASE + '/api/v1/ho-so/' + caseItem.id + '/xuat-quyet-dinh.docx',
+                'quyet-dinh-' + (caseItem.ma_ho_so || 'export') + '.docx',
+                notify
+              )
+            }
+          >
+            📄 Xuất Word
+          </button>
+          <button
+            onClick={() =>
+              downloadDocx(
+                API_BASE + '/api/v1/ho-so/' + caseItem.id + '/xuat-quyet-dinh.pdf',
+                'quyet-dinh-' + (caseItem.ma_ho_so || 'export') + '.pdf',
+                notify
+              )
+            }
+          >
+            📄 Xuất PDF
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
-export function Remedy({ caseItem, api, allow, notify, refresh }) { const [form, setForm] = useState({ quyet_dinh_id: '', bien_phap: '', mo_ta: '', han_thuc_hien: '' }); const [remedy, setRemedy] = useState(null); const [status, setStatus] = useState('dang_thuc_hien'); const set = (e) => setForm({ ...form, [e.target.name]: e.target.value }); async function submit(e) { e.preventDefault(); try { const r = await api(`/api/v1/ho-so/${caseItem.id}/khac-phuc`, { method: 'POST', body: JSON.stringify({ ...form, quyet_dinh_id: form.quyet_dinh_id || null }) }); setRemedy(r.data); notify('Đã đăng ký theo dõi khắc phục.', 'success'); refresh(); } catch (x) { notify(errorText(x), 'error'); } } async function update() { try { const r = await api(`/api/v1/khac-phuc/${remedy.id}`, { method: 'PATCH', body: JSON.stringify({ trang_thai: status }) }); setRemedy(r.data); notify('Đã cập nhật trạng thái khắc phục.', 'success'); refresh(); } catch (x) { notify(errorText(x), 'error'); } } return <div className="tab-body"><h3>Khắc phục hậu quả</h3><p className="hint">Sau khi đăng ký trong phiên hiện tại, có thể cập nhật trạng thái theo dõi. API chi tiết hồ sơ hiện chưa trả danh sách khắc phục đã có, nên cần chọn hồ sơ/tạo thông tin để thao tác tiếp.</p>{remedy && <div className="action-box"><b>Thông tin khắc phục vừa tạo</b><label>Trạng thái<select value={status} onChange={(e) => setStatus(e.target.value)}>{['chua_thuc_hien','dang_thuc_hien','da_thuc_hien','qua_han','cuong_che','da_kiem_tra'].map((x) => <option key={x} value={x}>{x.replaceAll('_', ' ')}</option>)}</select></label><button onClick={update}>Cập nhật trạng thái</button></div>}{allow && <form className="inline-form form-grid" onSubmit={submit}><label>Quyết định<select name="quyet_dinh_id" value={form.quyet_dinh_id} onChange={set}><option value="">Không chọn</option>{(caseItem.quyet_dinh || []).map((x) => <option key={x.id} value={x.id}>{x.ma_quyet_dinh}</option>)}</select></label><label>Hạn thực hiện<input type="date" name="han_thuc_hien" value={form.han_thuc_hien} onChange={set} /></label><label className="full">Biện pháp *<textarea required name="bien_phap" value={form.bien_phap} onChange={set} /></label><label className="full">Mô tả<textarea name="mo_ta" value={form.mo_ta} onChange={set} /></label><button className="full">Đăng ký khắc phục</button></form>}</div>; }
+export function Remedy({ caseItem, api, allow, notify, refresh }) {
+  const [form, setForm] = useState({
+    quyet_dinh_id: '',
+    bien_phap: '',
+    mo_ta: '',
+    han_thuc_hien: '',
+  });
+  const [remedy, setRemedy] = useState(null);
+  const [status, setStatus] = useState('dang_thuc_hien');
+  const set = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  async function submit(e) {
+    e.preventDefault();
+    try {
+      const r = await api(`/api/v1/ho-so/${caseItem.id}/khac-phuc`, {
+        method: 'POST',
+        body: JSON.stringify({ ...form, quyet_dinh_id: form.quyet_dinh_id || null }),
+      });
+      setRemedy(r.data);
+      notify('Đã đăng ký theo dõi khắc phục.', 'success');
+      refresh();
+    } catch (x) {
+      notify(errorText(x), 'error');
+    }
+  }
+  async function update() {
+    try {
+      const r = await api(`/api/v1/khac-phuc/${remedy.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ trang_thai: status }),
+      });
+      setRemedy(r.data);
+      notify('Đã cập nhật trạng thái khắc phục.', 'success');
+      refresh();
+    } catch (x) {
+      notify(errorText(x), 'error');
+    }
+  }
+  return (
+    <div className="tab-body">
+      <h3>Khắc phục hậu quả</h3>
+      <p className="hint">
+        Sau khi đăng ký trong phiên hiện tại, có thể cập nhật trạng thái theo dõi. API chi tiết hồ
+        sơ hiện chưa trả danh sách khắc phục đã có, nên cần chọn hồ sơ/tạo thông tin để thao tác
+        tiếp.
+      </p>
+      {remedy && (
+        <div className="action-box">
+          <b>Thông tin khắc phục vừa tạo</b>
+          <label>
+            Trạng thái
+            <select value={status} onChange={(e) => setStatus(e.target.value)}>
+              {[
+                'chua_thuc_hien',
+                'dang_thuc_hien',
+                'da_thuc_hien',
+                'qua_han',
+                'cuong_che',
+                'da_kiem_tra',
+              ].map((x) => (
+                <option key={x} value={x}>
+                  {x.replaceAll('_', ' ')}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button onClick={update}>Cập nhật trạng thái</button>
+        </div>
+      )}
+      {allow && (
+        <form className="inline-form form-grid" onSubmit={submit}>
+          <label>
+            Quyết định
+            <select name="quyet_dinh_id" value={form.quyet_dinh_id} onChange={set}>
+              <option value="">Không chọn</option>
+              {(caseItem.quyet_dinh || []).map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.ma_quyet_dinh}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Hạn thực hiện
+            <input type="date" name="han_thuc_hien" value={form.han_thuc_hien} onChange={set} />
+          </label>
+          <label className="full">
+            Biện pháp *<textarea required name="bien_phap" value={form.bien_phap} onChange={set} />
+          </label>
+          <label className="full">
+            Mô tả
+            <textarea name="mo_ta" value={form.mo_ta} onChange={set} />
+          </label>
+          <button className="full">Đăng ký khắc phục</button>
+        </form>
+      )}
+    </div>
+  );
+}

@@ -34,11 +34,17 @@ class NotificationWorker {
     if (!this._transporter) return;
 
     this._running = true;
-    this._timer = setInterval(() => this.processBatch().catch((err) => {
-      console.error('[notification-worker] Lỗi xử lý batch:', err.message);
-    }), this._intervalMs);
+    this._timer = setInterval(
+      () =>
+        this.processBatch().catch((err) => {
+          console.error('[notification-worker] Lỗi xử lý batch:', err.message);
+        }),
+      this._intervalMs
+    );
     this._timer.unref();
-    console.log(`[notification-worker] Khởi động — poll mỗi ${this._intervalMs / 1000}s, batch ${this._batchSize}`);
+    console.log(
+      `[notification-worker] Khởi động — poll mỗi ${this._intervalMs / 1000}s, batch ${this._batchSize}`
+    );
   }
 
   /** Dừng worker. */
@@ -85,10 +91,9 @@ class NotificationWorker {
         sent++;
       } catch (err) {
         console.error(`[notification-worker] Gửi email thất bại (id=${row.id}):`, err.message);
-        await this._pool.query(
-          "UPDATE thong_bao SET trang_thai='that_bai' WHERE id=$1",
-          [row.id]
-        ).catch(() => {});
+        await this._pool
+          .query("UPDATE thong_bao SET trang_thai='that_bai' WHERE id=$1", [row.id])
+          .catch(() => {});
         failed++;
       }
     }
@@ -96,7 +101,9 @@ class NotificationWorker {
     return { sent, failed };
   }
 
-  get isRunning() { return this._running; }
+  get isRunning() {
+    return this._running;
+  }
 }
 
 module.exports = { NotificationWorker, BATCH_SIZE, POLL_INTERVAL_MS };

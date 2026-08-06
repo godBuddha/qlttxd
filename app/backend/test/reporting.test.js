@@ -29,7 +29,7 @@ test.before(async () => {
 });
 
 test.after(async () => {
-  await new Promise(resolve => server.close(resolve));
+  await new Promise((resolve) => server.close(resolve));
   await pool.end();
 });
 
@@ -107,6 +107,12 @@ test('PATCH /api/v1/auth/password đổi mật khẩu', async () => {
   });
   assert.equal(r.status, 200);
 
+  // C-02: sau khi đổi mật khẩu, token cũ phải bị thu hồi (401)
+  const meOld = await fetch(`${base}/api/v1/auth/me`, {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  assert.equal(meOld.status, 401);
+
   // Login với mật khẩu mới
   const login = await fetch(`${base}/api/v1/auth/login`, {
     method: 'POST',
@@ -114,15 +120,23 @@ test('PATCH /api/v1/auth/password đổi mật khẩu', async () => {
     body: JSON.stringify({ username: TEST_ADMIN_USERNAME, password: 'NewPass123' }),
   });
   assert.equal(login.status, 200);
-
-  // Đổi lại mật khẩu cũ
   const b = await login.json();
-  token = b.token; // update global token for subsequent tests
+
+  // Đổi lại mật khẩu cũ (dùng token mới vừa lấy)
   await fetch(`${base}/api/v1/auth/password`, {
     method: 'PATCH',
     headers: { authorization: `Bearer ${b.token}`, 'content-type': 'application/json' },
     body: JSON.stringify({ old_password: 'NewPass123', new_password: TEST_ADMIN_PASSWORD }),
   });
+
+  // Đăng nhập lại để lấy token hợp lệ cho các test sau (b.token đã bị thu hồi)
+  const relogin = await fetch(`${base}/api/v1/auth/login`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ username: TEST_ADMIN_USERNAME, password: TEST_ADMIN_PASSWORD }),
+  });
+  assert.equal(relogin.status, 200);
+  token = (await relogin.json()).token;
 });
 
 // --- ho-so/:id trả khac_phuc[] ---

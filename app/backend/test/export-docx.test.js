@@ -29,15 +29,18 @@ async function setupAdmin() {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      username: 'admin', password: TEST_ADMIN_PASSWORD,
-      full_name: 'Quản trị viên hệ thống', email: 'admin@qlttxd.local', phone: '0901000001'
-    })
+      username: 'admin',
+      password: TEST_ADMIN_PASSWORD,
+      full_name: 'Quản trị viên hệ thống',
+      email: 'admin@qlttxd.local',
+      phone: '0901000001',
+    }),
   });
   if (setup.response.status === 201) return setup.body.token;
   const login = await json('/api/v1/auth/login', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ username: TEST_ADMIN_USERNAME, password: TEST_ADMIN_PASSWORD })
+    body: JSON.stringify({ username: TEST_ADMIN_USERNAME, password: TEST_ADMIN_PASSWORD }),
   });
   return login.body.token;
 }
@@ -68,11 +71,11 @@ test('Setup: create case with bien_ban + quyet_dinh', async () => {
   const nvpId = nvp.rows[0].id;
 
   // Get a hanh_vi_id
-  const hv = await pool.query("SELECT id FROM hanh_vi_vi_pham LIMIT 1");
+  const hv = await pool.query('SELECT id FROM hanh_vi_vi_pham LIMIT 1');
   const hanhViId = hv.rows[0].id;
 
   // Get loai_vi_pham_id
-  const lvp = await pool.query("SELECT id FROM loai_vi_pham LIMIT 1");
+  const lvp = await pool.query('SELECT id FROM loai_vi_pham LIMIT 1');
   const loaiVpId = lvp.rows[0].id;
 
   // Create ho_so directly in DB
@@ -89,7 +92,14 @@ test('Setup: create case with bien_ban + quyet_dinh', async () => {
     `INSERT INTO bien_ban (ma_bien_ban, ho_so_id, nguoi_lap_id, nguoi_vi_pham_id, hanh_vi_id, noi_dung, muc_phat_du_kien)
      VALUES ('BB-TEST-DOCX-001', $1, $2, $3, $4, 'Xây dựng không phép', 15000000)
      RETURNING id`,
-    [caseId, adminToken ? (await json('/api/v1/auth/me', { headers: { 'X-Auth-Token': adminToken } })).body.user.id : null, nvpId, hanhViId]
+    [
+      caseId,
+      adminToken
+        ? (await json('/api/v1/auth/me', { headers: { 'X-Auth-Token': adminToken } })).body.user.id
+        : null,
+      nvpId,
+      hanhViId,
+    ]
   );
   bienBanId = bb.rows[0].id;
 
@@ -101,7 +111,11 @@ test('Setup: create case with bien_ban + quyet_dinh', async () => {
     `INSERT INTO quyet_dinh (ma_quyet_dinh, bien_ban_id, ho_so_id, nguoi_ky_id, so_tien_phat, can_cu_phap_ly, ngay_ban_hanh, trang_thai)
      VALUES ('QD-TEST-DOCX-001', $1, $2, $3, 15000000, 'Điều 16 NĐ 16/2022/NĐ-CP', '2026-01-20', 'da_ban_hanh')
      RETURNING id`,
-    [bienBanId, caseId, (await json('/api/v1/auth/me', { headers: { 'X-Auth-Token': adminToken } })).body.user.id]
+    [
+      bienBanId,
+      caseId,
+      (await json('/api/v1/auth/me', { headers: { 'X-Auth-Token': adminToken } })).body.user.id,
+    ]
   );
   quyetDinhId = qd.rows[0].id;
 
@@ -112,7 +126,7 @@ test('Setup: create case with bien_ban + quyet_dinh', async () => {
 
 test('GET /api/v1/ho-so/:id/xuat-bien-ban.docx trả file DOCX hợp lệ', async () => {
   const { response, buffer } = await raw(`/api/v1/ho-so/${caseId}/xuat-bien-ban.docx`, {
-    headers: { 'X-Auth-Token': adminToken }
+    headers: { 'X-Auth-Token': adminToken },
   });
   assert.equal(response.status, 200);
   // Verify Content-Type is DOCX
@@ -121,20 +135,20 @@ test('GET /api/v1/ho-so/:id/xuat-bien-ban.docx trả file DOCX hợp lệ', asyn
   // Verify it's a valid ZIP (DOCX is a ZIP file)
   const bytes = new Uint8Array(buffer.slice(0, 4));
   assert.equal(bytes[0], 0x50, 'ZIP magic byte P');
-  assert.equal(bytes[1], 0x4B, 'ZIP magic byte K');
+  assert.equal(bytes[1], 0x4b, 'ZIP magic byte K');
   assert.ok(buffer.byteLength > 100, `DOCX file too small: ${buffer.byteLength} bytes`);
 });
 
 test('GET /api/v1/ho-so/:id/xuat-quyet-dinh.docx trả file DOCX hợp lệ', async () => {
   const { response, buffer } = await raw(`/api/v1/ho-so/${caseId}/xuat-quyet-dinh.docx`, {
-    headers: { 'X-Auth-Token': adminToken }
+    headers: { 'X-Auth-Token': adminToken },
   });
   assert.equal(response.status, 200);
   const ct = response.headers.get('content-type');
   assert.ok(ct.includes('wordprocessingml'), `Expected DOCX content-type, got: ${ct}`);
   const bytes = new Uint8Array(buffer.slice(0, 4));
   assert.equal(bytes[0], 0x50, 'ZIP magic byte P');
-  assert.equal(bytes[1], 0x4B, 'ZIP magic byte K');
+  assert.equal(bytes[1], 0x4b, 'ZIP magic byte K');
   assert.ok(buffer.byteLength > 100, `DOCX file too small: ${buffer.byteLength} bytes`);
 });
 
@@ -144,7 +158,7 @@ test('GET xuat-bien-ban.docx không có biên bản → 400', async () => {
     `INSERT INTO ho_so (ma_ho_so, trang_thai, dia_chi, mo_ta) VALUES ('HS-NO-BB-001', 'cho_tiep_nhan', 'Test', 'Test') RETURNING id`
   );
   const { response, body } = await json(`/api/v1/ho-so/${hs.rows[0].id}/xuat-bien-ban.docx`, {
-    headers: { 'X-Auth-Token': adminToken }
+    headers: { 'X-Auth-Token': adminToken },
   });
   assert.equal(response.status, 400);
   assert.ok(body.error.includes('chưa có biên bản'));
@@ -155,7 +169,7 @@ test('GET xuat-quyet-dinh.docx không có quyết định → 400', async () => 
     `INSERT INTO ho_so (ma_ho_so, trang_thai, dia_chi, mo_ta) VALUES ('HS-NO-QD-001', 'cho_tiep_nhan', 'Test', 'Test') RETURNING id`
   );
   const { response, body } = await json(`/api/v1/ho-so/${hs.rows[0].id}/xuat-quyet-dinh.docx`, {
-    headers: { 'X-Auth-Token': adminToken }
+    headers: { 'X-Auth-Token': adminToken },
   });
   assert.equal(response.status, 400);
   assert.ok(body.error.includes('chưa có quyết định'));
@@ -164,7 +178,7 @@ test('GET xuat-quyet-dinh.docx không có quyết định → 400', async () => 
 test('GET xuat-bien-ban.docx hồ sơ không tồn tại → 404', async () => {
   const fakeId = '00000000-0000-0000-0000-000000000000';
   const { response } = await raw(`/api/v1/ho-so/${fakeId}/xuat-bien-ban.docx`, {
-    headers: { 'X-Auth-Token': adminToken }
+    headers: { 'X-Auth-Token': adminToken },
   });
   assert.equal(response.status, 404);
 });
