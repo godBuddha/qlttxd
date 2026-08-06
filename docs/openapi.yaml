@@ -26,6 +26,18 @@ tags:
     description: Violation case management
   - name: Báo cáo
     description: Citizen violation reports
+  - name: Bản đồ
+    description: Map / geospatial data
+  - name: Danh mục
+    description: Reference catalogues
+  - name: Thống kê
+    description: Statistics & reporting
+  - name: Thông báo
+    description: Notifications
+  - name: Quản trị
+    description: "Admin: users, roles, catalogue & locations"
+  - name: Tài liệu
+    description: Documentation / docx-pdf exports
 
 paths:
   # ── Health ──────────────────────────────────────────────
@@ -46,17 +58,25 @@ paths:
                   status:
                     type: string
                     example: ok
-                  uptime:
-                    type: number
-                  timestamp:
+                  db:
                     type: string
-                    format: date-time
+                    example: connected
+                  uptime:
+                    type: integer
+                  version:
+                    type: string
+        '503':
+          description: Database unreachable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   # ── Auth ────────────────────────────────────────────────
   /api/v1/auth/setup-status:
     get:
       tags: [Auth]
-      summary: Check if admin account exists
+      summary: Check if an admin account exists
       operationId: getSetupStatus
       security: []
       responses:
@@ -67,13 +87,13 @@ paths:
               schema:
                 type: object
                 properties:
-                  adminExists:
+                  needsSetup:
                     type: boolean
 
   /api/v1/auth/setup-admin:
     post:
       tags: [Auth]
-      summary: Create first admin account
+      summary: Create the first admin account
       operationId: setupAdmin
       security: []
       requestBody:
@@ -87,10 +107,16 @@ paths:
                 username:
                   type: string
                   minLength: 3
+                  maxLength: 50
                 password:
                   type: string
-                  minLength: 6
+                  minLength: 8
                 full_name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                phone:
                   type: string
       responses:
         '201':
@@ -133,13 +159,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
   /api/v1/auth/logout:
     post:
       tags: [Auth]
-      summary: Logout current session
+      summary: Logout (revoke current access token)
       operationId: logout
       responses:
         '200':
@@ -149,14 +177,41 @@ paths:
               schema:
                 type: object
                 properties:
-                  message:
-                    type: string
-                    example: Đăng xuất thành công
+                  ok:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Exchange a refresh token for a new access token
+      operationId: refreshToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: New access token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /api/v1/auth/me:
     get:
       tags: [Auth]
-      summary: Get current user profile
+      summary: Get the current authenticated user
       operationId: getMe
       responses:
         '200':
@@ -172,9 +227,9 @@ paths:
           $ref: '#/components/responses/Unauthorized'
 
   /api/v1/auth/password:
-    put:
+    patch:
       tags: [Auth]
-      summary: Change current user password
+      summary: Change the current user's password
       operationId: changePassword
       requestBody:
         required: true
@@ -182,16 +237,23 @@ paths:
           application/json:
             schema:
               type: object
-              required: [oldPassword, newPassword]
+              required: [currentPassword, newPassword]
               properties:
-                oldPassword:
+                currentPassword:
                   type: string
                 newPassword:
                   type: string
-                  minLength: 6
+                  minLength: 8
       responses:
         '200':
           description: Password changed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -200,7 +262,7 @@ paths:
   /api/v1/auth/forgot-password:
     post:
       tags: [Auth]
-      summary: Request password reset token
+      summary: Request a password reset email
       operationId: forgotPassword
       security: []
       requestBody:
@@ -216,19 +278,21 @@ paths:
                   format: email
       responses:
         '200':
-          description: Reset link sent (always 200 to prevent enumeration)
+          description: Reset email sent if the account exists
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  message:
-                    type: string
+                  ok:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
 
   /api/v1/auth/reset-password:
     post:
       tags: [Auth]
-      summary: Reset password with token
+      summary: Complete password reset with a token
       operationId: resetPassword
       security: []
       requestBody:
@@ -243,14 +307,309 @@ paths:
                   type: string
                 newPassword:
                   type: string
-                  minLength: 6
+                  minLength: 8
       responses:
         '200':
           description: Password reset successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  # ── Hồ sơ ──────────────────────────────────────────────
+  /uploads/{filename}:
+    get:
+      tags: [Auth]
+      summary: Serve an uploaded file
+      operationId: getUpload
+      security: []
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: File content
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Danh mục (public catalogues) ────────────────────────
+  /api/v1/danh-muc/loai-vi-pham:
+    get:
+      tags: [Danh mục]
+      summary: List violation types
+      operationId: listLoaiViPham
+      security: []
+      responses:
+        '200':
+          description: Violation type list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LoaiViPham'
+
+  /api/v1/danh-muc/hanh-vi:
+    get:
+      tags: [Danh mục]
+      summary: List violation behaviours (optionally by violation type)
+      operationId: listHanhVi
+      security: []
+      parameters:
+        - name: loai_vi_pham_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Behaviour list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/HanhVi'
+
+  /api/v1/danh-muc/muc-phat:
+    get:
+      tags: [Danh mục]
+      summary: List fine schedules (optionally by behaviour)
+      operationId: listMucPhat
+      security: []
+      parameters:
+        - name: hanh_vi_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Fine schedule list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MucPhat'
+
+  /api/v1/danh-muc/quan-huyen:
+    get:
+      tags: [Danh mục]
+      summary: List districts
+      operationId: listQuanHuyen
+      security: []
+      responses:
+        '200':
+          description: District list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/QuanHuyen'
+
+  /api/v1/danh-muc/phuong-xa:
+    get:
+      tags: [Danh mục]
+      summary: List wards (optionally by district)
+      operationId: listPhuongXa
+      security: []
+      parameters:
+        - name: quan_huyen_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Ward list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PhuongXa'
+
+  /api/v1/danh-muc/can-bo:
+    get:
+      tags: [Danh mục]
+      summary: List active case-handler officers
+      operationId: listCanBo
+      responses:
+        '200':
+          description: Officer list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        full_name:
+                          type: string
+                        username:
+                          type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ── Báo cáo (citizen reports) ───────────────────────────
+  /api/v1/bao-cao:
+    get:
+      tags: [Báo cáo]
+      summary: List violation reports
+      operationId: listBaoCao
+      responses:
+        '200':
+          description: Report list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BaoCao'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Báo cáo]
+      summary: Submit a violation report (multipart with optional images)
+      operationId: createBaoCao
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [dia_chi, quan_huyen_id, phuong_xa_id]
+              properties:
+                dia_chi:
+                  type: string
+                quan_huyen_id:
+                  type: string
+                  format: uuid
+                phuong_xa_id:
+                  type: string
+                  format: uuid
+                mo_ta:
+                  type: string
+                kinh_do:
+                  type: number
+                  format: double
+                vi_do:
+                  type: number
+                  format: double
+                nguoi_vi_pham_ten:
+                  type: string
+                anh:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  maxItems: 5
+      responses:
+        '201':
+          description: Report created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/BaoCao'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/bao-cao/{id}:
+    get:
+      tags: [Báo cáo]
+      summary: Get a violation report by id
+      operationId: getBaoCao
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Report detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/BaoCao'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/bao-cao/{id}/to-ho-so:
+    post:
+      tags: [Báo cáo]
+      summary: Convert a report into a violation case
+      operationId: baoCaoToHoSo
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '201':
+          description: Case created from report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/HoSo'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ── Hồ sơ (violation cases) ─────────────────────────────
   /api/v1/ho-so:
     get:
       tags: [Hồ sơ]
@@ -359,15 +718,392 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
-  # ── Báo cáo ────────────────────────────────────────────
-  /api/v1/bao-cao:
+  /api/v1/ho-so/{id}:
     get:
-      tags: [Báo cáo]
-      summary: List violation reports
-      operationId: listBaoCao
+      tags: [Hồ sơ]
+      summary: Get a violation case by id
+      operationId: getHoSo
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
-          description: Report list
+          description: Case detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/HoSo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/ho-so/{id}/trang-thai:
+    patch:
+      tags: [Hồ sơ]
+      summary: Update a case's status
+      operationId: updateHoSoTrangThai
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [trang_thai]
+              properties:
+                trang_thai:
+                  type: string
+                  enum: [moi_tiep_nhan, cho_lap_bien_ban, da_lap_bien_ban, cho_ra_quyet_dinh, da_ra_quyet_dinh, dang_khac_phuc, da_khac_phuc, da_dong]
+                ghi_chu:
+                  type: string
+      responses:
+        '200':
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/HoSo'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/ho-so/{id}/phan-cong:
+    put:
+      tags: [Hồ sơ]
+      summary: Assign a case to an officer
+      operationId: phanCongHoSo
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [can_bo_id]
+              properties:
+                can_bo_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Case assigned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/HoSo'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/ho-so/{id}/bien-ban:
+    post:
+      tags: [Hồ sơ]
+      summary: Create an inspection record (biên bản) for a case
+      operationId: createBienBan
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                noi_dung:
+                  type: string
+                ngay_lap:
+                  type: string
+                  format: date
+      responses:
+        '201':
+          description: Inspection record created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/ho-so/{id}/quyet-dinh:
+    post:
+      tags: [Hồ sơ]
+      summary: Create a decision (quyết định) for a case
+      operationId: createQuyetDinh
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                noi_dung:
+                  type: string
+                ngay_ban_hanh:
+                  type: string
+                  format: date
+      responses:
+        '201':
+          description: Decision created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/ho-so/{id}/quyet-dinh/ban-hanh:
+    post:
+      tags: [Hồ sơ]
+      summary: Issue / publish a decision
+      operationId: banHanhQuyetDinh
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Decision issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/ho-so/{id}/khac-phuc:
+    post:
+      tags: [Hồ sơ]
+      summary: Record remediation (khắc phục) for a case
+      operationId: createKhacPhuc
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                noi_dung:
+                  type: string
+                ngay_khac_phuc:
+                  type: string
+                  format: date
+      responses:
+        '201':
+          description: Remediation recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/khac-phuc/{id}:
+    patch:
+      tags: [Hồ sơ]
+      summary: Update a remediation record
+      operationId: updateKhacPhuc
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                trang_thai:
+                  type: string
+                noi_dung:
+                  type: string
+      responses:
+        '200':
+          description: Remediation updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/ho-so/{id}/xuat-bien-ban.docx:
+    get:
+      tags: [Hồ sơ]
+      summary: Export inspection record as .docx
+      operationId: xuatBienBanDocx
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: DOCX file download
+          content:
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/ho-so/{id}/xuat-quyet-dinh.docx:
+    get:
+      tags: [Hồ sơ]
+      summary: Export decision as .docx
+      operationId: xuatQuyetDinhDocx
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: DOCX file download
+          content:
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/ho-so/{id}/xuat-bien-ban.pdf:
+    get:
+      tags: [Hồ sơ]
+      summary: Export inspection record as PDF
+      operationId: xuatBienBanPdf
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: PDF file download
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/ho-so/{id}/xuat-quyet-dinh.pdf:
+    get:
+      tags: [Hồ sơ]
+      summary: Export decision as PDF
+      operationId: xuatQuyetDinhPdf
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: PDF file download
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ── Bản đồ ──────────────────────────────────────────────
+  /api/v1/ban-do/vi-pham:
+    get:
+      tags: [Bản đồ]
+      summary: List violation points for the map
+      operationId: listViPhamMap
+      responses:
+        '200':
+          description: Map points
           content:
             application/json:
               schema:
@@ -376,60 +1112,1032 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/BaoCao'
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        kinh_do:
+                          type: number
+                          format: double
+                        vi_do:
+                          type: number
+                          format: double
+                        dia_chi:
+                          type: string
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-    post:
-      tags: [Báo cáo]
-      summary: Submit a violation report (multipart with optional images)
-      operationId: createBaoCao
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              required: [dia_chi, quan_huyen_id, phuong_xa_id]
-              properties:
-                dia_chi:
-                  type: string
-                quan_huyen_id:
-                  type: string
-                  format: uuid
-                phuong_xa_id:
-                  type: string
-                  format: uuid
-                mo_ta:
-                  type: string
-                kinh_do:
-                  type: number
-                  format: double
-                vi_do:
-                  type: number
-                  format: double
-                nguoi_vi_pham_ten:
-                  type: string
-                anh:
-                  type: array
-                  items:
-                    type: string
-                    format: binary
-                  maxItems: 5
+  # ── Thống kê ────────────────────────────────────────────
+  /api/v1/thong-ke/tong-quan:
+    get:
+      tags: [Thống kê]
+      summary: Dashboard overview statistics
+      operationId: thongKeTongQuan
       responses:
-        '201':
-          description: Report created
+        '200':
+          description: Overview statistics
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   data:
-                    $ref: '#/components/schemas/BaoCao'
+                    type: object
+                    additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/thong-ke/xuat:
+    get:
+      tags: [Thống kê]
+      summary: Export statistics
+      operationId: thongKeXuat
+      parameters:
+        - name: tu_ngay
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: den_ngay
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Exported statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ── Thông báo (notifications) ───────────────────────────
+  /api/v1/thong-bao:
+    get:
+      tags: [Thông báo]
+      summary: List notifications for the current user
+      operationId: listThongBao
+      responses:
+        '200':
+          description: Notification list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ThongBao'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/thong-bao/unread-count:
+    get:
+      tags: [Thông báo]
+      summary: Count unread notifications
+      operationId: thongBaoUnreadCount
+      responses:
+        '200':
+          description: Unread count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/thong-bao/{id}/mark-read:
+    post:
+      tags: [Thông báo]
+      summary: Mark a notification as read
+      operationId: markThongBaoRead
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Notification marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/thong-bao/mark-all-read:
+    post:
+      tags: [Thông báo]
+      summary: Mark all notifications as read
+      operationId: markAllThongBaoRead
+      responses:
+        '200':
+          description: All notifications marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ── Quản trị: danh mục (loại vi phạm) ───────────────────
+  /api/v1/admin/loai-vi-pham:
+    get:
+      tags: [Quản trị]
+      summary: List violation types (admin)
+      operationId: adminListLoaiViPham
+      responses:
+        '200':
+          description: Violation type list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LoaiViPham'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Quản trị]
+      summary: Create a violation type
+      operationId: adminCreateLoaiViPham
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ten]
+              properties:
+                ten:
+                  type: string
+                so_thu_tu:
+                  type: integer
+      responses:
+        '201':
+          description: Violation type created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/LoaiViPham'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/loai-vi-pham/{id}:
+    patch:
+      tags: [Quản trị]
+      summary: Update a violation type
+      operationId: adminUpdateLoaiViPham
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ten:
+                  type: string
+                so_thu_tu:
+                  type: integer
+      responses:
+        '200':
+          description: Violation type updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/LoaiViPham'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    delete:
+      tags: [Quản trị]
+      summary: Delete a violation type
+      operationId: adminDeleteLoaiViPham
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Violation type deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ── Quản trị: danh mục (hành vi) ────────────────────────
+  /api/v1/admin/hanh-vi:
+    get:
+      tags: [Quản trị]
+      summary: List violation behaviours (admin)
+      operationId: adminListHanhVi
+      responses:
+        '200':
+          description: Behaviour list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/HanhVi'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Quản trị]
+      summary: Create a violation behaviour
+      operationId: adminCreateHanhVi
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [loai_vi_pham_id, ten]
+              properties:
+                loai_vi_pham_id:
+                  type: string
+                  format: uuid
+                ten:
+                  type: string
+                khoan:
+                  type: string
+      responses:
+        '201':
+          description: Behaviour created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/HanhVi'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/hanh-vi/{id}:
+    patch:
+      tags: [Quản trị]
+      summary: Update a violation behaviour
+      operationId: adminUpdateHanhVi
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                loai_vi_pham_id:
+                  type: string
+                  format: uuid
+                ten:
+                  type: string
+                khoan:
+                  type: string
+      responses:
+        '200':
+          description: Behaviour updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/HanhVi'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    delete:
+      tags: [Quản trị]
+      summary: Delete a violation behaviour
+      operationId: adminDeleteHanhVi
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Behaviour deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ── Quản trị: danh mục (mức phạt) ───────────────────────
+  /api/v1/admin/muc-phat:
+    get:
+      tags: [Quản trị]
+      summary: List fine schedules (admin)
+      operationId: adminListMucPhat
+      responses:
+        '200':
+          description: Fine schedule list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MucPhat'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Quản trị]
+      summary: Create a fine schedule
+      operationId: adminCreateMucPhat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hanh_vi_id]
+              properties:
+                hanh_vi_id:
+                  type: string
+                  format: uuid
+                nhom_cong_trinh:
+                  type: string
+                muc_phat:
+                  type: string
+                quy_dinh:
+                  type: string
+      responses:
+        '201':
+          description: Fine schedule created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/MucPhat'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/muc-phat/{id}:
+    patch:
+      tags: [Quản trị]
+      summary: Update a fine schedule
+      operationId: adminUpdateMucPhat
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                hanh_vi_id:
+                  type: string
+                  format: uuid
+                nhom_cong_trinh:
+                  type: string
+                muc_phat:
+                  type: string
+                quy_dinh:
+                  type: string
+      responses:
+        '200':
+          description: Fine schedule updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/MucPhat'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    delete:
+      tags: [Quản trị]
+      summary: Delete a fine schedule
+      operationId: adminDeleteMucPhat
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Fine schedule deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ── Quản trị: địa giới (quận/huyện) ─────────────────────
+  /api/v1/admin/quan-huyen:
+    get:
+      tags: [Quản trị]
+      summary: List districts (admin)
+      operationId: adminListQuanHuyen
+      responses:
+        '200':
+          description: District list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/QuanHuyen'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Quản trị]
+      summary: Create a district
+      operationId: adminCreateQuanHuyen
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ma, ten]
+              properties:
+                ma:
+                  type: string
+                ten:
+                  type: string
+      responses:
+        '201':
+          description: District created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/QuanHuyen'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/quan-huyen/{id}:
+    patch:
+      tags: [Quản trị]
+      summary: Update a district
+      operationId: adminUpdateQuanHuyen
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ma:
+                  type: string
+                ten:
+                  type: string
+      responses:
+        '200':
+          description: District updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/QuanHuyen'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    delete:
+      tags: [Quản trị]
+      summary: Delete a district
+      operationId: adminDeleteQuanHuyen
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: District deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ── Quản trị: địa giới (phường/xã) ──────────────────────
+  /api/v1/admin/phuong-xa:
+    get:
+      tags: [Quản trị]
+      summary: List wards (admin)
+      operationId: adminListPhuongXa
+      responses:
+        '200':
+          description: Ward list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PhuongXa'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Quản trị]
+      summary: Create a ward
+      operationId: adminCreatePhuongXa
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quan_huyen_id, ma, ten]
+              properties:
+                quan_huyen_id:
+                  type: string
+                  format: uuid
+                ma:
+                  type: string
+                ten:
+                  type: string
+      responses:
+        '201':
+          description: Ward created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PhuongXa'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/phuong-xa/{id}:
+    patch:
+      tags: [Quản trị]
+      summary: Update a ward
+      operationId: adminUpdatePhuongXa
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                quan_huyen_id:
+                  type: string
+                  format: uuid
+                ma:
+                  type: string
+                ten:
+                  type: string
+      responses:
+        '200':
+          description: Ward updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PhuongXa'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    delete:
+      tags: [Quản trị]
+      summary: Delete a ward
+      operationId: adminDeletePhuongXa
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Ward deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ── Quản trị: người dùng & vai trò ──────────────────────
+  /api/v1/admin/users:
+    get:
+      tags: [Quản trị]
+      summary: List users (admin)
+      operationId: adminListUsers
+      responses:
+        '200':
+          description: User list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Quản trị]
+      summary: Create a user
+      operationId: adminCreateUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password, full_name]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                  minLength: 8
+                full_name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                phone:
+                  type: string
+                role_codes:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/users/{id}:
+    patch:
+      tags: [Quản trị]
+      summary: Update a user
+      operationId: adminUpdateUser
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                full_name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                phone:
+                  type: string
+                is_active:
+                  type: boolean
+                role_codes:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/admin/roles:
+    get:
+      tags: [Quản trị]
+      summary: List roles
+      operationId: adminListRoles
+      responses:
+        '200':
+          description: Role list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        code:
+                          type: string
+                        ten:
+                          type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/admin/roles/{id}/permissions:
+    patch:
+      tags: [Quản trị]
+      summary: Set the permissions for a role
+      operationId: adminSetRolePermissions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [permission_codes]
+              properties:
+                permission_codes:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Permissions updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/admin/permissions:
+    get:
+      tags: [Quản trị]
+      summary: List all permissions
+      operationId: adminListPermissions
+      responses:
+        '200':
+          description: Permission list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        code:
+                          type: string
+                        ten:
+                          type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/admin/audit-log:
+    get:
+      tags: [Quản trị]
+      summary: List audit log entries
+      operationId: adminAuditLog
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Audit log
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ── Tài liệu ────────────────────────────────────────────
+  /api/v1/docs:
+    get:
+      tags: [Tài liệu]
+      summary: API documentation index
+      operationId: getDocs
+      security: []
+      responses:
+        '200':
+          description: Documentation index
+          content:
+            text/html:
+              schema:
+                type: string
 
 components:
   securitySchemes:
@@ -449,8 +2157,19 @@ components:
           type: string
         full_name:
           type: string
-        role:
+        email:
           type: string
+          format: email
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+        roles:
+          type: array
+          items:
+            type: string
         permissions:
           type: array
           items:
@@ -465,8 +2184,76 @@ components:
       properties:
         token:
           type: string
+        refreshToken:
+          type: string
         user:
           $ref: '#/components/schemas/User'
+
+    LoaiViPham:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ten:
+          type: string
+        so_thu_tu:
+          type: integer
+
+    HanhVi:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        loai_vi_pham_id:
+          type: string
+          format: uuid
+        ten:
+          type: string
+        khoan:
+          type: string
+
+    MucPhat:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        hanh_vi_id:
+          type: string
+          format: uuid
+        nhom_cong_trinh:
+          type: string
+        muc_phat:
+          type: string
+        quy_dinh:
+          type: string
+
+    QuanHuyen:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ma:
+          type: string
+        ten:
+          type: string
+
+    PhuongXa:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        quan_huyen_id:
+          type: string
+          format: uuid
+        ma:
+          type: string
+        ten:
+          type: string
 
     HoSo:
       type: object
@@ -492,6 +2279,22 @@ components:
           type: string
           format: date-time
 
+    PaginatedHoSo:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/HoSo'
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+
     BaoCao:
       type: object
       properties:
@@ -513,21 +2316,22 @@ components:
         anh_count:
           type: integer
 
-    PaginatedHoSo:
+    ThongBao:
       type: object
       properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/HoSo'
-        page:
-          type: integer
-        limit:
-          type: integer
-        total:
-          type: integer
-        totalPages:
-          type: integer
+        id:
+          type: string
+          format: uuid
+        tieu_de:
+          type: string
+        noi_dung:
+          type: string
+          nullable: true
+        da_doc:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
 
     Error:
       type: object
@@ -559,6 +2363,12 @@ components:
             $ref: '#/components/schemas/Error'
     Forbidden:
       description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
       content:
         application/json:
           schema:

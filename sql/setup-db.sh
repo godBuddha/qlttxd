@@ -37,9 +37,15 @@ echo "==> [2/4] Tạo lại database '${DB_NAME}'"
 "${PSQL[@]}" -c "DROP DATABASE IF EXISTS ${DB_NAME};"
 "${PSQL[@]}" -c "CREATE DATABASE ${DB_NAME};"
 
-echo "==> [3/4] Chạy schema.sql (19 bảng + PostGIS + seed Điều 16)"
-psql -h "${PGHOST:-/tmp}" -p "${PGPORT:-5432}" -U "${PGUSER:-postgres}" -d "${DB_NAME}" \
-  -v ON_ERROR_STOP=1 -f "${SCRIPT_DIR}/schema.sql"
+echo "==> [3/4] Chạy migration runner (scripts/migrate.js) — baseline + indexes"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+if command -v node >/dev/null 2>&1; then
+  NODE_BIN="$(command -v node)"
+else
+  NODE_BIN="${NODE_HOME:-/home/cptr/ssd/toolchain/node}/bin/node"
+fi
+export PGDATABASE="${DB_NAME}"
+"${NODE_BIN}" "${REPO_ROOT}/scripts/migrate.js"
 
 echo "==> [4/4] Chạy seed.sql (đơn vị hành chính + người dùng demo + RBAC)"
 psql -h "${PGHOST:-/tmp}" -p "${PGPORT:-5432}" -U "${PGUSER:-postgres}" -d "${DB_NAME}" \
