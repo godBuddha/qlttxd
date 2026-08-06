@@ -92,3 +92,44 @@ Older repeated task attempts were consolidated into this file. The implementatio
 ### Summary
 
 All stale processes killed. Backend `:3001` and frontend `:5173` restarted clean. Login via Vite proxy returns `200 + token` (no more 401 "Thiếu mã xác thực"). Protected endpoints correctly return `401` without token and `200` with valid token. Root cause confirmed: stale Vite instances from before T10 restart were blocking port 5173 with old config (no proxy).
+
+## R2-B2 — H-07 SSE notifications + H-10 service worker stale cache (task `t_4dbc5b94`, 2026-08-06)
+
+### H-07: SSE notifications thay vì polling
+
+Backend (`app/backend/routes/thong-bao.js`):
+- Added `GET /api/v1/thong-bao/stream` SSE endpoint. Sets `Content-Type: text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`, `X-Accel-Buffering: no`.
+- Auth: EventSource cannot send the `X-Auth-Token` header, so the JWT is accepted as a short-lived `?token=` query param, verified with `jwt.verify` + the token blocklist (same guarantees as header auth).
+- Pushes new portal notifications via `res.write('data: <json>\n\n')`, cursor tracked by `created_at` (id is a UUID, no natural ordering); frontend dedupes by id.
+- Heartbeat `: heartbeat` every 30s; DB poll every 5s; `req.on('close')`/`res.on('close')` cleanup clears timers and ends the response.
+- `app/backend/server.js`: excluded `/api/v1/thong-bao/stream` from the global `compression()` middleware — buffering would hold/corrupt live SSE events. **This was the key integration fix**: without it the pushed events never flush and the test hangs.
+
+Frontend (`app/frontend/src/components/BellNotification.jsx`):
+- Replaced `setInterval` polling with `EventSource` to `${API_BASE}/api/v1/thong-bao/stream?token=...`.
+- `onmessage` increments the badge and prepends the notification (dedup by id, cap 15).
+- `onerror` closes the EventSource and falls back to 30s polling (`unread-count` + list when open).
+- Cleanup on unmount closes both EventSource and any fallback timer.
+
+Tests:
+- Backend `test/email-notification.test.js`: SSE test opens a real stream, inserts a portal notification while open, and asserts the pushed `data:` event arrives with correct headers. PASS.
+- Frontend `src/components/BellNotification.test.jsx` (3 tests): opens SSE with token; badge increments on live event; falls back to polling on SSE error. PASS.
+
+### H-10: Service worker — no stale cache
+
+`app/frontend/public/sw.js`:
+- **Network-first for navigation** requests (fresh HTML always, cache only as offline fallback, plus `/index.html` fallback), so a deploy never serves an old shell.
+- **Stale-while-revalidate** for static assets (serve cache fast, refresh in background).
+- **Versioned cache name** via `globalThis.__BUILD_VERSION__`, injected at build time by a new `swBuildVersion()` Vite plugin in `vite.config.js` (writes a fresh timestamp into `dist/sw.js` each build, so a new deploy gets a new cache namespace and `activate` purges old versions). Never intercepts `/api/` (keeps SSE/API on the network).
+
+Verified: `npm run build` passes and `dist/sw.js` contains `CACHE_NAME = qlttxd-<buildhash>`; lint clears (sw.js globals covered by eslint config `app/frontend/public/sw.js` block).
+
+### Verification
+- `npm run lint` — PASS (0 problems).
+- `npm run build` (app/frontend) — PASS; SW version injected.
+- Frontend `vitest run` — 6 files / 39 tests PASS (incl. 3 new BellNotification tests).
+- Backend SSE test — PASS (`ok 1 - GET /api/v1/thong-bao/stream — SSE pushes new notification to the user`).
+- Full backend suite: 143/155 pass; the 12 failures are pre-existing admin-login 401s present on the clean baseline (13 fails before this task), all in the auth/RBAC matrix and caused by shared test-DB state, not by these changes.
+
+### Risks
+- SSE auth via `?token=` query param is the standard EventSource workaround (the API cannot set headers); equivalent to X-Auth-Token in guarantees but the token appears in the URL for the stream connection. Acceptable for the in-app bell; a cookie-based auth or WebSocket would avoid it if stricter URL hygiene is required.
+- Real-time latency is up to the 5s DB poll (server-side), far better than the old 30s client polling; heartbeat keeps the connection alive through proxies.

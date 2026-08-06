@@ -166,3 +166,38 @@ npx prettier --check routes/auth.js server.js reset-token-cleanup.js test/reset-
 - Sandbox này **không có PostgreSQL/PostGIS** (không có `psql`, `postgres`, Docker, sudo/root, apt không cài được do thiếu quyền). Do đó **chưa chạy được `node --test` tích hợp đầy đủ** (yêu cầu DB thật qua socket `/tmp`, database `qlttxd`). Bộ tích hợp phụ thuộc DB: `server.test.js`, `reporting.test.js` (đã sửa luồng password C-02), `forgot-password.test.js`...
 - Cần chạy trên môi trường có PostgreSQL 16 + PostGIS: reset DB bằng `bash sql/setup-db.sh qlttxd` rồi `npm test`. Migration `003` sẽ được `scripts/migrate.js` nạp; 3 index tồn tại trong DB là tiêu chí H-04.
 - Đã kiểm chứng ở mức unit (không DB): server `buildApp` nạp được, route đăng ký OK, `trust proxy` đúng, cleanup reset_token đúng SQL.
+
+## AUDIT-R2-B1: Medium fixes (M-03, M-13, M-15, R2-01) — 2026-08-06
+
+### Thay đổi
+
+| #  | Issue | Thay đổi | File |
+| -- | ----- | -------- | ---- |
+| 1 | M-03 | Debounce 400ms cho ô tìm kiếm hồ sơ: tách `q` (giá trị input) khỏi `debouncedQ` (giá trị đẩy lên API), dùng `useRef` + `setTimeout`; chỉ thay đổi `page` khi debounce fire. | `app/frontend/src/pages/CaseList.jsx` |
+| 2 | M-13 | Request timeout middleware toàn cục (default 30s, override `REQUEST_TIMEOUT_MS`), trả `408 {error}` nếu `!res.headersSent`; export `requestTimeout` để test. | `app/backend/server.js` |
+| 3 | M-15 | `GET /api/v1/ban-do/vi-pham` có pagination: `limit` (default 500, clamp 1..2000), `page` (min 1); trả `{data, total, page, limit}` kèm query `COUNT(*)` riêng. | `app/backend/routes/ban-do.js` |
+| 4 | R2-01 | `EvidenceImage` track object URL đã tạo (`createdUrl`) và gọi `URL.revokeObjectURL` trong cleanup `useEffect` khi unmount/đổi `duongDan`. | `app/frontend/src/components/EvidenceImage.jsx` |
+
+### Test mới
+
+- `app/backend/test/request-timeout.test.js`: (1) handler treo → 408 + message; (2) request nhanh không bị ảnh hưởng. Dùng `requestTimeout` export + express app riêng, timeout 200ms cho nhanh.
+- `app/backend/test/server.test.js`: thêm test `ban-do vi-pham có pagination limit/page/total (M-15)` — assert shape `{data,total,page,limit}`, clamp limit 9999→2000, page 0→1.
+
+### Lệnh đã chạy
+
+```sh
+cd /workspace/ssd/qlttxd/app/backend
+node --test --test-concurrency=1 test/request-timeout.test.js                                  # 2/2 PASS
+node --test --test-concurrency=1 test/server.test.js                                          # 6/6 PASS (gồm M-15)
+node --test --test-concurrency=1 test/request-timeout.test.js test/server.test.js             # 8/8 PASS
+npx eslint routes/ban-do.js server.js test/server.test.js test/request-timeout.test.js        # LINT CLEAN
+cd /workspace/ssd/qlttxd/app/frontend
+npm run build   # BUILD OK
+npm run test    # 36/36 PASS
+```
+
+### Kết quả
+
+- Bộ `test/server.test.js` + `test/request-timeout.test.js` chạy riêng: **8/8 PASS**.
+- Toàn bộ suite chạy chung đạt **142 PASS / 12 FAIL**. Các FAIL không thuộc thay đổi này: nhiễu cross-file đã biết — `hardening.test.js` (thứ tự alphabet) bắn 12 lần login sai cùng IP `127.0.0.1` làm cạn `authLimiter` (max 10) → các test sau login bị 429 → cascade fail (xem `T7` mục test isolation). Baseline trước thay đổi cũng fail 13.
+- `requestTimeout` tương thích SSE thông báo: callback chỉ trả 408 khi `!res.headersSent`; SSE gọi `flushHeaders()` ngay nên không bị chặn, heartbeat 30s giữ socket sống.

@@ -326,7 +326,68 @@ app.set('trust proxy', 1); // trust first proxy (Caddy)
 
 ### M-04: Missing ARIA labels và keyboard navigation
 
-### M-05: localStorage cho token storage (XSS vulnerability)
+### M-05: localStorage cho token storage (XSS vulnerability) — **MITIGATED**
+
+**1. Vấn đề:** JWT tokens stored trong localStorage, accessible bởi JavaScript. Nếu có XSS, attacker lấy được tokens.
+
+**2. Mitigation đã implement (v0.3.2+):**
+
+- **Access token expiry giảm xuống 5 phút** (thay vì 15 phút) — giảm cửa sổ tấn công khi XSS leak access token
+- **Refresh token chuyển sang HttpOnly cookie** — không thể truy cập bởi JavaScript, XSS không thể lấy refresh token
+- **SameSite=Lax cookie** — bảo vệ khỏi CSRF
+- **Secure cookie trong production** — chỉ gửi qua HTTPS
+- **CSP hardening** — `script-src: 'self'` (không có `'unsafe-eval'`), `frame-ancestors: 'none'`, `object-src: 'none'`
+- **Helmet headers** — `x-content-type-options`, `x-frame-options`, `referrer-policy`, `strict-transport-security`
+
+**3. Security model hiện tại:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        AUTH FLOW                                 │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. Login → Server trả về:                                       │
+│    - Access token (JWT, 5 min) trong JSON response body        │
+│    - Refresh token (JWT, 7 days) trong HttpOnly cookie         │
+│    - User info trong JSON response body                         │
+│                                                                 │
+│ 2. Frontend lưu:                                                │
+│    - Access token → localStorage (cần cho SPA set header)      │
+│    - User info → localStorage                                   │
+│    - Refresh token → KHÔNG lưu (đã trong HttpOnly cookie)      │
+│                                                                 │
+│ 3. Mọi request:                                                 │
+│    - Access token → header `X-Auth-Token`                      │
+│    - Cookies tự động gửi (credentials: 'include')              │
+│                                                                 │
+│ 4. Token hết hạn (401):                                         │
+│    - Frontend gọi POST /api/v1/auth/refresh                    │
+│    - Cookie refresh token tự động gửi                          │
+│    - Server verify, rotate, set cookie mới                     │
+│    - Trả access token mới                                       │
+│                                                                 │
+│ 5. Logout:                                                      │
+│    - Access token blocklist                                    │
+│    - Clear refresh token cookie                                │
+│    - Clear localStorage                                        │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**4. Residual Risk (rủi ro còn lại):**
+
+| Threat | Likelihood | Impact | Notes |
+|--------|------------|--------|-------|
+| XSS steals access token (5 min window) | Medium | High | CSP + short expiry mitigates; full mitigation requires HttpOnly access token (requires major refactor) |
+| CSRF on refresh endpoint | Low | Medium | SameSite=Lax + short-lived access token |
+| Token replay on unencrypted channel | Low | High | HSTS + Secure cookie enforces HTTPS |
+
+**5. Acceptance Criteria kiểm tra:**
+- [x] Access token expiry = 5 phút
+- [x] Refresh token trong HttpOnly cookie (SameSite=Lax, Secure in prod)
+- [x] CSP: script-src 'self' (no unsafe-eval)
+- [x] Helmet headers present
+- [x] Auth flow không bị break (login, refresh, logout)
+
+---
 
 ### M-06: Không có PWA manifest
 

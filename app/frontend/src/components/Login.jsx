@@ -25,9 +25,9 @@ export function Login({ onLogin, notice }) {
       const result = await request('/api/v1/auth/login', {
         method: 'POST',
         body: JSON.stringify({ username, password }),
+        credentials: 'include', // Include cookies for refresh token
       });
       localStorage.setItem('qlttxd_token', result.token);
-      if (result.refreshToken) localStorage.setItem('qlttxd_refresh_token', result.refreshToken);
       localStorage.setItem('qlttxd_user', JSON.stringify(result.user));
       onLogin(result.user);
     } catch (err) {

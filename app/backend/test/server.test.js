@@ -196,3 +196,20 @@ test('luồng biên bản, quyết định, khắc phục và thống kê', asyn
   assert.equal(result.response.status, 200);
   assert.ok(Array.isArray(result.body.data.theo_trang_thai));
 });
+
+test('ban-do vi-pham có pagination limit/page/total (M-15)', async () => {
+  const headers = { authorization: `Bearer ${token}` };
+  const { response, body } = await json('/api/v1/ban-do/vi-pham?limit=2&page=1', { headers });
+  assert.equal(response.status, 200);
+  assert.ok(Array.isArray(body.data));
+  assert.equal(body.limit, 2, 'limit phải echo 2');
+  assert.equal(body.page, 1, 'page phải echo 1');
+  assert.ok(typeof body.total === 'number' && body.total >= 0, 'total phải là số >= 0');
+  assert.ok(body.data.length <= 2, 'data không được vượt quá limit');
+
+  // Giới hạn tối đa 2000
+  const capped = await json('/api/v1/ban-do/vi-pham?limit=9999&page=0', { headers });
+  assert.equal(capped.response.status, 200);
+  assert.equal(capped.body.limit, 2000, 'limit bị clamp xuống tối đa 2000');
+  assert.equal(capped.body.page, 1, 'page tối thiểu là 1');
+});

@@ -203,6 +203,58 @@ test('Portal notification endpoints hoạt động với schema mới', async ()
   assert.equal(markAll.response.status, 200);
 });
 
+test('GET /api/v1/thong-bao/stream — SSE pushes new notification to the user', async () => {
+  await pool.query('DELETE FROM thong_bao');
+
+  // Record current max created_at so we only pick up notifications created mid-test
+  const { rows: maxRow } = await pool.query(
+    'SELECT COALESCE(MAX(created_at), to_timestamp(0)) AS ts FROM thong_bao WHERE nguoi_nhan_id=$1',
+    [userId]
+  );
+  const after = new Date(maxRow[0].ts).toISOString();
+
+  const ctrl = new AbortController();
+  const res = await fetch(`${base}/api/v1/thong-bao/stream?token=${token}&after=${after}`, {
+    signal: ctrl.signal,
+  });
+  assert.equal(res.status, 200);
+  assert.ok(
+    res.headers.get('content-type').startsWith('text/event-stream'),
+    `Expected text/event-stream, got: ${res.headers.get('content-type')}`
+  );
+  assert.equal(res.headers.get('cache-control'), 'no-cache');
+  assert.equal(res.headers.get('connection'), 'keep-alive');
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+
+  // Insert a portal notification while the stream is open
+  await pool.query(
+    "INSERT INTO thong_bao (nguoi_nhan_id, loai, tieu_de, noi_dung, kenh, trang_thai) VALUES ($1, 'test', 'SSE live', 'Pushed over stream', 'portal', 'da_gui')",
+    [userId]
+  );
+
+  // Read until we observe a data: event (the push is polled every 5s)
+  let buf = '';
+  const deadline = Date.now() + 8000;
+  let payload = null;
+  while (Date.now() < deadline) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const line = buf.split('\n').find((l) => l.startsWith('data: '));
+    if (line) {
+      payload = JSON.parse(line.slice(6));
+      break;
+    }
+  }
+  assert.ok(payload, `Expected a data: event within 8s, got: ${JSON.stringify(buf)}`);
+  assert.equal(payload.tieu_de, 'SSE live');
+
+  ctrl.abort();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+});
+
 test('Status transition tạo cả portal + email notification khi SMTP configured', async () => {
   await pool.query('DELETE FROM thong_bao');
 

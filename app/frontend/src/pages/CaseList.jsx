@@ -1,33 +1,54 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { errorText, dateText } from '../lib/api.js';
 import { STATES, STATE_LABELS } from '../lib/constants.js';
 import { Loading } from '../components/Loading.jsx';
 import { Status } from '../components/Status.jsx';
 import { MapView } from '../components/MapView.jsx';
 
+const SEARCH_DEBOUNCE_MS = 400;
+
 export function CaseList({ api, navigate, notify }) {
   const [cases, setCases] = useState([]);
   const [districts, setDistricts] = useState([]);
-  const [filters, setFilters] = useState({ q: '', trang_thai: '', quan_huyen_id: '', page: 1 });
+  const [q, setQ] = useState('');
+  const [debouncedQ, setDebouncedQ] = useState('');
+  const [filters, setFilters] = useState({ trang_thai: '', quan_huyen_id: '', page: 1 });
   const [loading, setLoading] = useState(true);
+  const searchTimer = useRef(null);
+
   useEffect(() => {
     api('/api/v1/danh-muc/quan-huyen')
       .then((r) => setDistricts(r.data || []))
       .catch(() => {});
   }, []);
+
+  // M-03: debounce 400ms cho ô tìm kiếm — tránh gọi API trên mỗi keystroke
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      setDebouncedQ(q);
+      setFilters((old) => ({ ...old, page: 1 }));
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(searchTimer.current);
+  }, [q]);
+
   useEffect(() => {
     setLoading(true);
-    const q = new URLSearchParams({ page: filters.page, limit: 20 });
-    if (filters.q) q.set('q', filters.q);
-    if (filters.trang_thai) q.set('trang_thai', filters.trang_thai);
-    if (filters.quan_huyen_id) q.set('quan_huyen_id', filters.quan_huyen_id);
-    api(`/api/v1/ho-so?${q}`)
+    const params = new URLSearchParams({ page: filters.page, limit: 20 });
+    if (debouncedQ) params.set('q', debouncedQ);
+    if (filters.trang_thai) params.set('trang_thai', filters.trang_thai);
+    if (filters.quan_huyen_id) params.set('quan_huyen_id', filters.quan_huyen_id);
+    api(`/api/v1/ho-so?${params}`)
       .then((r) => setCases(r.data || []))
       .catch((e) => notify(errorText(e), 'error'))
       .finally(() => setLoading(false));
-  }, [filters]);
+  }, [debouncedQ, filters]);
   const set = (key, value) =>
     setFilters((old) => ({ ...old, [key]: value, page: key === 'page' ? value : 1 }));
+  const onSearch = (value) => {
+    setQ(value);
+    setFilters((old) => ({ ...old, page: 1 }));
+  };
   return (
     <>
       <div className="page-title">
@@ -41,8 +62,8 @@ export function CaseList({ api, navigate, notify }) {
         <label>
           Tìm kiếm
           <input
-            value={filters.q}
-            onChange={(e) => set('q', e.target.value)}
+            value={q}
+            onChange={(e) => onSearch(e.target.value)}
             placeholder="Mã hồ sơ, mô tả, địa chỉ, loại vi phạm"
           />
         </label>

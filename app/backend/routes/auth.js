@@ -111,7 +111,7 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate }) {
         );
         await client.query('COMMIT');
         const claims = { id: user.id, username: user.username, roles: ['admin'], permissions };
-        const token = jwt.sign(claims, secret(), { expiresIn: '15m', jwtid: crypto.randomUUID() });
+        const token = jwt.sign(claims, secret(), { expiresIn: '5m', jwtid: crypto.randomUUID() });
         await pool
           .query(
             'INSERT INTO user_tokens (user_id, jti) VALUES ($1, $2) ON CONFLICT (jti) DO NOTHING',
@@ -129,9 +129,16 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate }) {
             [user.id, rtDecoded.jti]
           )
           .catch(() => {});
+        // Set HttpOnly cookie for refresh token
+        res.cookie('qlttxd_refresh_token', refreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+          path: '/',
+        });
         res.status(201).json({
           token,
-          refreshToken,
           user: {
             id: user.id,
             username: user.username,
@@ -176,7 +183,7 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate }) {
       };
       await pool.query('UPDATE users SET last_login_at=now() WHERE id=$1', [user.id]);
       await audit(pool, { user: claims, ip: req.ip }, 'login', 'users', user.id);
-      const token = jwt.sign(claims, secret(), { expiresIn: '15m', jwtid: crypto.randomUUID() });
+      const token = jwt.sign(claims, secret(), { expiresIn: '5m', jwtid: crypto.randomUUID() });
       await pool
         .query(
           'INSERT INTO user_tokens (user_id, jti) VALUES ($1, $2) ON CONFLICT (jti) DO NOTHING',
@@ -194,9 +201,16 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate }) {
           [user.id, rtDecoded.jti]
         )
         .catch(() => {});
+      // Set HttpOnly cookie for refresh token
+      res.cookie('qlttxd_refresh_token', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        path: '/',
+      });
       return res.json({
         token,
-        refreshToken,
         user: {
           id: user.id,
           username: user.username,
@@ -214,14 +228,17 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate }) {
 
   router.post('/api/v1/auth/logout', authenticate, async (req, res) => {
     if (req.user.jti) await tokenBlocklist.add(req.user.jti);
+    // Clear refresh token cookie
+    res.clearCookie('qlttxd_refresh_token', { path: '/' });
     return res.json({ message: 'Đăng xuất thành công' });
   });
 
   router.post('/api/v1/auth/refresh', async (req, res, next) => {
     if (!requirePool(pool, res)) return;
     try {
-      const { refreshToken } = req.body || {};
-      if (!refreshToken) return res.status(400).json({ error: 'Thiếu refresh token' });
+      // Read refresh token from HttpOnly cookie
+      const refreshToken = req.cookies?.qlttxd_refresh_token;
+      if (!refreshToken) return res.status(401).json({ error: 'Thiếu refresh token' });
       let decoded;
       try {
         decoded = jwt.verify(refreshToken, secret());
@@ -249,7 +266,7 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate }) {
         roles: user.roles || [],
         permissions: user.permissions || [],
       };
-      const token = jwt.sign(claims, secret(), { expiresIn: '15m', jwtid: crypto.randomUUID() });
+      const token = jwt.sign(claims, secret(), { expiresIn: '5m', jwtid: crypto.randomUUID() });
       await pool
         .query(
           'INSERT INTO user_tokens (user_id, jti) VALUES ($1, $2) ON CONFLICT (jti) DO NOTHING',
@@ -267,9 +284,16 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate }) {
           [user.id, newRtDecoded.jti]
         )
         .catch(() => {});
+      // Set HttpOnly cookie for new refresh token
+      res.cookie('qlttxd_refresh_token', newRefreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        path: '/',
+      });
       return res.json({
         token,
-        refreshToken: newRefreshToken,
         user: {
           id: user.id,
           username: user.username,

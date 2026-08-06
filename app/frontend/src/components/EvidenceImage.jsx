@@ -9,6 +9,7 @@ export function EvidenceImage({ duongDan, alt, className, onClick, loading, styl
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     let cancelled = false;
+    let createdUrl;
     const token = localStorage.getItem('qlttxd_token');
     const filename = String(duongDan || '')
       .split('/')
@@ -25,13 +26,18 @@ export function EvidenceImage({ duongDan, alt, className, onClick, loading, styl
         return resp.blob();
       })
       .then((blob) => {
-        if (!cancelled) setSrc(URL.createObjectURL(blob));
+        if (!cancelled) {
+          // R2-01: track the created object URL so we can revoke it on cleanup
+          createdUrl = URL.createObjectURL(blob);
+          setSrc(createdUrl);
+        }
       })
       .catch(() => {
         if (!cancelled) setFailed(true);
       });
     return () => {
       cancelled = true;
+      if (createdUrl) URL.revokeObjectURL(createdUrl);
     };
   }, [duongDan]);
   if (failed || !src) return <span className={className} style={style} aria-hidden="true" />;

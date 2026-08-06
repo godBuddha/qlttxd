@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { dateText } from '../lib/api.js';
+import { API_BASE, dateText } from '../lib/api.js';
 
 export function BellNotification({ api }) {
   const [count, setCount] = useState(0);
@@ -12,11 +12,65 @@ export function BellNotification({ api }) {
     api('/api/v1/thong-bao/unread-count')
       .then((r) => setCount(r.count || 0))
       .catch(() => {});
+
+  const loadLatest = () =>
+    api('/api/v1/thong-bao?limit=15')
+      .then((r) => setItems(r.data || []))
+      .catch(() => {});
+
   useEffect(() => {
     loadCount();
-    const timer = setInterval(loadCount, 30000);
-    return () => clearInterval(timer);
-  }, []);
+    loadLatest();
+
+    let es = null;
+    let pollTimer = null;
+    let disposed = false;
+
+    // Fallback to classic polling if SSE cannot be established.
+    const startPolling = () => {
+      if (pollTimer || disposed) return;
+      loadCount();
+      pollTimer = setInterval(() => {
+        loadCount();
+        if (open) loadLatest();
+      }, 30000);
+    };
+
+    try {
+      const token = localStorage.getItem('qlttxd_token');
+      const streamUrl = `${API_BASE}/api/v1/thong-bao/stream?token=${encodeURIComponent(token || '')}`;
+      es = new EventSource(streamUrl);
+      es.onmessage = (e) => {
+        let notif;
+        try {
+          notif = JSON.parse(e.data);
+        } catch {
+          return;
+        }
+        if (!notif || !notif.id) return;
+        setCount((c) => c + 1);
+        setItems((old) => [notif, ...old.filter((x) => x.id !== notif.id)].slice(0, 15));
+      };
+      es.onerror = () => {
+        // SSE failed (e.g. proxy buffering / auth / network) -> fall back to polling.
+        try {
+          es?.close();
+        } catch {}
+        es = null;
+        startPolling();
+      };
+    } catch {
+      startPolling();
+    }
+
+    return () => {
+      disposed = true;
+      try {
+        es?.close();
+      } catch {}
+      if (pollTimer) clearInterval(pollTimer);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;

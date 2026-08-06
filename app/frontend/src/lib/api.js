@@ -3,17 +3,15 @@ export const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/,
 let _refreshing = null;
 
 async function doRefresh() {
-  const rt = localStorage.getItem('qlttxd_refresh_token');
-  if (!rt) throw new Error('No refresh token');
+  // Refresh token is now in HttpOnly cookie, no need to read from localStorage
   const resp = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken: rt }),
+    credentials: 'include', // Include cookies
   });
   if (!resp.ok) throw new Error('Refresh failed');
   const data = await resp.json();
   localStorage.setItem('qlttxd_token', data.token);
-  if (data.refreshToken) localStorage.setItem('qlttxd_refresh_token', data.refreshToken);
   if (data.user) localStorage.setItem('qlttxd_user', JSON.stringify(data.user));
   return data;
 }
@@ -26,7 +24,7 @@ export async function request(path, options = {}, onUnauthorized) {
     headers.set('Content-Type', 'application/json');
   let response;
   try {
-    response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+    response = await fetch(`${API_BASE}${path}`, { ...options, headers, credentials: 'include' });
   } catch {
     throw new Error('Không thể kết nối API. Kiểm tra máy chủ và VITE_API_BASE_URL.');
   }
@@ -47,7 +45,7 @@ export async function request(path, options = {}, onUnauthorized) {
         retryHeaders.set('Content-Type', 'application/json');
       let retryResp;
       try {
-        retryResp = await fetch(`${API_BASE}${path}`, { ...options, headers: retryHeaders });
+        retryResp = await fetch(`${API_BASE}${path}`, { ...options, headers: retryHeaders, credentials: 'include' });
       } catch {
         throw new Error('Không thể kết nối API.');
       }
@@ -81,7 +79,7 @@ export const money = (value) =>
 export async function downloadDocx(url, filename, notify) {
   try {
     const token = localStorage.getItem('qlttxd_token');
-    const r = await fetch(url, { headers: { 'X-Auth-Token': token || '' } });
+    const r = await fetch(url, { headers: { 'X-Auth-Token': token || '' }, credentials: 'include' });
     if (!r.ok) {
       let msg = 'Xuất file thất bại';
       try {

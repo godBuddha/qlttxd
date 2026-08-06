@@ -1,8 +1,10 @@
 'use strict';
 
 const express = require('express');
+const jwt = require('jsonwebtoken');
+const { secret } = require('../utils/helpers');
 
-module.exports = function thongBaoRoutes({ pool, authenticate }) {
+module.exports = function thongBaoRoutes({ pool, authenticate, tokenBlocklist }) {
   const router = express.Router();
 
   // GET /api/v1/thong-bao — list notifications for current user (paginated)
@@ -24,6 +26,93 @@ module.exports = function thongBaoRoutes({ pool, authenticate }) {
     } catch (e) {
       next(e);
     }
+  });
+
+  // GET /api/v1/thong-bao/stream — Server-Sent Events: push new notifications live
+  // Note: EventSource API cannot send custom headers, so the JWT is passed as a
+  // short-lived query token. It is verified exactly like header auth (jwt + blocklist).
+  router.get('/api/v1/thong-bao/stream', async (req, res) => {
+    let user;
+    try {
+      const token = req.query.token;
+      if (!token) throw new Error('missing token');
+      const decoded = jwt.verify(token, secret());
+      if (await tokenBlocklist.has(decoded.jti))
+        {return res.status(401).json({ error: 'Mã xác thực đã bị thu hồi' });}
+      user = decoded;
+    } catch {
+      return res.status(401).json({ error: 'Mã xác thực không hợp lệ hoặc đã hết hạn' });
+    }
+
+    res.set({
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+    res.flushHeaders();
+    res.write(': connected\n\n');
+
+    // Cursor: last pushed timestamp. thong_bao.id is a UUID (no natural ordering),
+    // so we track position by created_at. The frontend dedupes by id, so a tiny
+    // overlap on equal timestamps is harmless.
+    let cursor =
+      req.query.after && /^\d{4}-\d{2}-\d{2}/.test(req.query.after)
+        ? new Date(req.query.after).toISOString()
+        : new Date(0).toISOString();
+    try {
+      const maxRes = await pool.query(
+        'SELECT COALESCE(MAX(created_at), to_timestamp(0)) AS ts FROM thong_bao WHERE nguoi_nhan_id=$1',
+        [user.id]
+      );
+      const ts = maxRes.rows[0].ts ? new Date(maxRes.rows[0].ts).toISOString() : cursor;
+      if (ts > cursor) cursor = ts;
+    } catch {
+      return res.status(500).json({ error: 'Không thể khởi tạo kết nối thông báo' });
+    }
+
+    // Poll for new notifications for THIS user (portal channel) and push them.
+    const poll = async () => {
+      try {
+        const r = await pool.query(
+          `SELECT id, ho_so_id, loai, tieu_de, noi_dung, trang_thai, created_at
+             FROM thong_bao
+            WHERE nguoi_nhan_id=$1 AND kenh='portal' AND created_at > $2
+            ORDER BY created_at ASC
+            LIMIT 50`,
+          [user.id, cursor]
+        );
+        for (const row of r.rows) {
+          res.write(`data: ${JSON.stringify(row)}\n\n`);
+          const ts = new Date(row.created_at).toISOString();
+          if (ts > cursor) cursor = ts;
+        }
+      } catch (e) {
+        // transient DB error — keep the stream alive, retry next tick
+        console.error('[thong-bao/stream] poll error:', e.message);
+      }
+    };
+
+    const heartbeat = setInterval(() => {
+      try {
+        res.write(': heartbeat\n\n');
+      } catch {
+        cleanup();
+      }
+    }, 30000);
+    const pollTimer = setInterval(() => poll().catch(() => {}), 5000);
+    poll().catch(() => {});
+
+    let closed = false;
+    function cleanup() {
+      if (closed) return;
+      closed = true;
+      clearInterval(heartbeat);
+      clearInterval(pollTimer);
+      res.end();
+    }
+    req.on('close', cleanup);
+    res.on('close', cleanup);
   });
 
   // GET /api/v1/thong-bao/unread-count

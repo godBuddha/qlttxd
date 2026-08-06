@@ -8,6 +8,20 @@ const { ResetTokenCleanup } = require('./reset-token-cleanup');
 
 const { secret } = require('./utils/helpers');
 const { makeAuthenticate, authenticate, authorize } = require('./utils/middleware');
+const cookie = require('cookie');
+
+// M-13: request timeout middleware — tránh request treo vô hạn (default 30s)
+function requestTimeout(ms = 30000) {
+  return (req, res, next) => {
+    req.setTimeout(ms);
+    res.setTimeout(ms, () => {
+      if (!res.headersSent) {
+        res.status(408).json({ error: 'Yêu cầu quá thời gian chờ' });
+      }
+    });
+    next();
+  };
+}
 
 // Route modules
 const authRoutes = require('./routes/auth');
@@ -63,7 +77,22 @@ function buildApp({ pool }) {
   app.use(requestLogger);
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10kb' }));
-  app.use(require('compression')());
+  // Parse cookies from request headers
+  app.use((req, res, next) => {
+    req.cookies = cookie.parse(req.headers.cookie || '');
+    next();
+  });
+  // Compression — but never compress Server-Sent Events: buffering would hold
+  // pushed events and corrupt live streaming. Skip the /thong-bao/stream path.
+  const compression = require('compression');
+  app.use(
+    compression({
+      filter: (req, res) => {
+        if (req.path.startsWith('/api/v1/thong-bao/stream')) return false;
+        return compression.filter(req, res);
+      },
+    })
+  );
 
   const { globalLimiter, writeLimiter } = require('./utils/rate-limit');
   const { userLimiter } = require('./utils/rate-limit-user');
@@ -105,6 +134,9 @@ function buildApp({ pool }) {
     next();
   });
   app.use(userLimiter);
+
+  // M-13: timeout toàn cục cho mọi request (default 30s)
+  app.use(requestTimeout(Number(process.env.REQUEST_TIMEOUT_MS) || 30000));
 
   // Register route modules
   app.use(authRoutes(deps));
@@ -174,6 +206,7 @@ module.exports = {
   createPool,
   authenticate,
   authorize,
+  requestTimeout,
   coordinate: require('./utils/helpers').coordinate,
   TokenBlocklist,
   ResetTokenCleanup,

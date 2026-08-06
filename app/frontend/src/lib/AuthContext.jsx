@@ -18,12 +18,14 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(async () => {
     try {
-      await request('/api/v1/auth/logout', { method: 'POST' });
+      await request('/api/v1/auth/logout', { 
+        method: 'POST',
+        credentials: 'include', // Include cookies to clear refresh token
+      });
     } catch {
       /* local logout is still safe */
     }
     localStorage.removeItem('qlttxd_token');
-    localStorage.removeItem('qlttxd_refresh_token');
     localStorage.removeItem('qlttxd_user');
     setUser(null);
   }, []);
