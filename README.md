@@ -8,67 +8,75 @@
 
 ## 🖼️ Demo
 
-### Đăng nhập & Đăng ký quản trị viên đầu tiên
+### Đăng nhập
 
-|                                                                 |                                                                    |
-| --------------------------------------------------------------- | ------------------------------------------------------------------ |
-| ![Trang đăng nhập](docs/screenshots/v0.2.0-full/login-page.png) | ![Đăng ký admin](docs/screenshots/v0.2.0-full/02-login-filled.png) |
+| Trang đăng nhập |
+| --------------- |
+| ![Trang đăng nhập](docs/screenshots/v0.3.2/01-login-page.png) |
 
-### 👤 Quản trị viên
+### 👤 Quản trị viên (Admin)
 
-| Dashboard                                                            | Tổng quan                                                            |
-| -------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| ![Admin Dashboard](docs/screenshots/v0.2.0-full/admin-dashboard.png) | ![Admin Tổng quan](docs/screenshots/v0.2.0-full/admin-Tổng-quan.png) |
+| Dashboard                                                      | Danh sách hồ sơ                                                  |
+| -------------------------------------------------------------- | ---------------------------------------------------------------- |
+| ![Admin Dashboard](docs/screenshots/v0.3.2/02-admin-dashboard.png) | ![Danh sách hồ sơ](docs/screenshots/v0.3.2/03-admin-cases.png) |
 
-| Chi tiết hồ sơ                                                        | Timeline                                                          |
-| --------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| ![Chi tiết hồ sơ](docs/screenshots/v0.2.0-full/admin-case-detail.png) | ![Timeline](docs/screenshots/v0.2.0-full/admin-case-Timeline.png) |
+| Chi tiết hồ sơ                                                        | Timeline                                                           |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| ![Chi tiết hồ sơ](docs/screenshots/v0.3.2/04-admin-case-detail.png) | ![Timeline](docs/screenshots/v0.3.2/09-admin-case-Timeline.png) |
 
-| Biên bản                                                          | Quyết định                                                            |
-| ----------------------------------------------------------------- | --------------------------------------------------------------------- |
-| ![Biên bản](docs/screenshots/v0.2.0-full/admin-case-Biên-bản.png) | ![Quyết định](docs/screenshots/v0.2.0-full/admin-case-Quyết-định.png) |
+| Biên bản                                                          | Quyết định                                                             |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| ![Biên bản](docs/screenshots/v0.3.2/07-admin-case-Biên-bản.png)   | ![Quyết định](docs/screenshots/v0.3.2/05-admin-case-Quyết-định.png)    |
 
-| Khắc phục                                                           | Hồ sơ cá nhân                                          |
-| ------------------------------------------------------------------- | ------------------------------------------------------ |
-| ![Khắc phục](docs/screenshots/v0.2.0-full/admin-case-Khắc-phục.png) | ![Hồ sơ](docs/screenshots/v0.2.0-full/admin-Hồ-sơ.png) |
+| Khắc phục                                                           | Báo cáo vi phạm                                                          |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| ![Khắc phục](docs/screenshots/v0.3.2/06-admin-case-Khắc-phục.png)   | ![Báo cáo vi phạm](docs/screenshots/v0.3.2/11-admin-officer-reports.png) |
+
+| Bản đồ GIS                                                  | Người dùng                                                |
+| ----------------------------------------------------------- | --------------------------------------------------------- |
+| ![Bản đồ](docs/screenshots/v0.3.2/12-admin-ban-do.png)      | ![Người dùng](docs/screenshots/v0.3.2/13-admin-users.png) |
+
+| Phân quyền vai trò                                        | Nhật ký hệ thống                                                |
+| --------------------------------------------------------- | --------------------------------------------------------------- |
+| ![Phân quyền](docs/screenshots/v0.3.2/14-admin-roles.png) | ![Nhật ký hệ thống](docs/screenshots/v0.3.2/15-admin-audit-log.png) |
+
+| Địa điểm (GIS)                                       | Danh mục                                      |
+| ---------------------------------------------------- | ---------------------------------------------- |
+| ![Địa điểm](docs/screenshots/v0.3.2/16-admin-locations.png) | ![Danh mục](docs/screenshots/v0.3.2/17-admin-catalog.png) |
+
+| Báo cáo & Xuất dữ liệu                         | Hồ sơ cá nhân                                      |
+| ---------------------------------------------- | -------------------------------------------------- |
+| ![Báo cáo](docs/screenshots/v0.3.2/18-admin-report.png) | ![Hồ sơ cá nhân](docs/screenshots/v0.3.2/19-admin-profile.png) |
 
 ### 📋 Cán bộ thụ lý (Handler)
 
-| Dashboard                                                                | Tổng quan                                                                | Hồ sơ                                                            |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------ | ---------------------------------------------------------------- |
-| ![Handler Dashboard](docs/screenshots/v0.2.0-full/handler-dashboard.png) | ![Handler Tổng quan](docs/screenshots/v0.2.0-full/handler-Tổng-quan.png) | ![Handler Hồ sơ](docs/screenshots/v0.2.0-full/handler-Hồ-sơ.png) |
+| Dashboard                                                        | Danh sách hồ sơ                                                       | Báo cáo vi phạm                                                        |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| ![Handler Dashboard](docs/screenshots/v0.3.2/23-handler-dashboard.png) | ![Handler Hồ sơ](docs/screenshots/v0.3.2/24-handler-cases.png) | ![Handler Báo cáo](docs/screenshots/v0.3.2/25-handler-officer-reports.png) |
 
 ### 🔍 Xác minh viên (Verifier)
 
-| Dashboard                                                                  | Tổng quan                                                                  | Hồ sơ                                                              |
-| -------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| ![Verifier Dashboard](docs/screenshots/v0.2.0-full/verifier-dashboard.png) | ![Verifier Tổng quan](docs/screenshots/v0.2.0-full/verifier-Tổng-quan.png) | ![Verifier Hồ sơ](docs/screenshots/v0.2.0-full/verifier-Hồ-sơ.png) |
+| Dashboard                                                                  | Hồ sơ xử lý                                                           |
+| -------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| ![Verifier Dashboard](docs/screenshots/v0.3.2/26-verifier-dashboard.png) | ![Verifier Hồ sơ](docs/screenshots/v0.3.2/27-verifier-cases.png) |
 
 ### 📊 Lãnh đạo (Leader)
 
-| Dashboard                                                              | Tổng quan                                                              | Hồ sơ                                                          |
-| ---------------------------------------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------- |
-| ![Leader Dashboard](docs/screenshots/v0.2.0-full/leader-dashboard.png) | ![Leader Tổng quan](docs/screenshots/v0.2.0-full/leader-Tổng-quan.png) | ![Leader Hồ sơ](docs/screenshots/v0.2.0-full/leader-Hồ-sơ.png) |
+| Dashboard                                                       | Báo cáo                                                   |
+| --------------------------------------------------------------- | --------------------------------------------------------- |
+| ![Leader Dashboard](docs/screenshots/v0.3.2/28-leader-dashboard.png) | ![Leader Báo cáo](docs/screenshots/v0.3.2/29-leader-report.png) |
 
 ### 🏠 Công dân (Citizen)
 
-| Dashboard                                                                | Báo cáo vi phạm                                              |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------ |
-| ![Citizen Dashboard](docs/screenshots/v0.2.0-full/citizen-dashboard.png) | ![Báo cáo](docs/screenshots/v0.2.0-full/citizen-Báo-cáo.png) |
+| Dashboard                                                        | Báo cáo vi phạm                                                       |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------- |
+| ![Citizen Dashboard](docs/screenshots/v0.3.2/20-citizen-dashboard.png) | ![Citizen Báo cáo](docs/screenshots/v0.3.2/21-citizen-report.png) |
 
-### 🆕 Tính năng mới v0.2.1
+### 📱 Responsive (Mobile)
 
-| Nhật ký hệ thống (Audit Log)                        | Danh mục quản lý                                 |
-| --------------------------------------------------- | ------------------------------------------------ |
-| ![Audit Log](docs/screenshots/v0.2.1/audit-log.png) | ![Danh mục](docs/screenshots/v0.2.1/catalog.png) |
-
-| Hồ sơ cá nhân + Đổi mật khẩu                    | Báo cáo & Xuất dữ liệu                        |
-| ----------------------------------------------- | --------------------------------------------- |
-| ![Profile](docs/screenshots/v0.2.1/profile.png) | ![Report](docs/screenshots/v0.2.1/report.png) |
-
-| Ảnh minh chứng                             | Security Headers                                  |
-| ------------------------------------------ | ------------------------------------------------- |
-| ![Ảnh](docs/screenshots/v0.2.1/images.png) | ![Security](docs/screenshots/v0.2.1/security.png) |
+| Dashboard | Danh sách hồ sơ       | Bản đồ                              |
+| --------- | --------------------- | ----------------------------------- |
+| ![Mobile Dashboard](docs/screenshots/v0.3.2/30-mobile-dashboard.png) | ![Mobile Cases](docs/screenshots/v0.3.2/31-mobile-cases.png) | ![Mobile Bản đồ](docs/screenshots/v0.3.2/32-mobile-ban-do.png) |
 
 ---
 
@@ -98,6 +106,16 @@
 ### Dependencies mới
 
 - Backend: `helmet`, `express-rate-limit`, `csv-stringify`, `pdfkit`
+
+## ✨ Tính năng v0.3.2
+
+- **Sinh văn bản hành chính DOCX:** Biên bản & Quyết định xử phạt theo thể thức NĐ 30/2020/NĐ-CP
+- **Client-side routing:** Browser history (Back/Forward, deep-link), mỗi route lazy-load + ErrorBoundary riêng
+- **Real-time thông báo:** SSE push qua `EventSource` (thay polling), fallback polling + auto-reconnect
+- **Bảo mật nâng cao:** Token refresh qua HttpOnly cookie, JWT không lộ qua URL (blob-based image), password change revoke toàn bộ token, CSP cứng, RATE_LIMIT + user-level limiter
+- **Pagination:** Danh sách hồ sơ, báo cáo, bản đồ, admin users, audit log
+- **Frontend test suite:** Vitest + React Testing Library
+- **Service worker:** Offline fallback, cache versioned per build (không stale)
 
 ## ✨ Tính năng v0.2.0
 
