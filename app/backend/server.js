@@ -6,6 +6,7 @@ const { Pool } = require('pg');
 const { TokenBlocklist } = require('./token-blocklist');
 const { ResetTokenCleanup } = require('./reset-token-cleanup');
 const { UserTokensCleanup } = require('./user-tokens-cleanup');
+const { AuditRetention, DEFAULT_RETENTION_DAYS } = require('./jobs/audit-retention');
 
 const { secret } = require('./utils/helpers');
 const { makeAuthenticate, authenticate, authorize } = require('./utils/middleware');
@@ -46,6 +47,11 @@ function buildApp({ pool }) {
   new ResetTokenCleanup({ pool });
   // #9: dọn user_tokens cũ hơn 30 ngày định kỳ
   new UserTokensCleanup({ pool });
+  // H-08: dọn audit_log >20 năm — archive file nén rồi xóa, chạy tự động hàng ngày
+  const auditRetention = new AuditRetention({
+    pool,
+    retentionDays: Number(process.env.AUDIT_RETENTION_DAYS) || DEFAULT_RETENTION_DAYS,
+  });
   const authenticateWithBlocklist = makeAuthenticate(tokenBlocklist);
   const app = express();
   // Tin cậy proxy để req.ip trả về IP thật qua X-Forwarded-For khi behind proxy (C-03)
@@ -196,6 +202,10 @@ function buildApp({ pool }) {
     });
     return res.status(500).json({ error: 'Lỗi máy chủ nội bộ' });
   });
+
+  // H-08: khởi động AuditRetention (cleanup khi start + định kỳ hàng ngày)
+  auditRetention.start();
+
   return app;
 }
 

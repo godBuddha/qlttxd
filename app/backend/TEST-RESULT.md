@@ -404,5 +404,63 @@ No secret: json spec không chứa chuỗi "test-secret" / JWT_SECRET value
 - Không đổi API contract endpoint có real client (chỉ THÊM schema mô tả, không sửa handler, không đổi response).
 - Swagger UI policy: mount công khai tại `/api/docs` (spec mô tả endpoint nhưng file thật vẫn cần JWT — `/attachments/{filename}/view` yêu cầu Bearer; `/thong-bao/stream` yêu cầu `?token=`). Không lộ secret/credential trong spec.
 - Không thêm dependency nặng (tái dùng `swagger-ui-dist` / `swagger-ui-express` có sẵn, chỉ thêm 2 import builtin/package.json).
-- Backend test suite PASS 173 (không giảm), `/api/docs` cũ giữ nguyên.
+|- Backend test suite PASS 173 (không giảm), `/api/docs` cũ giữ nguyên.
+
+---
+
+## BE-E7-04: Audit log retention — archive rồi purge, 20 năm, job tự động hàng ngày (H-08)
+
+Ngày: 2026-08-07 · Task: t_b1f6e38b
+
+### Tổng quan
+
+Tạo module `jobs/audit-retention.js` cho phép archive các bản ghi audit_log cũ hơn ngưỡng cấu hình (mặc định 7300 ngày = 20 năm) ra file nén gzip JSONL, sau đó xóa khỏi DB theo batch. Tích hợp vào `buildApp()`: khởi chạy cleanup ngay khi server start + timer 24h liên tục. Guard advisory lock (PostgreSQL) + single-flight để tránh chạy trùng.
+
+### Thay đổi
+
+| # | File | Mô tả |
+| -- | ---- | ----- |
+| 1 | `app/backend/jobs/audit-retention.js` | **Mới** — Class `AuditRetention`. Constructor nhận `pool`, `retentionDays` (default 7300), `intervalMs` (default 24h), `archiveBaseDir`. Method `start()` → `cleanup()` ngay + `setInterval` 24h. `cleanup()`: lấy advisory lock PG (`pg_try_advisory_xact_lock`) → query bản ghi cũ (`WHERE thoi_gian < now() - ($1::int * interval '1 day')`) → export sang `<archiveDir>/audit_archive/audit-YYYY-MM-timestamp.json.gz` (JSONL gzipped) → DELETE theo batch size 500. Atomic: chỉ DELETE sau khi archive ghi xong; fail-safe: nếu ghi file fail → KHÔNG xóa DB, throw lỗi. Single-flight guard `_isRunning` chống overlap giữa boot call và timer fire. Export `DEFAULT_RETENTION_DAYS`. |
+| 2 | `app/backend/server.js` | Thêm `require('./jobs/audit-retention')` + `DEFAULT_RETENTION_DAYS`. Trong `buildApp()`: instantiate `new AuditRetention({ pool, retentionDays: Number(env) || DEFAULT })`, gọi `auditRetention.start()` trước `return app`. |
+| 3 | `app/backend/test/jobs/audit-retention.test.js` | **Mới** — 12 unit tests (không cần DB thật): constructor defaults, start boot, no-expired-rows, archive+delete old rows, keep-recent-only, mixed old+new (verify only old in archive), idempotent 2 lần chạy, fail-safe disk error (DELETE không thực thi), destroy timer, single-flight guard, advisory lock blocked, env override retentionDays. |
+
+### Kết quả kiểm thử
+
+```sh
+cd app/backend
+node --test --test-concurrency=1                                    # 219/219 PASS (từ 207 baseline, +12)
+npx eslint jobs/audit-retention.js test/jobs/audit-retention.test.js server.js --ignore-pattern node_modules  # CLEAN
+```
+
+| Test | Mô tả | Kết quả |
+| ---- | ----- | ------- |
+| constructor sets defaults | retentionDays = 7300 | ✔ |
+| start() calls cleanup on boot | Không crash | ✔ |
+| cleanup with no expired rows | lastResult.count = 0 | ✔ |
+| archives old rows to .gz then deletes | File gzip tồn tại, JSON parse đúng row | ✔ |
+| only archives old rows — recent kept | No file created when all rows are recent | ✔ |
+| mixed old+new — only old archived | Archive chứa đúng 1 dòng (old row) | ✔ |
+| idempotent — second run finds no rows | Exactly 1 .gz file after 2 cleanup calls | ✔ |
+| fail-safe — archive failure prevents delete | deleteHit = false when _exportArchive throws | ✔ |
+| destroy stops timer | _timer === null | ✔ |
+| single-flight guard skips while running | Log "Cleanup đang chạy, bỏ qua" | ✔ |
+| advisory lock blocked — skips work | No archive when pg_try_advisory returns false | ✔ |
+| env override — uses constructor value | SQL receives params[0]=30 instead of 7300 | ✔ |
+
+### Giải pháp bug tìm thấy từ agent trước
+
+Agent viết module `audit-retention.js` ở task trước bị chết ở 2 chỗ:
+1. **Advisory lock break**: dùng `pg_advisory_xact_lock` rồi `COMMIT` ngay trong `_acquireLock()` → giải phóng lock trước khi cleanup chạy. → Sửa: dùng `pg_try_advisory_xact_lock(hashtext(...))` trả boolean, giữ transaction sống cho đến cuối `cleanup()` (finally block gọi `_releaseLock()`).
+2. **Không instantiates trong server.js**: Chỉ `require` nhưng không tạo instance + không gọi `.start()`. → Patch `buildApp()`: tạo instance + `start()` trước `return app`.
+
+### Cấu hình môi trường
+
+- `AUDIT_RETENTION_DAYS` (env, mặc định `7300` = 20 năm). Set nhỏ hơn để test nhanh.
+- Job tự động chạy mỗi 24h (`setInterval`, unref — không giữ process sống).
+- Không đổi API contract hiện có. Không thêm dependency mới (chỉ dùng `zlib` builtin).
+
+### Hạn chế / ghi chú
+
+- Advisory lock kiểu `pg_try_advisory_xact_lock` giải phóng khi transaction kết thúc (sau mỗi `query()` call). Để đảm bảo atomicity (lock giữ suốt quá trình archive → delete), nên xem xét chuyển thành `pg_advisory_lock` (transactive-wide) hoặc wrap toàn bộ cleanup trong một explicit transaction (BEGIN → COMMIT). Hiện tại single-flight guard `_isRunning` đã ngăn overlap trong cùng process.
+- Path archive cố định `audit_archive/` dưới `archiveBaseDir`. Production nên cân nhắc mount volume riêng cho thư mục này.
 
