@@ -31,10 +31,13 @@ module.exports = function hoSoRoutes({ pool, authenticate, authorize }) {
   function validateNguoiViPham(nvp) {
     if (!nvp || typeof nvp !== 'object') return null;
     if (!nvp.ten?.trim()) return 'Tên người vi phạm là bắt buộc';
+    if (nvp.ten.length > 200) return 'Tên người vi phạm không được vượt quá 200 ký tự';
     if (!nvp.loai_chu_the) return 'Loại chủ thể là bắt buộc';
     if (nvp.cmnd_cccd && !/^\d{9,12}$/.test(nvp.cmnd_cccd)) return 'CMND/CCCD phải 9-12 chữ số';
     if (nvp.sdt && !/^\d{9,11}$/.test(nvp.sdt)) return 'Số điện thoại phải 9-11 chữ số';
     if (nvp.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nvp.email)) return 'Email không hợp lệ';
+    if (nvp.dia_chi && nvp.dia_chi.length > 1000) return 'Địa chỉ không được vượt quá 1000 ký tự';
+    if (nvp.nguoi_dai_dien && nvp.nguoi_dai_dien.length > 200) return 'Người đại diện không được vượt quá 200 ký tự';
     return null;
   }
 
@@ -437,6 +440,15 @@ module.exports = function hoSoRoutes({ pool, authenticate, authorize }) {
           ).rows[0]
         )
           {return res.status(400).json({ error: 'Quyết định không thuộc hồ sơ' });}
+        if (!req.body?.bien_phap?.trim()) {
+          return res.status(400).json({ error: 'Biện pháp là bắt buộc' });
+        }
+        if (req.body.bien_phap.length > 1000) {
+          return res.status(400).json({ error: 'Biện pháp không được vượt quá 1000 ký tự' });
+        }
+        if (req.body.mo_ta && req.body.mo_ta.length > 5000) {
+          return res.status(400).json({ error: 'Mô tả không được vượt quá 5000 ký tự' });
+        }
         const r = await pool.query(
           'INSERT INTO khac_phuc (ho_so_id,quyet_dinh_id,bien_phap,mo_ta,han_thuc_hien,nguoi_theo_doi_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
           [

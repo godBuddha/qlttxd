@@ -45,6 +45,15 @@ module.exports = function baoCaoRoutes({ pool, authenticate, authorize }) {
         removeUploadedFiles(req.files);
         return res.status(400).json({ error: 'Mô tả không được vượt quá 10000 ký tự' });
       }
+      // Guard optional text fields against DoS via excessive lengths
+      if (req.body.nguoi_gui_ten && req.body.nguoi_gui_ten.length > 200) {
+        removeUploadedFiles(req.files);
+        return res.status(400).json({ error: 'Họ tên người gửi không được vượt quá 200 ký tự' });
+      }
+      if (req.body.dia_chi && req.body.dia_chi.length > 1000) {
+        removeUploadedFiles(req.files);
+        return res.status(400).json({ error: 'Địa chỉ không được vượt quá 1000 ký tự' });
+      }
       const pos = coordinate(req.body);
       const client = await pool.connect();
       try {

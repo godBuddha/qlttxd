@@ -7,6 +7,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const { secret, requirePool, audit, invalidateUserTokens } = require('../utils/helpers');
+const { sanitizeString } = require('../utils/sanitize');
 
 const startTime = Date.now();
 
@@ -110,9 +111,16 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
         return res.status(400).json({ error: 'Mật khẩu phải chứa cả chữ và chữ số' });
       }
       if (!full_name?.trim()) return res.status(400).json({ error: 'Họ tên là bắt buộc' });
+      if (full_name.length > 200) return res.status(400).json({ error: 'Họ tên không được vượt quá 200 ký tự' });
       if (!email && !phone) {
         return res.status(400).json({ error: 'Email hoặc số điện thoại là bắt buộc' });
       }
+
+      // Sanitize inputs to prevent XSS
+      const safeUsername = sanitizeString(username);
+      const safeFullName = sanitizeString(full_name.trim());
+      const safeEmail = email ? sanitizeString(email) : null;
+      const safePhone = phone ? sanitizeString(phone) : null;
 
       const client = await pool.connect();
       try {
@@ -130,7 +138,7 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
         const passwordHash = await bcrypt.hash(password, 10);
         const userResult = await client.query(
           `INSERT INTO users (username, password_hash, full_name, email, phone) VALUES ($1, $2, $3, $4, $5) RETURNING id, username, full_name, email, phone`,
-          [username, passwordHash, full_name.trim(), email || null, phone || null]
+          [safeUsername, passwordHash, safeFullName, safeEmail, safePhone]
         );
         const user = userResult.rows[0];
         await client.query(
@@ -204,9 +212,13 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
       if (!username || !password) {
         return res.status(400).json({ error: 'Tên đăng nhập và mật khẩu là bắt buộc' });
       }
+      if (typeof username !== 'string' || username.length > 200) {
+        return res.status(400).json({ error: 'Tên đăng nhập không hợp lệ' });
+      }
+      const safeUsername = sanitizeString(username);
       const result = await pool.query(
         `SELECT u.id,u.username,u.full_name,u.email,u.phone,u.password_hash, array_remove(array_agg(DISTINCT r.code),NULL) roles, array_remove(array_agg(DISTINCT p.code),NULL) permissions FROM users u LEFT JOIN user_roles ur ON ur.user_id=u.id LEFT JOIN roles r ON r.id=ur.role_id LEFT JOIN role_permissions rp ON rp.role_id=r.id LEFT JOIN permissions p ON p.id=rp.permission_id WHERE u.username=$1 AND u.is_active=true GROUP BY u.id`,
-        [username]
+        [safeUsername]
       );
       const user = result.rows[0];
       if (!user || !(await bcrypt.compare(password, user.password_hash))) {
@@ -463,6 +475,10 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
       if (!identifier?.trim()) {
         return res.status(400).json({ error: 'Tên đăng nhập hoặc email là bắt buộc' });
       }
+      if (identifier.trim().length > 200) {
+        return res.status(400).json({ error: 'Định danh không được vượt quá 200 ký tự' });
+      }
+      const safeIdentifier = sanitizeString(identifier.trim());
 
       const user = (
         await pool.query(

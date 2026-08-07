@@ -54,6 +54,10 @@ module.exports = function adminUsersRoutes({ pool, authenticate, authorize }) {
         if (!full_name?.trim()) return res.status(400).json({ error: 'Họ tên là bắt buộc' });
         if (full_name && full_name.length > 200)
           {return res.status(400).json({ error: 'Họ tên không được vượt quá 200 ký tự' });}
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+          {return res.status(400).json({ error: 'Email không hợp lệ' });}
+        if (phone && !/^\d{9,11}$/.test(phone))
+          {return res.status(400).json({ error: 'Số điện thoại phải 9-11 chữ số' });}
         if (!email && !phone)
           {return res.status(400).json({ error: 'Email hoặc số điện thoại là bắt buộc' });}
         if (roles && !Array.isArray(roles))
@@ -115,6 +119,10 @@ module.exports = function adminUsersRoutes({ pool, authenticate, authorize }) {
             .json({ error: 'Mật khẩu phải tối thiểu 8 ký tự, chứa cả chữ và chữ số' });}
         if (full_name && full_name.length > 200)
           {return res.status(400).json({ error: 'Họ tên không được vượt quá 200 ký tự' });}
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+          {return res.status(400).json({ error: 'Email không hợp lệ' });}
+        if (phone && !/^\d{9,11}$/.test(phone))
+          {return res.status(400).json({ error: 'Số điện thoại phải 9-11 chữ số' });}
         if (roles && !Array.isArray(roles))
           {return res.status(400).json({ error: 'Danh sách vai trò không hợp lệ' });}
 
