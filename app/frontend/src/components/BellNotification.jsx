@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Bell } from 'lucide-react';
 import { API_BASE, dateText } from '../lib/api.js';
 
 export function BellNotification({ api }) {
@@ -145,7 +146,7 @@ export function BellNotification({ api }) {
   return (
     <div className="bell-wrapper" ref={ref}>
       <button className="bell-btn" onClick={() => setOpen(!open)} aria-label="Thông báo">
-        🔔{count > 0 && <span className="bell-badge">{count > 99 ? '99+' : count}</span>}
+        <Bell size={20} aria-hidden="true"/> {count > 0 && <span className="bell-badge">{count > 99 ? '99+' : count}</span>}
       </button>
       {open && (
         <div

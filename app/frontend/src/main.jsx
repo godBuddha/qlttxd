@@ -47,6 +47,22 @@ const AdminCatalogPage = lazy(() =>
   import('./admin/AdminCatalogPage.jsx').then((m) => ({ default: m.AdminCatalogPage }))
 );
 
+// Icon library for accessible, font-independent navigation icons
+import {
+  AlertCircle,
+  BarChart3,
+  BookOpen,
+  Building2,
+  FolderOpen,
+  Key,
+  LayoutDashboard,
+  Map,
+  NotebookText,
+  ScrollText,
+  User,
+  Users,
+} from 'lucide-react';
+
 function getPath(page, id) {
   const paths = {
     home: '/',
@@ -238,7 +254,7 @@ function App() {
                 className={route.page === 'citizen' ? 'selected' : ''}
                 onClick={() => nav('citizen')}
               >
-                ⌖ Báo cáo vi phạm
+                <AlertCircle size={16} aria-hidden="true"/> Báo cáo vi phạm
               </button>
             )}
             {isOfficer && (
@@ -248,7 +264,7 @@ function App() {
                   className={route.page === 'dashboard' ? 'selected' : ''}
                   onClick={() => nav('dashboard')}
                 >
-                  ▦ Tổng quan
+                  <LayoutDashboard size={16} aria-hidden="true"/> Tổng quan
                 </button>
                 <button
                   aria-current={
@@ -257,22 +273,22 @@ function App() {
                   className={route.page === 'cases' || route.page === 'case' ? 'selected' : ''}
                   onClick={() => nav('cases')}
                 >
-                  ▤ Hồ sơ xử lý
+                  <FolderOpen size={16} aria-hidden="true"/> Hồ sơ xử lý
                 </button>
                 <button
                   aria-current={route.page === 'officer-reports' ? 'page' : undefined}
                   className={route.page === 'officer-reports' ? 'selected' : ''}
                   onClick={() => nav('officer-reports')}
                 >
-                  📝 Báo cáo vi phạm
+                  <NotebookText size={16} aria-hidden="true"/> Báo cáo vi phạm
                 </button>
                 {can(user, 'case.view') && (
                   <button
                     aria-current={route.page === 'ban-do' ? 'page' : undefined}
                     className={route.page === 'ban-do' ? 'selected' : ''}
                     onClick={() => nav('ban-do')}
-                  >
-                    🗺️ Bản đồ
+                    >
+                    <Map size={16} aria-hidden="true"/> Bản đồ
                   </button>
                 )}
               </>
@@ -285,21 +301,21 @@ function App() {
                   className={route.page === 'admin-users' ? 'selected' : ''}
                   onClick={() => nav('admin-users')}
                 >
-                  👤 Người dùng
+                  <Users size={16} aria-hidden="true"/> Người dùng
                 </button>
                 <button
                   aria-current={route.page === 'admin-roles' ? 'page' : undefined}
                   className={route.page === 'admin-roles' ? 'selected' : ''}
                   onClick={() => nav('admin-roles')}
                 >
-                  🔑 Phân quyền
+                  <Key size={16} aria-hidden="true"/> Phân quyền
                 </button>
                 <button
                   aria-current={route.page === 'admin-audit' ? 'page' : undefined}
                   className={route.page === 'admin-audit' ? 'selected' : ''}
                   onClick={() => nav('admin-audit')}
                 >
-                  📋 Nhật ký hệ thống
+                  <ScrollText size={16} aria-hidden="true"/> Nhật ký hệ thống
                 </button>
               </>
             )}
@@ -308,8 +324,8 @@ function App() {
                 aria-current={route.page === 'admin-locations' ? 'page' : undefined}
                 className={route.page === 'admin-locations' ? 'selected' : ''}
                 onClick={() => nav('admin-locations')}
-              >
-                📍 Địa điểm
+                >
+                <Building2 size={16} aria-hidden="true"/> Địa điểm
               </button>
             )}
             {can(user, 'admin.users') && (
@@ -317,8 +333,8 @@ function App() {
                 aria-current={route.page === 'admin-catalog' ? 'page' : undefined}
                 className={route.page === 'admin-catalog' ? 'selected' : ''}
                 onClick={() => nav('admin-catalog')}
-              >
-                📚 Danh mục
+                >
+                <BookOpen size={16} aria-hidden="true"/> Danh mục
               </button>
             )}
             {can(user, 'report.statistics') && (
@@ -326,8 +342,8 @@ function App() {
                 aria-current={route.page === 'report' ? 'page' : undefined}
                 className={route.page === 'report' ? 'selected' : ''}
                 onClick={() => nav('report')}
-              >
-                📊 Báo cáo
+                >
+                <BarChart3 size={16} aria-hidden="true"/> Báo cáo
               </button>
             )}
             <button
@@ -335,7 +351,7 @@ function App() {
               className={route.page === 'profile' ? 'selected' : ''}
               onClick={() => nav('profile')}
             >
-              👤 Hồ sơ
+              <User size={16} aria-hidden="true"/> Hồ sơ
             </button>
             <div className="permission">Quyền: {user.permissions?.join(', ') || '—'}</div>
           </nav>

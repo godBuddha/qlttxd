@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { API_BASE, errorText } from '../lib/api.js';
+import { FileDown, Download } from 'lucide-react';
 import { STATES, STATE_LABELS } from '../lib/constants.js';
 import { Loading } from '../components/Loading.jsx';
 import { Chart } from '../components/Status.jsx';
@@ -125,10 +126,18 @@ export function ReportPage({ api, notify }) {
         </div>
         <div className="report-actions">
           <button onClick={() => download('csv')} disabled={!!downloading}>
-            {downloading === 'csv' ? 'Đang tải…' : '📥 Xuất CSV'}
+            {downloading === 'csv' ? 'Đang tải…' : (
+              <>
+                <Download size={16} aria-hidden="true"/> Xuất CSV
+              </>
+            )}
           </button>
           <button onClick={() => download('pdf')} disabled={!!downloading}>
-            {downloading === 'pdf' ? 'Đang tải…' : '📄 Xuất PDF'}
+            {downloading === 'pdf' ? 'Đang tải…' : (
+              <>
+                <FileDown size={16} aria-hidden="true"/> Xuất PDF
+              </>
+            )}
           </button>
         </div>
       </section>

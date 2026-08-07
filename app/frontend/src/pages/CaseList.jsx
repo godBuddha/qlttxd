@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { errorText, dateText } from '../lib/api.js';
 import { STATES, STATE_LABELS } from '../lib/constants.js';
 import { Loading } from '../components/Loading.jsx';
@@ -147,11 +148,11 @@ export function CaseList({ api, navigate, notify }) {
             </div>
             <div className="pagination">
               <button disabled={filters.page === 1} onClick={() => set('page', filters.page - 1)}>
-                ← Trang trước
+                <ArrowLeft size={16} aria-hidden="true"/> Trang trước
               </button>
               <span>Trang {filters.page}</span>
               <button disabled={cases.length < 20} onClick={() => set('page', filters.page + 1)}>
-                Trang sau →
+                Trang sau <ArrowRight size={16} aria-hidden="true"/>
               </button>
             </div>
           </section>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { X, ChevronLeft, ChevronRight, ArrowLeft, File } from 'lucide-react';
 import { API_BASE, can, errorText, dateText, money, downloadDocx } from '../lib/api.js';
 import { STATE_LABELS, TRANSITIONS } from '../lib/constants.js';
 import { Loading } from '../components/Loading.jsx';
@@ -76,7 +77,7 @@ export function CaseDetail({ id, api, user, navigate, notify }) {
       <div className="page-title">
         <div>
           <button className="back" onClick={() => navigate('cases')}>
-            ← Danh sách hồ sơ
+            <ArrowLeft size={20} aria-hidden="true"/> Danh sách hồ sơ
           </button>
           <h2>{item.ma_ho_so}</h2>
           <Status value={item.trang_thai} />
@@ -233,7 +234,7 @@ export function EvidenceGallery({ images }) {
             aria-label="Đóng ảnh phóng to"
             onClick={() => setLightbox(null)}
           >
-            ×
+            <X size={20} aria-hidden="true"/>
           </button>
           <button
             type="button"
@@ -241,7 +242,7 @@ export function EvidenceGallery({ images }) {
             aria-label="Ảnh trước"
             onClick={() => prev(lightbox)}
           >
-            ‹
+            <ChevronLeft size={24} aria-hidden="true"/>
           </button>
           <EvidenceImage
             className="lightbox-img"
@@ -255,7 +256,7 @@ export function EvidenceGallery({ images }) {
             aria-label="Ảnh sau"
             onClick={() => next(lightbox)}
           >
-            ›
+            <ChevronRight size={24} aria-hidden="true"/>
           </button>
           <div className="lightbox-caption">{images[lightbox].ten_goc}</div>
         </Dialog>
@@ -345,7 +346,7 @@ export function Minutes({ caseItem, api, allow, notify, refresh }) {
               )
             }
           >
-            📄 Xuất Word
+            <File size={16} aria-hidden="true"/> Xuất Word
           </button>
           <button
             onClick={() =>
@@ -356,7 +357,7 @@ export function Minutes({ caseItem, api, allow, notify, refresh }) {
               )
             }
           >
-            📄 Xuất PDF
+            <File size={16} aria-hidden="true"/> Xuất PDF
           </button>
         </div>
       )}
@@ -494,7 +495,7 @@ export function Decision({ caseItem, api, allow, notify, refresh }) {
               )
             }
           >
-            📄 Xuất Word
+            <File size={16} aria-hidden="true"/> Xuất Word
           </button>
           <button
             onClick={() =>
@@ -505,7 +506,7 @@ export function Decision({ caseItem, api, allow, notify, refresh }) {
               )
             }
           >
-            📄 Xuất PDF
+            <File size={16} aria-hidden="true"/> Xuất PDF
           </button>
         </div>
       )}

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { errorText, dateText } from '../lib/api.js';
 import {
   AUDIT_TABLES,
@@ -157,11 +158,11 @@ export function AdminAuditLogPage({ api, notify }) {
             })()}
           <div className="pagination">
             <button disabled={filters.page === 1} onClick={() => set('page', filters.page - 1)}>
-              ← Trang trước
+              <ArrowLeft size={16} aria-hidden="true"/> Trang trước
             </button>
             <span>Trang {filters.page}</span>
             <button disabled={logs.length < 50} onClick={() => set('page', filters.page + 1)}>
-              Trang sau →
+              Trang sau <ArrowRight size={16} aria-hidden="true"/>
             </button>
           </div>
         </section>

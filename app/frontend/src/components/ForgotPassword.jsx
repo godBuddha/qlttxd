@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { request, errorText } from '../lib/api.js';
 
 export function ForgotPasswordPage({ onBack, onResetToken }) {
@@ -44,12 +45,12 @@ export function ForgotPasswordPage({ onBack, onResetToken }) {
                 onClick={() => onResetToken?.(devToken)}
                 style={{ fontSize: '1rem' }}
               >
-                → Đặt lại mật khẩu ngay
+                <span style={{display:"inline-flex",alignItems:"center"}}><ArrowRight size={16} aria-hidden="true" style={{marginRight:4}}/> Đặt lại mật khẩu ngay</span>
               </button>
             </div>
           )}
           <button className="forgot-password-link" onClick={onBack}>
-            ← Quay lại đăng nhập
+            <span style={{display:"inline-flex",alignItems:"center"}}><ArrowLeft size={16} aria-hidden="true" style={{marginRight:4}}/> Quay lại đăng nhập</span>
           </button>
         </section>
       </main>
@@ -78,7 +79,7 @@ export function ForgotPasswordPage({ onBack, onResetToken }) {
           <button disabled={busy}>{busy ? 'Đang gửi…' : 'Gửi hướng dẫn'}</button>
         </form>
         <button className="forgot-password-link" onClick={onBack}>
-          ← Quay lại đăng nhập
+          <span style={{display:"inline-flex",alignItems:"center"}}><ArrowLeft size={16} aria-hidden="true" style={{marginRight:4}}/> Quay lại đăng nhập</span>
         </button>
       </section>
     </main>
@@ -120,7 +121,7 @@ export function ResetPasswordPage({ initialToken, onBack }) {
           <h1>Thành công</h1>
           <p>Mật khẩu đã được đặt lại. Bạn có thể đăng nhập bằng mật khẩu mới.</p>
           <button className="forgot-password-link" onClick={onBack} style={{ fontSize: '1rem' }}>
-            → Đăng nhập
+            <ArrowRight size={16} aria-hidden="true" style={{marginRight: 4}}/> Đăng nhập
           </button>
         </section>
       </main>
@@ -166,7 +167,7 @@ export function ResetPasswordPage({ initialToken, onBack }) {
           <button disabled={busy}>{busy ? 'Đang đặt lại…' : 'Đặt lại mật khẩu'}</button>
         </form>
         <button className="forgot-password-link" onClick={onBack}>
-          ← Quay lại đăng nhập
+          <span style={{display:"inline-flex",alignItems:"center"}}><ArrowLeft size={16} aria-hidden="true" style={{marginRight:4}}/> Quay lại đăng nhập</span>
         </button>
       </section>
     </main>
