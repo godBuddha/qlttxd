@@ -215,8 +215,17 @@ test('GET /api/v1/thong-bao/stream — SSE pushes new notification to the user',
   );
   const after = new Date(maxRow[0].ts).toISOString();
 
+  // First, get an SSE token using the access token
+  const sseTokenRes = await fetch(`${base}/api/v1/thong-bao/sse-token`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+  });
+  assert.equal(sseTokenRes.status, 200);
+  const { token: sseToken } = await sseTokenRes.json();
+  assert.ok(sseToken, 'SSE token should be returned');
+
   const ctrl = new AbortController();
-  const res = await fetch(`${base}/api/v1/thong-bao/stream?token=${token}&after=${after}`, {
+  const res = await fetch(`${base}/api/v1/thong-bao/stream?token=${sseToken}&after=${after}`, {
     signal: ctrl.signal,
   });
   assert.equal(res.status, 200);

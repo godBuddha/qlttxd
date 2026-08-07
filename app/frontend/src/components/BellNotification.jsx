@@ -57,11 +57,14 @@ export function BellNotification({ api }) {
       }, 300000); // 5 phút
     };
 
-    const connectSse = () => {
+    const connectSse = async () => {
       if (disposed) return;
       try {
-        const token = localStorage.getItem('qlttxd_token');
-        const streamUrl = `${API_BASE}/api/v1/thong-bao/stream?token=${encodeURIComponent(token || '')}`;
+        // Fetch short-lived SSE token from backend
+        const tokenResp = await api('/api/v1/thong-bao/sse-token', { method: 'POST' });
+        const sseToken = tokenResp?.token;
+        if (!sseToken) throw new Error('Không lấy được SSE token');
+        const streamUrl = `${API_BASE}/api/v1/thong-bao/stream?token=${encodeURIComponent(sseToken)}`;
         const source = new EventSource(streamUrl);
         es = source;
         source.onmessage = (e) => {

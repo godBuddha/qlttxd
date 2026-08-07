@@ -85,6 +85,36 @@ function buildApp({ pool }) {
     req.cookies = cookie.parse(req.headers.cookie || '');
     next();
   });
+
+  // CSRF protection middleware for state-changing requests
+  // Only applies to POST/PATCH/PUT/DELETE with cookies present (cross-site check)
+  app.use((req, res, next) => {
+    const stateChanging = ['POST', 'PATCH', 'PUT', 'DELETE'].includes(req.method);
+    if (!stateChanging) return next();
+
+    // Get CSRF token from cookie
+    const csrfCookie = req.cookies?.qlttxd_csrf;
+    if (!csrfCookie) return next(); // No CSRF cookie = first visit or different domain, allow
+
+    // Get CSRF token from header
+    const csrfHeader = req.get('x-csrf-token');
+
+    // Check Origin header for cross-site requests
+    const origin = req.get('origin');
+    const host = req.get('host');
+    const isCrossSite = origin && host && !origin.includes(host);
+
+    // For cross-site requests, require matching CSRF header
+    // For same-site requests, the cookie is sent automatically (sameSite: lax)
+    if (isCrossSite) {
+      if (!csrfHeader || csrfHeader !== csrfCookie) {
+        return res.status(403).json({ error: 'CSRF token không hợp lệ hoặc thiếu header x-csrf-token' });
+      }
+    }
+
+    next();
+  });
+
   // Compression — but never compress Server-Sent Events: buffering would hold
   // pushed events and corrupt live streaming. Skip the /thong-bao/stream path.
   const compression = require('compression');

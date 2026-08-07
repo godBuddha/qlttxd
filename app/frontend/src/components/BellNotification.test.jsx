@@ -3,12 +3,16 @@ import { render, screen, waitFor, act } from '@testing-library/react';
 import { BellNotification } from '../components/BellNotification.jsx';
 
 function stubApi() {
-  return vi.fn((path) => {
+  return vi.fn((path, options) => {
     if (path === '/api/v1/thong-bao/unread-count') {
       return Promise.resolve({ count: 0 });
     }
     if (path === '/api/v1/thong-bao?limit=15') {
       return Promise.resolve({ data: [] });
+    }
+    // New SSE token endpoint - returns short-lived token
+    if (path === '/api/v1/thong-bao/sse-token' && options?.method === 'POST') {
+      return Promise.resolve({ token: 'sse-token-123', expiresIn: 60 });
     }
     return Promise.resolve({});
   });
@@ -47,13 +51,13 @@ describe('BellNotification', () => {
     vi.useRealTimers();
   });
 
-  it('mở EventSource SSE tới /thong-bao/stream với token', async () => {
+  it('mở EventSource SSE tới /thong-bao/stream với SSE token', async () => {
     const api = stubApi();
     render(<BellNotification api={api} />);
     await waitFor(() => expect(FakeEventSource.instances.length).toBe(1));
     const es = FakeEventSource.instances[0];
     expect(es.url).toContain('/api/v1/thong-bao/stream');
-    expect(es.url).toContain('token=tok-1');
+    expect(es.url).toContain('token=sse-token-123');
   });
 
   it('tăng badge count khi nhận real-time notification qua SSE', async () => {

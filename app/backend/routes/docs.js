@@ -86,6 +86,13 @@ const openApiSpec = {
         bearerFormat: 'JWT',
         description: 'JWT token obtained from /api/v1/auth/login',
       },
+      csrf: {
+        type: 'apiKey',
+        in: 'header',
+        name: 'x-csrf-token',
+        description:
+          'CSRF token from qlttxd_csrf cookie. Required for state-changing requests (POST/PATCH/PUT/DELETE) when making cross-site requests. Cookie is set on login/refresh with sameSite=lax.',
+      },
     },
     schemas: {
       Error: {
@@ -971,6 +978,31 @@ const openApiSpec = {
     },
 
     // ── Thông báo (notifications) ─────────────────────────────────────────
+    '/thong-bao/sse-token': {
+      post: {
+        tags: ['Thông báo'],
+        summary: 'Get short-lived SSE token for EventSource connection',
+        description:
+          'Returns a short-lived (60s) JWT token with type=sse and scope=thong-bao/stream for authenticating the SSE stream endpoint. Requires valid access token in Authorization/X-Auth-Token header.',
+        responses: {
+          200: {
+            description: 'SSE token issued',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    token: { type: 'string', description: 'Short-lived SSE token (expires in 60s)' },
+                    expiresIn: { type: 'integer', description: 'Token TTL in seconds' },
+                  },
+                },
+              },
+            },
+          },
+          401: { description: 'Missing/invalid access token' },
+        },
+      },
+    },
     '/thong-bao': {
       get: {
         tags: ['Thông báo'],
@@ -1020,7 +1052,7 @@ const openApiSpec = {
         tags: ['Thông báo'],
         summary: 'Server-Sent Events: push new notifications live',
         description:
-          'Live notification stream. EventSource cannot send Authorization headers, so the JWT is passed as a short-lived ?token= query param (verified exactly like header auth: jwt + blocklist).',
+          'Live notification stream. EventSource cannot send Authorization headers, so a short-lived SSE token is passed as a ?token= query param. The token MUST be obtained from POST /thong-bao/sse-token and have type=sse and scope=thong-bao/stream. Regular access tokens are rejected.',
         security: [],
         parameters: [
           {
@@ -1028,7 +1060,7 @@ const openApiSpec = {
             in: 'query',
             required: true,
             schema: { type: 'string' },
-            description: 'Short-lived JWT for the frontend EventSource',
+            description: 'Short-lived SSE token from POST /thong-bao/sse-token (type=sse, scope=thong-bao/stream)',
           },
           {
             name: 'after',
@@ -1043,7 +1075,7 @@ const openApiSpec = {
             description: 'text/event-stream of new notifications',
             content: { 'text/event-stream': { schema: { type: 'string', format: 'binary' } } },
           },
-          401: { description: 'Missing/invalid/revoked token' },
+          401: { description: 'Missing/invalid/revoked/incorrect-type token' },
         },
       },
     },

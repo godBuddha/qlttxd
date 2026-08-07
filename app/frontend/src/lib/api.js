@@ -1,5 +1,11 @@
 export const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
+// Helper to read CSRF cookie
+function getCsrfToken() {
+  const match = document.cookie.match(/(?:^|;\s*)qlttxd_csrf=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 // Singleton promise so concurrent 401s share a single refresh instead of each
 // calling doRefresh() and racing on the old token.
 let _refreshPromise = null;
@@ -21,6 +27,12 @@ async function doRefresh() {
 function buildHeaders(options, token) {
   const headers = new Headers(options.headers || {});
   if (token) headers.set('X-Auth-Token', token);
+  // Add CSRF token for state-changing requests (POST, PATCH, PUT, DELETE)
+  const method = (options.method || 'GET').toUpperCase();
+  if (['POST', 'PATCH', 'PUT', 'DELETE'].includes(method)) {
+    const csrfToken = getCsrfToken();
+    if (csrfToken) headers.set('x-csrf-token', csrfToken);
+  }
   if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type'))
     headers.set('Content-Type', 'application/json');
   return headers;

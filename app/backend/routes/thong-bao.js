@@ -2,10 +2,28 @@
 
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const crypto = require('node:crypto');
 const { secret } = require('../utils/helpers');
 
 module.exports = function thongBaoRoutes({ pool, authenticate, tokenBlocklist }) {
   const router = express.Router();
+
+  // POST /api/v1/thong-bao/sse-token — issue short-lived SSE token (60s) for EventSource
+  // Requires valid access token in Authorization/X-Auth-Token header
+  router.post('/api/v1/thong-bao/sse-token', authenticate, async (req, res, next) => {
+    try {
+      // Issue a short-lived token specifically for SSE stream
+      // This token has type 'sse' and expires in 60 seconds
+      const sseToken = jwt.sign(
+        { id: req.user.id, type: 'sse', scope: 'thong-bao/stream' },
+        secret(),
+        { expiresIn: '60s', jwtid: crypto.randomUUID() }
+      );
+      res.json({ token: sseToken, expiresIn: 60 });
+    } catch (e) {
+      next(e);
+    }
+  });
 
   // GET /api/v1/thong-bao — list notifications for current user (paginated)
   router.get('/api/v1/thong-bao', authenticate, async (req, res, next) => {
@@ -29,14 +47,19 @@ module.exports = function thongBaoRoutes({ pool, authenticate, tokenBlocklist })
   });
 
   // GET /api/v1/thong-bao/stream — Server-Sent Events: push new notifications live
-  // Note: EventSource API cannot send custom headers, so the JWT is passed as a
-  // short-lived query token. It is verified exactly like header auth (jwt + blocklist).
+  // Note: EventSource API cannot send custom headers, so a short-lived SSE token is passed as a
+  // query param. This token MUST have type 'sse' and scope 'thong-bao/stream'. Regular access
+  // tokens are rejected to prevent long-lived tokens leaking into logs/proxy/history.
   router.get('/api/v1/thong-bao/stream', async (req, res) => {
     let user;
     try {
       const token = req.query.token;
       if (!token) throw new Error('missing token');
       const decoded = jwt.verify(token, secret());
+      // Only accept SSE tokens with correct type and scope
+      if (decoded.type !== 'sse' || decoded.scope !== 'thong-bao/stream') {
+        return res.status(401).json({ error: 'Loại token không hợp lệ cho SSE stream' });
+      }
       if (await tokenBlocklist.has(decoded.jti))
         {return res.status(401).json({ error: 'Mã xác thực đã bị thu hồi' });}
       user = decoded;

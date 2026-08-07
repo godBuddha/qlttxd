@@ -182,6 +182,15 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
           maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
           path: '/',
         });
+        // Set CSRF cookie for CSRF protection (readable by JS, sameSite lax)
+        const csrfToken = crypto.randomBytes(32).toString('hex');
+        res.cookie('qlttxd_csrf', csrfToken, {
+          httpOnly: false,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+          path: '/',
+        });
         res.status(201).json({
           token,
           user: {
@@ -258,6 +267,15 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         path: '/',
       });
+      // Set CSRF cookie for CSRF protection (readable by JS, sameSite lax)
+      const csrfToken = crypto.randomBytes(32).toString('hex');
+      res.cookie('qlttxd_csrf', csrfToken, {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        path: '/',
+      });
       return res.json({
         token,
         user: {
@@ -279,6 +297,8 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
     if (req.user.jti) await tokenBlocklist.add(req.user.jti);
     // Clear refresh token cookie
     res.clearCookie('qlttxd_refresh_token', { path: '/' });
+    // Clear CSRF cookie
+    res.clearCookie('qlttxd_csrf', { path: '/' });
     return res.json({ message: 'Đăng xuất thành công' });
   });
 
@@ -336,6 +356,15 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
       // Set HttpOnly cookie for new refresh token
       res.cookie('qlttxd_refresh_token', newRefreshToken, {
         httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        path: '/',
+      });
+      // Set CSRF cookie for CSRF protection (readable by JS, sameSite lax)
+      const csrfToken = crypto.randomBytes(32).toString('hex');
+      res.cookie('qlttxd_csrf', csrfToken, {
+        httpOnly: false,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
@@ -483,7 +512,7 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
       const user = (
         await pool.query(
           'SELECT id, username FROM users WHERE (username=$1 OR email=$1) AND is_active=true LIMIT 1',
-          [identifier.trim()]
+          [safeIdentifier]
         )
       ).rows[0];
 

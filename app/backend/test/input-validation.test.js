@@ -572,7 +572,6 @@ test('admin-users PATCH allows partial update without email/phone validation', a
     },
     body: JSON.stringify({ full_name: 'Updated Name' }),
   });
-  const body = await res.json();
   assert.equal(res.status, 200, `PATCH should succeed with partial update, got ${res.status}`);
 });
 
