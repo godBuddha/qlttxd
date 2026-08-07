@@ -20,8 +20,12 @@ const fillRequiredDesc = () => {
 };
 
 describe('CitizenPage — non-pointer coordinate entry (A11Y-A5)', () => {
-  it('render các input tọa độ và nút dùng vị trí hiện tại', () => {
+  it('render các input tọa độ và nút dùng vị trí hiện tại', async () => {
     render(<CitizenPage api={makeApi()} notify={vi.fn()} />);
+    // Wait for the mounted useEffect (api(/bao-cao)) to resolve, preventing act() warning
+    await waitFor(() =>
+      expect(screen.getByText('Chưa có báo cáo nào.')).toBeInTheDocument(),
+    );
     expect(screen.getByLabelText('Vĩ độ (Lat)')).toBeInTheDocument();
     expect(screen.getByLabelText('Kinh độ (Lng)')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Dùng vị trí hiện tại' })).toBeInTheDocument();
