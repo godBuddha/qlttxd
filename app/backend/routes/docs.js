@@ -2,6 +2,8 @@
 
 const express = require('express');
 const swaggerUiDistPath = require('swagger-ui-dist').getAbsoluteFSPath();
+// H-06: OpenAPI version luôn đồng bộ với package.json / release — không hardcode.
+const VERSION = require('../package.json').version;
 
 // Swagger UI bootstrap script, served as an EXTERNAL same-origin file so the
 // HTML page stays CSP-compliant (server.js enforces script-src 'self' — inline
@@ -72,7 +74,7 @@ const openApiSpec = {
   info: {
     title: 'QLTTXD API',
     description: 'API quản lý trật tự xây dựng — Hệ thống Quản lý Trật tự Xây dựng (QLTTXD)',
-    version: '0.3.2',
+    version: VERSION,
     contact: { name: 'QLTTXD Team' },
   },
   servers: [{ url: '/api/v1', description: 'API v1' }],
@@ -575,6 +577,36 @@ const openApiSpec = {
       },
     },
 
+    // ── Tệp đính kèm (attachments) ───────────────────────────────────────
+    '/attachments/{filename}/view': {
+      get: {
+        tags: ['Tệp đính kèm'],
+        summary: 'View/download an uploaded attachment image',
+        description:
+          'Serves an uploaded image (registered in tep_dinh_kem). Requires Bearer JWT. Owner sees own; users with case.view see all. Also exposed at /uploads/{filename}. Content-Type set from extension; never stored in the spec (no examples/credentials).',
+        parameters: [
+          {
+            name: 'filename',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Generated filename (e.g. 1699999999999-<uuid>.jpg)',
+          },
+        ],
+        responses: {
+          200: {
+            description: 'Image bytes',
+            content: {
+              'image/*': { schema: { type: 'string', format: 'binary' } },
+            },
+          },
+          401: { description: 'Missing/invalid/revoked token' },
+          403: { description: 'Not allowed to view this file' },
+          404: { description: 'File not found' },
+        },
+      },
+    },
+
     // ── Hồ sơ (cases) ─────────────────────────────────────────────────────
     '/ho-so': {
       post: {
@@ -981,6 +1013,38 @@ const openApiSpec = {
         tags: ['Thông báo'],
         summary: 'Mark all notifications as read',
         responses: { 200: { description: 'All marked' } },
+      },
+    },
+    '/thong-bao/stream': {
+      get: {
+        tags: ['Thông báo'],
+        summary: 'Server-Sent Events: push new notifications live',
+        description:
+          'Live notification stream. EventSource cannot send Authorization headers, so the JWT is passed as a short-lived ?token= query param (verified exactly like header auth: jwt + blocklist).',
+        security: [],
+        parameters: [
+          {
+            name: 'token',
+            in: 'query',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Short-lived JWT for the frontend EventSource',
+          },
+          {
+            name: 'after',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', format: 'date-time' },
+            description: 'Resume cursor — only push notifications created after this timestamp',
+          },
+        ],
+        responses: {
+          200: {
+            description: 'text/event-stream of new notifications',
+            content: { 'text/event-stream': { schema: { type: 'string', format: 'binary' } } },
+          },
+          401: { description: 'Missing/invalid/revoked token' },
+        },
       },
     },
 

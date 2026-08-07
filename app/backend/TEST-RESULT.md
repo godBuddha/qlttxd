@@ -361,3 +361,48 @@ curl -s localhost:3000/health/live    # {"status":"ok","uptime":N,"version":"0.3
 - KHÔNG lộ secret: response chỉ chứa trạng thái ok/error chung, không username/password/connection string.
 - Không thêm dependency nặng (chỉ `node:fs`, `node:path` builtin).
 - Frontend không bị ảnh hưởng (backend-only; e2e a11y-keyboard.spec.js lint warnings tồn tại từ trước, ngoài phạm vi task).
+
+---
+
+## T-01-BE-E7-02: OpenAPI version đồng bộ + Swagger UI (H-06)
+
+Ngày: 2026-08-07 | Epic E7 | Task BE-E7-02 (t_7f2f2451)
+
+### Tình trạng verify-current-state
+- **Version**: `routes/docs.js` đã ghi `0.3.2` = package.json → khớp (không còn mismatch 0.2.1 cũ), NHƯNG hardcode. → **Đã chuyển sang đọc động từ package.json** để luôn đồng bộ với release.
+- **Swagger UI**: đã mount tại `/api/docs` (HTML) + `GET /api/v1/docs` (JSON spec), assets serve same-origin theo CSP strict. → **Đã đầy đủ**.
+- **Coverage**: đã cover hầu hết nhóm chính (health/live|ready, auth, ho-so, bao-cao, thong-ke, thong-bao, admin). → **Bổ sung** 2 endpoint còn thiếu: `/thong-bao/stream` (SSE) và `/attachments/{filename}/view` (tệp đính kèm).
+
+### Thay đổi
+- `app/backend/routes/docs.js`:
+  - `const VERSION = require('../package.json').version` — version OpenAPI luôn = version package.json.
+  - Thêm `GET /thong-bao/stream` (SSE, xác thực qua `?token=` query — policy rõ ràng, không lộ secret).
+  - Thêm `GET /attachments/{filename}/view` (tệp đính kèm, Bearer JWT; owner/case.view; `security: []` không kế thừa ví dụ — không lộ credential trong spec).
+- `app/backend/test/docs.test.js`:
+  - Version assertion giờ so với `PKG_VERSION` (require package.json), không hardcode.
+  - Thêm 2 test: (1) spec cover đủ nhóm endpoint chính + mọi path có ≥1 operation; (2) spec không chứa secret/credential example.
+
+### Kết quả
+```sh
+cd app/backend
+node --test --test-concurrency=1 test/docs.test.js   # 6/6 PASS
+node --test --test-concurrency=1                        # 173/173 PASS (trước 171, +2)
+npx eslint routes/docs.js test/docs.test.js             # clean, exit 0
+```
+
+### Evidence thủ công (HTTP thật qua smoke server, port 3999)
+```
+GET /api/docs                     -> 200 text/html; charset=utf-8  (chứa id="swagger-ui")
+GET /api/v1/docs                  -> 200 application/json; openapi=3.0.3, info.version=0.3.2, paths=58
+GET /api/docs/assets/swagger-ui.css  -> 200 text/css
+GET /api/docs/swagger-init.js     -> 200 application/javascript
+Coverage: /health/live=true /health/ready=true /thong-bao/stream=true /attachments/{filename}/view=true
+No secret: json spec không chứa chuỗi "test-secret" / JWT_SECRET value
+```
+
+### Chú thích
+- Không đổi API contract endpoint có real client (chỉ THÊM schema mô tả, không sửa handler, không đổi response).
+- Swagger UI policy: mount công khai tại `/api/docs` (spec mô tả endpoint nhưng file thật vẫn cần JWT — `/attachments/{filename}/view` yêu cầu Bearer; `/thong-bao/stream` yêu cầu `?token=`). Không lộ secret/credential trong spec.
+- Không thêm dependency nặng (tái dùng `swagger-ui-dist` / `swagger-ui-express` có sẵn, chỉ thêm 2 import builtin/package.json).
+- Backend test suite PASS 173 (không giảm), `/api/docs` cũ giữ nguyên.
+
