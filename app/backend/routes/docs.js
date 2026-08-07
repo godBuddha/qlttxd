@@ -183,7 +183,7 @@ const openApiSpec = {
     '/health': {
       get: {
         tags: ['System'],
-        summary: 'Health check',
+        summary: 'Health check (deprecated — use /health/live or /health/ready)',
         security: [],
         responses: {
           200: {
@@ -197,6 +197,74 @@ const openApiSpec = {
                     db: { type: 'string' },
                     uptime: { type: 'integer' },
                     version: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          '503': { description: 'Database unreachable' },
+        },
+      },
+    },
+    '/health/live': {
+      get: {
+        tags: ['System'],
+        summary: 'Liveness probe — process alive, always 200, dependency-free',
+        security: [],
+        responses: {
+          200: {
+            description: 'Process alive',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    status: { type: 'string' },
+                    uptime: { type: 'integer' },
+                    version: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/health/ready': {
+      get: {
+        tags: ['System'],
+        summary: 'Readiness probe — checks real DB + storage dependency; 503 when not ready',
+        security: [],
+        responses: {
+          200: {
+            description: 'Ready — all dependencies ok',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    status: { type: 'string' },
+                    checks: {
+                      type: 'object',
+                      properties: {
+                        db: { type: 'object', properties: { ok: { type: 'boolean' } } },
+                        storage: { type: 'object', properties: { ok: { type: 'boolean' } } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '503': {
+            description: 'Not ready — one or more dependencies unavailable',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    status: { type: 'string' },
+                    checks: { type: 'object' },
                   },
                 },
               },

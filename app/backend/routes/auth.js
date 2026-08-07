@@ -42,6 +42,27 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
     }
   });
 
+  // M-14: Liveness — process sống, không phụ thuộc dependency. Luôn 200.
+  router.get('/health/live', (_req, res) => {
+    const { liveness } = require('../utils/health');
+    res.json(liveness());
+  });
+
+  // M-14: Readiness — kiểm tra dependency thật (DB + storage). 200 ready / 503 not-ready.
+  router.get('/health/ready', async (_req, res) => {
+    const { readiness } = require('../utils/health');
+    try {
+      const { ready, checks } = await readiness(pool);
+      if (ready) {
+        res.json({ status: 'ready', checks, uptime: Math.floor((Date.now() - startTime) / 1000), version: process.env.npm_package_version || '0.3.2' });
+      } else {
+        res.status(503).json({ status: 'not_ready', checks });
+      }
+    } catch {
+      res.status(503).json({ status: 'not_ready', checks: { db: { ok: false, error: 'database-unreachable' } } });
+    }
+  });
+
   // Detailed health — pool stats + process memory (admin only)
   router.get('/health/detailed', authenticate, authorize('admin.users'), async (_req, res) => {
     try {

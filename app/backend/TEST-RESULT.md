@@ -320,3 +320,44 @@ cd app/frontend && npx vitest run src/pages/CaseList.test.jsx                   
 cd /workspace/ssd/qlttxd && env PGHOST=/tmp ... node scripts/migrate.js              # idempotent, no DROP
 npm run migrate                                                                      # idempotent
 ```
+
+---
+
+## T-01-BE-E6-04: Request timeout (M-13) + Dependency-aware health check (M-14)
+
+Ngày: 2026-08-07 | Epic E6 | Task BE-E6-04 (t_b8d23bae)
+
+### Tình trạng verify-current-state
+- **M-13 (timeout)**: đã có từ trước — `server.js` middleware `requestTimeout()` (default 30s, env `REQUEST_TIMEOUT_MS`), áp toàn cục, không đổi API contract. Test riêng `test/request-timeout.test.js` (2/2 PASS). → **Không cần bổ sung**.
+- **M-14 (health)**: `/health` chỉ ping DB, trả 200/503 chung; KHÔNG tách liveness/readiness, KHÔNG kiểm tra storage. → **Đã bổ sung**.
+
+### Thay đổi (M-14)
+- `app/backend/utils/health.js` (mới): `liveness()`, `readiness(pool, {dbOverrides, storageOverrides})`, `storageCheck()` (ghi→đọc→xoá probe trong UPLOAD_DIR), `resolveUploadDir()`. Không lộ secrets/connection strings — chỉ trả `{ok, error?}`.
+- `app/backend/routes/auth.js`: thêm 2 endpoint công khai:
+  - `GET /health/live` — **liveness**: luôn 200, độc lập dependency, `{status, uptime, version}`.
+  - `GET /health/ready` — **readiness**: kiểm tra DB ping + storage; 200 `{status:'ready', checks:{db,storage}}` hoặc **503** `{status:'not_ready', checks}`.
+  - `/health` cũ giữ nguyên contract (public, không đổi).
+- `app/backend/routes/docs.js`: bổ sung Swagger schema cho `/health/live`, `/health/ready`, đánh dấu `/health` deprecated.
+- `app/backend/test/health.test.js` (mới): 8 test (DB up → ready; DB down → 503 not-ready dùng fake pool; liveness vẫn 200 khi DB down; unit readiness/storageCheck/liveness).
+
+### Kết quả
+```sh
+cd app/backend
+node --test --test-concurrency=1 test/health.test.js   # 8/8 PASS
+node --test --test-concurrency=1                        # 171/171 PASS (trước 163, +8)
+npx eslint app/backend --ignore-pattern node_modules    # clean, exit 0
+```
+
+### Evidence thủ công (API thật qua smoke)
+```sh
+# DB UP → ready 200
+curl -s localhost:3000/health/ready   # {"status":"ready","checks":{"db":{"ok":true},"storage":{"ok":true}}}
+curl -s localhost:3000/health/live    # {"status":"ok","uptime":N,"version":"0.3.2"}
+# DB DOWN (fake) → 503 not-ready (test tự động mô phỏng, không lộ connection string)
+```
+
+### Chú thích
+- Không đổi API contract endpoint public `/health` hiện có.
+- KHÔNG lộ secret: response chỉ chứa trạng thái ok/error chung, không username/password/connection string.
+- Không thêm dependency nặng (chỉ `node:fs`, `node:path` builtin).
+- Frontend không bị ảnh hưởng (backend-only; e2e a11y-keyboard.spec.js lint warnings tồn tại từ trước, ngoài phạm vi task).
