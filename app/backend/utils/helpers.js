@@ -141,6 +141,9 @@ async function invalidateUserTokens(pool, userId) {
       [userId]
     );
     await pool.query('DELETE FROM user_tokens WHERE user_id = $1', [userId]);
+    // C-02: cũng thu hồi toàn bộ refresh token (thiếu) — nếu không, password
+    // đã đổi nhưng refresh token cũ vẫn đổi được access token mới.
+    await pool.query('DELETE FROM refresh_tokens WHERE user_id = $1', [userId]);
   } catch (e) {
     // If user_tokens table doesn't exist, silently skip
     console.warn('[helpers] Could not invalidate tokens:', e.message);

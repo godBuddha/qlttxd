@@ -46,8 +46,10 @@ export function CaseList({ api, navigate, notify }) {
   const set = (key, value) =>
     setFilters((old) => ({ ...old, [key]: value, page: key === 'page' ? value : 1 }));
   const onSearch = (value) => {
+    // Chỉ cập nhật q; không setFilters ở đây — nếu không mỗi keystroke sẽ
+    // tạo object filters mới → refetch tức thì, phá vỡ debounce 400ms (M-03).
+    // Việc reset page về 1 đã được debounce effect bên trên xử lý.
     setQ(value);
-    setFilters((old) => ({ ...old, page: 1 }));
   };
   return (
     <>

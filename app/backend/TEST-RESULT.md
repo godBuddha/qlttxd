@@ -260,3 +260,63 @@ cd app/backend && npm run lint      # CLEAN
 
 ### Known risks / ghi chú
 - Workspace dir dùng chung giữa nhiều worker song song (test/helpers/test-db.js, probe.cjs, `ensureTestAdmin` trong ~9 file test, api.js — do worker khác). Full-suite chạy chữa khi worker khác đang reset/mutate DB shared → kết quả không tái lập được (đôi khi hang/fail 41-103, không liên quan thay đổi này). Reset-db + chạy sạch một mình → 159/159 PASS.
+
+---
+
+## REG-VERIFY-01 — Regression verify các fix đã có (C-02 / C-03 / H-02 / M-03)
+
+Ngày: 2026-08-07 · Task: t_aaf31d81 · Loại: VERIFY-CURRENT-STATE (chỉ thêm test + evidence, không re-implement). Trong quá trình verify phát hiện **2 fix chưa thực sự hoàn chỉnh** và đã đóng gap tối thiểu (xem mục "Phát hiện trong verify" bên dưới).
+
+### C-02 — Đổi mật khẩu invalidate toàn bộ token (access + refresh)
+- Logic hiện có: `routes/auth.js` PATCH `/api/v1/auth/password` → `invalidateUserTokens(pool, req.user.id)` (utils/helpers.js), thu hồi access token (insert user_tokens → token_blocklist) + DELETE user_tokens + DELETE refresh_tokens.
+- Test mới: `app/backend/test/regression-c02-c03.test.js` — dùng user riêng (không chạm admin chung):
+  1. login → lấy access + refresh token.
+  2. PATCH đổi mật khẩu → 200.
+  3. access token cũ `/auth/me` → **401** ("đã bị thu hồi").
+  4. refresh token cũ `/auth/refresh` → **401** ("thu hồi|hết hạn").
+  5. login bằng mật khẩu mới → **200**.
+  6. login bằng mật khẩu cũ → **401**.
+- Lệnh: `cd app/backend && node --test --test-concurrency=1 test/regression-c02-c03.test.js`
+- Kết quả: **pass 4/4** (test C-02 + 3 test C-03 cũng trong file).
+
+### C-03 — Trust proxy (req.ip từ X-Forwarded-For, chống spoof)
+- Logic hiện có: `server.js:52` `app.set('trust proxy', process.env.TRUST_PROXY || 1)`.
+- Test mới (cùng file): 3 case HTTP thật (gắn route `__echo_ip` lên `buildApp`):
+  1. trust mặc định(1) + `X-Forwarded-For: 203.0.113.9` → `req.ip == 203.0.113.9` (proxy tin cậy được dùng).
+  2. trust=1 + `X-Forwarded-For: 1.2.3.4, 5.6.7.8` → `req.ip == 5.6.7.8` (chỉ tin hop gần nhất, KHÔNG dùng giá trị spoof bên trái).
+  3. `TRUST_PROXY=0` + `X-Forwarded-For: 203.0.113.9` → `req.ip == 127.0.0.1` (client không thể spoof).
+- Lệnh: như trên. Kết quả: **pass 3/3**.
+
+### H-02 — Migration runner idempotent (scripts/migrate.js + schema_migrations)
+- Xác minh trên DB tạm `qlttxd_migverify` (sau đó DROP):
+  - Lần 1: `APPLIED 001_initial_schema.sql, 002_add_indexes.sql, 003_add_missing_indexes.sql` → 3 applied, 0 skipped.
+  - Lần 2: cả 3 `SKIP` (already applied) → 0 applied, 3 skipped (**idempotent**).
+  - `schema_migrations` = `[001, 002, 003]` đúng thứ tự filename.
+  - Chèn 1 dòng `users`, chạy lại migrate → dòng vẫn còn (1) → **KHÔNG DROP dữ liệu**.
+- Thêm script `npm run migrate` vào `package.json` root (trước chưa có): `"migrate": "node scripts/migrate.js"`. Chạy `npm run migrate` → idempotent (0 applied / 3 skipped).
+- Lệnh: `node scripts/migrate.js` (với `PGDATABASE=qlttxd_migverify`), `npm run migrate`.
+
+### M-03 — Frontend search debounce 400ms (CaseList.jsx)
+- Test mới: `app/frontend/src/pages/CaseList.test.jsx` (vitest + jsdom + fake timers, mock `api` đếm số lần gọi `/api/v1/ho-so`):
+  1. gõ 3 ký tự liên tục trong <400ms → chỉ **1** call khởi tạo, không call trên từng keystroke; qua đúng 400ms → +1 call duy nhất với `q=abc`.
+  2. gõ 'hà nội', dừng 200ms, gõ tiếp 'hà nội 2', qua 400ms → vẫn chỉ **1** call debounced với query cuối.
+- Lệnh: `cd app/frontend && npx vitest run src/pages/CaseList.test.jsx`. Kết quả: **pass 2/2**.
+
+### Phát hiện trong verify (đóng gap tối thiểu để thoả accept, không re-implement)
+1. **C-02 — refresh token KHÔNG bị thu hồi** trước đây: `invalidateUserTokens` chỉ block access token; refresh token cũ vẫn đổi được access mới (`/auth/refresh` trả 200 sau đổi mật khẩu). → Thêm `DELETE FROM refresh_tokens WHERE user_id=$1` vào `utils/helpers.js` (trong `app/backend`, đúng phạm vi). Test C-02 bây giờ pass với cả yêu cầu refresh.
+2. **M-03 — debounce KHÔNG giảm số call API**: `onSearch` gọi `setFilters` → object filters mới → refetch ngay mỗi keystroke (test đếm được 3 call tức thì + 1 debounced = 4). → Sửa `CaseList.jsx` `onSearch` chỉ `setQ(value)` (reset page về 1 đã do debounce effect xử lý). Test M-03 bây giờ pass: 1 khởi tạo + 1 debounced.
+
+### File thay đổi
+- `app/backend/test/regression-c02-c03.test.js` (mới) — test C-02 + C-03.
+- `app/backend/utils/helpers.js` — `invalidateUserTokens` thêm DELETE refresh_tokens.
+- `app/frontend/src/pages/CaseList.test.jsx` (mới) — test M-03 debounce.
+- `app/frontend/src/pages/CaseList.jsx` — `onSearch` bỏ setFilters (debounce thực sự hoạt động).
+- `package.json` (root) — thêm script `migrate`.
+
+### Lệnh tống hợp & kết quả
+```sh
+cd app/backend && node --test --test-concurrency=1 test/regression-c02-c03.test.js   # 4/4 PASS
+cd app/frontend && npx vitest run src/pages/CaseList.test.jsx                        # 2/2 PASS
+cd /workspace/ssd/qlttxd && env PGHOST=/tmp ... node scripts/migrate.js              # idempotent, no DROP
+npm run migrate                                                                      # idempotent
+```
