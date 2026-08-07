@@ -51,7 +51,11 @@ export function Login({ onLogin, notice }) {
         <h1>QLTTXD</h1>
         <p>Hệ thống quản lý trật tự xây dựng</p>
         <Notice notice={notice} onClose={() => {}} />
-        {error && <div className="field-error">{error}</div>}
+        {error && (
+          <div className="field-error" role="alert">
+            {error}
+          </div>
+        )}
         <form onSubmit={submit}>
           <label>
             Tên đăng nhập

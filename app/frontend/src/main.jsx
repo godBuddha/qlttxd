@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
 
@@ -93,6 +93,7 @@ function App() {
   const [route, setRoute] = useState(() => getPageFromPath(window.location.pathname));
   const [notice, setNotice] = useState(null);
   const [needsSetup, setNeedsSetup] = useState(null);
+  const mainRef = useRef(null);
   const notify = (text, type = 'info') => setNotice({ text, type });
 
   // Central navigation: update state AND push browser history so Back/Forward,
@@ -111,6 +112,12 @@ function App() {
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
+
+  // WCAG 2.4.1/2.4.3: move focus to <main> after every route change so keyboard
+  // and screen-reader users don't re-traverse the sidebar.
+  useEffect(() => {
+    if (user) mainRef.current?.focus({ preventScroll: true });
+  }, [user, route.page, route.id]);
 
   // Unauthenticated users are redirected to the login route '/'
   useEffect(() => {
@@ -194,12 +201,22 @@ function App() {
   const isOfficer = can(user, 'case.view');
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#main-content">
+        Bỏ qua điều hướng và đi tới nội dung chính
+      </a>
       <header>
         <div
           className="logo"
           onClick={() => nav(isOfficer ? 'dashboard' : 'citizen')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              nav(isOfficer ? 'dashboard' : 'citizen');
+            }
+          }}
           role="button"
           tabIndex="0"
+          aria-label="Về trang chủ"
         >
           QLTTXD
         </div>
@@ -323,7 +340,7 @@ function App() {
             <div className="permission">Quyền: {user.permissions?.join(', ') || '—'}</div>
           </nav>
         </aside>
-        <main className="content">
+        <main ref={mainRef} tabIndex={-1} id="main-content" className="content">
           <Notice notice={notice} onClose={() => setNotice(null)} />
           {route.page === 'citizen' && <CitizenPage api={api} notify={notify} />}
           {route.page === 'dashboard' && <Dashboard api={api} navigate={nav} notify={notify} />}

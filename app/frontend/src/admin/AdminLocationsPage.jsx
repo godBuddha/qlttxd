@@ -148,12 +148,13 @@ export function AdminLocationsPage({ api, notify }) {
           </div>
           <div className="table-wrap">
             <table>
+              <caption className="sr-only">Danh sách quận/huyện</caption>
               <thead>
                 <tr>
-                  <th>Tên</th>
-                  <th>Mã</th>
-                  <th>Phường</th>
-                  <th></th>
+                  <th scope="col">Tên</th>
+                  <th scope="col">Mã</th>
+                  <th scope="col">Phường</th>
+                  <th scope="col"></th>
                 </tr>
               </thead>
               <tbody>
@@ -163,6 +164,15 @@ export function AdminLocationsPage({ api, notify }) {
                       key={d.id}
                       className={selectedDistrict?.id === d.id ? 'selected-row' : ''}
                       onClick={() => setSelectedDistrict(selectedDistrict?.id === d.id ? null : d)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setSelectedDistrict(selectedDistrict?.id === d.id ? null : d);
+                        }
+                      }}
+                      tabIndex={0}
+                      aria-selected={selectedDistrict?.id === d.id}
+                      aria-label={`Chọn quận/huyện ${d.ten}`}
                       style={{
                         cursor: 'pointer',
                         background: selectedDistrict?.id === d.id ? '#e7f0fe' : undefined,
@@ -222,12 +232,13 @@ export function AdminLocationsPage({ api, notify }) {
           </div>
           <div className="table-wrap">
             <table>
+              <caption className="sr-only">Danh sách phường/xã</caption>
               <thead>
                 <tr>
-                  <th>Tên</th>
-                  <th>Mã</th>
-                  <th>Quận/Huyện</th>
-                  <th></th>
+                  <th scope="col">Tên</th>
+                  <th scope="col">Mã</th>
+                  <th scope="col">Quận/Huyện</th>
+                  <th scope="col"></th>
                 </tr>
               </thead>
               <tbody>

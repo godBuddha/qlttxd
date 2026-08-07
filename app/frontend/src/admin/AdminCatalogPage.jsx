@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { errorText, money } from '../lib/api.js';
 import { Loading } from '../components/Loading.jsx';
+import { Tabs, TabPanel } from '../components/Tabs.jsx';
 
 export function AdminCatalogPage({ api, notify }) {
   const [tab, setTab] = useState('loai-vi-pham');
@@ -60,18 +61,19 @@ export function AdminCatalogPage({ api, notify }) {
           <p>Loại vi phạm, hành vi vi phạm, mức phạt — theo Điều 16 NĐ 16/2022/NĐ-CP.</p>
         </div>
       </div>
-      <div className="tabs" style={{ marginBottom: 18 }}>
-        {[
-          ['loai-vi-pham', 'Loại vi phạm'],
-          ['hanh-vi', 'Hành vi vi phạm'],
-          ['muc-phat', 'Mức phạt'],
-        ].map(([key, label]) => (
-          <button key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>
-            {label}
-          </button>
-        ))}
-      </div>
-      {tab === 'loai-vi-pham' && (
+      <Tabs
+        id="admin-catalog"
+        label="Quản lý danh mục"
+        tabs={[
+          { key: 'loai-vi-pham', label: 'Loại vi phạm' },
+          { key: 'hanh-vi', label: 'Hành vi vi phạm' },
+          { key: 'muc-phat', label: 'Mức phạt' },
+        ]}
+        active={tab}
+        onChange={setTab}
+        style={{ marginBottom: 18 }}
+      />
+      <TabPanel id="admin-catalog" tabKey="loai-vi-pham" active={tab === 'loai-vi-pham'}>
         <section className="panel">
           <div
             style={{
@@ -140,8 +142,8 @@ export function AdminCatalogPage({ api, notify }) {
             </table>
           </div>
         </section>
-      )}
-      {tab === 'hanh-vi' && (
+      </TabPanel>
+      <TabPanel id="admin-catalog" tabKey="hanh-vi" active={tab === 'hanh-vi'}>
         <section className="panel">
           <div
             style={{
@@ -224,8 +226,8 @@ export function AdminCatalogPage({ api, notify }) {
             </table>
           </div>
         </section>
-      )}
-      {tab === 'muc-phat' && (
+      </TabPanel>
+      <TabPanel id="admin-catalog" tabKey="muc-phat" active={tab === 'muc-phat'}>
         <section className="panel">
           <div
             style={{
@@ -301,7 +303,7 @@ export function AdminCatalogPage({ api, notify }) {
             </table>
           </div>
         </section>
-      )}
+      </TabPanel>
       {showModal && (
         <CatalogModal
           tab={tab}

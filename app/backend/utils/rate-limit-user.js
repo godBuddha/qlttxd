@@ -9,7 +9,7 @@ const userLimiter =
         max: 200,
         standardHeaders: true,
         legacyHeaders: false,
-        keyGenerator: (req) => req.user?.id || req.ip,
+        keyGenerator: (req) => req.user?.id || req.ip?.replace(/^::ffff:/, ''),
         validate: { ip: false },
         message: { error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' },
       });

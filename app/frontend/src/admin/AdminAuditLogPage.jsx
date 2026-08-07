@@ -62,14 +62,15 @@ export function AdminAuditLogPage({ api, notify }) {
         <section className="panel">
           <div className="table-wrap">
             <table>
+              <caption className="sr-only">Nhật ký hệ thống</caption>
               <thead>
                 <tr>
-                  <th>Thời gian</th>
-                  <th>Người dùng</th>
-                  <th>Hành động</th>
-                  <th>Bảng</th>
-                  <th>ID bản ghi</th>
-                  <th></th>
+                  <th scope="col">Thời gian</th>
+                  <th scope="col">Người dùng</th>
+                  <th scope="col">Hành động</th>
+                  <th scope="col">Bảng</th>
+                  <th scope="col">ID bản ghi</th>
+                  <th scope="col"></th>
                 </tr>
               </thead>
               <tbody>

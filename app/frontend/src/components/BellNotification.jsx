@@ -148,7 +148,15 @@ export function BellNotification({ api }) {
         🔔{count > 0 && <span className="bell-badge">{count > 99 ? '99+' : count}</span>}
       </button>
       {open && (
-        <div className="bell-dropdown">
+        <div
+          className="bell-dropdown"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              e.preventDefault();
+              setOpen(false);
+            }
+          }}
+        >
           <div className="bell-header">
             <strong>Thông báo</strong>
             {count > 0 && (
@@ -173,6 +181,21 @@ export function BellNotification({ api }) {
                   className={n.trang_thai === 'chua_doc' ? 'unread' : ''}
                   onClick={() => {
                     if (n.trang_thai === 'chua_doc') markRead(n.id);
+                  }}
+                  role={n.trang_thai === 'chua_doc' ? 'button' : undefined}
+                  tabIndex={n.trang_thai === 'chua_doc' ? 0 : undefined}
+                  aria-label={n.trang_thai === 'chua_doc' ? `Đánh dấu đã đọc: ${n.tieu_de}` : undefined}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      e.preventDefault();
+                      setOpen(false);
+                    } else if (
+                      n.trang_thai === 'chua_doc' &&
+                      (e.key === 'Enter' || e.key === ' ')
+                    ) {
+                      e.preventDefault();
+                      markRead(n.id);
+                    }
                   }}
                 >
                   <b>{n.tieu_de}</b>

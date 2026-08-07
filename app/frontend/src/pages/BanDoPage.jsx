@@ -4,6 +4,23 @@ import { HOME, STATE_LABELS } from '../lib/constants.js';
 import { errorText } from '../lib/api.js';
 import { Loading } from '../components/Loading.jsx';
 
+// Marker colour per status. Colours are decoration only — status is always
+// conveyed as text via the legend + sr-only table (WCAG 1.4.1).
+const MARKER_COLORS = {
+  cho_tiep_nhan: '#1f6feb',
+  cho_xac_minh: '#6e40c9',
+  dang_xac_minh: '#bf8700',
+  cho_bo_sung: '#d4a72c',
+  cho_lap_bien_ban: '#da3633',
+  da_lap_bien_ban: '#e16f24',
+  cho_ra_quyet_dinh: '#1a7f37',
+  da_ra_quyet_dinh: '#12a55c',
+  dang_khac_phuc: '#0969da',
+  da_khac_phuc: '#2da44e',
+  da_dong: '#57606a',
+  da_huy: '#b42318',
+};
+
 export function BanDoPage({ api, notify }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,22 +56,8 @@ export function BanDoPage({ api, notify }) {
         p.toa_do && Number.isFinite(Number(p.toa_do.lat)) && Number.isFinite(Number(p.toa_do.lng))
     );
     if (!valid.length) return;
-    const colorMap = {
-      cho_tiep_nhan: '#1f6feb',
-      cho_xac_minh: '#6e40c9',
-      dang_xac_minh: '#bf8700',
-      cho_bo_sung: '#d4a72c',
-      cho_lap_bien_ban: '#da3633',
-      da_lap_bien_ban: '#e16f24',
-      cho_ra_quyet_dinh: '#1a7f37',
-      da_ra_quyet_dinh: '#12a55c',
-      dang_khac_phuc: '#0969da',
-      da_khac_phuc: '#2da44e',
-      da_dong: '#57606a',
-      da_huy: '#b42318',
-    };
     const markers = valid.map((p) => {
-      const color = colorMap[p.trang_thai] || '#1f6feb';
+      const color = MARKER_COLORS[p.trang_thai] || '#1f6feb';
       const m = L.circleMarker([Number(p.toa_do.lat), Number(p.toa_do.lng)], {
         radius: 9,
         color: '#fff',
@@ -71,6 +74,10 @@ export function BanDoPage({ api, notify }) {
     if (markers.length > 1) mapRef.current.fitBounds(L.featureGroup(markers).getBounds().pad(0.1));
   }, [data]);
 
+  const withCoords = data.filter(
+    (p) => p.toa_do && Number.isFinite(Number(p.toa_do.lat)) && Number.isFinite(Number(p.toa_do.lng))
+  );
+  const presentStates = [...new Set(withCoords.map((p) => p.trang_thai || ''))].filter(Boolean);
   if (loading) return <Loading />;
   return (
     <>
@@ -85,8 +92,45 @@ export function BanDoPage({ api, notify }) {
         ref={mapNode}
         className="map"
         style={{ height: 'calc(100vh - 200px)' }}
+        role="application"
         aria-label="Bản đồ vi phạm toàn cục"
       />
+      {presentStates.length > 0 && (
+        <details className="map-legend" aria-label="Chú giải trạng thái">
+          <summary>Chú giải trạng thái ({withCoords.length} điểm)</summary>
+          <ul className="legend-list">
+            {presentStates.map((s) => (
+              <li key={s} className="legend-item">
+                <i className="swatch" style={{ background: MARKER_COLORS[s] || '#1f6feb' }} aria-hidden="true" />
+                {STATE_LABELS[s] || s}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      <table className="sr-only map-fallback" id="map-fallback">
+        <caption>Danh sách hồ sơ trên bản đồ</caption>
+        <thead>
+          <tr>
+            <th scope="col">Mã hồ sơ</th>
+            <th scope="col">Trạng thái</th>
+            <th scope="col">Địa chỉ</th>
+            <th scope="col">Tọa độ</th>
+          </tr>
+        </thead>
+        <tbody>
+          {withCoords.map((p) => (
+            <tr key={p.id || p.ma_ho_so}>
+              <td>{p.ma_ho_so}</td>
+              <td>{STATE_LABELS[p.trang_thai] || p.trang_thai || '—'}</td>
+              <td>{p.dia_chi || '—'}</td>
+              <td>
+                {Number(p.toa_do.lat).toFixed(6)}, {Number(p.toa_do.lng).toFixed(6)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </>
   );
 }

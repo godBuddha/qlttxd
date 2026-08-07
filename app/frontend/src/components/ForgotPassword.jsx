@@ -60,7 +60,11 @@ export function ForgotPasswordPage({ onBack, onResetToken }) {
         <div className="brand-mark">QL</div>
         <h1>Quên mật khẩu</h1>
         <p>Nhập tên đăng nhập hoặc email để nhận hướng dẫn đặt lại mật khẩu.</p>
-        {error && <div className="field-error">{error}</div>}
+        {error && (
+          <div className="field-error" role="alert">
+            {error}
+          </div>
+        )}
         <form onSubmit={submit}>
           <label>
             Tên đăng nhập hoặc email
@@ -127,7 +131,11 @@ export function ResetPasswordPage({ initialToken, onBack }) {
         <div className="brand-mark">QL</div>
         <h1>Đặt lại mật khẩu</h1>
         <p>Nhập mật khẩu mới của bạn.</p>
-        {error && <div className="field-error">{error}</div>}
+        {error && (
+          <div className="field-error" role="alert">
+            {error}
+          </div>
+        )}
         <form onSubmit={submit}>
           {!initialToken && (
             <label>

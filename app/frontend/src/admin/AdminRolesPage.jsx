@@ -57,6 +57,16 @@ export function AdminRolesPage({ api, notify }) {
                 key={r.id}
                 className={selectedRole?.id === r.id ? 'selected' : ''}
                 onClick={() => selectRole(r)}
+                role="button"
+                tabIndex={0}
+                aria-pressed={selectedRole?.id === r.id}
+                aria-label={`Chọn vai trò ${r.name}`}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    selectRole(r);
+                  }
+                }}
               >
                 <b>{r.name}</b>
                 <small>{r.code}</small>

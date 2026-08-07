@@ -98,14 +98,15 @@ export function AdminUsersPage({ api, notify }) {
       <section className="panel">
         <div className="table-wrap">
           <table>
+            <caption className="sr-only">Danh sách người dùng</caption>
             <thead>
               <tr>
-                <th>Tên đăng nhập</th>
-                <th>Họ tên</th>
-                <th>Email</th>
-                <th>Vai trò</th>
-                <th>Trạng thái</th>
-                <th></th>
+                <th scope="col">Tên đăng nhập</th>
+                <th scope="col">Họ tên</th>
+                <th scope="col">Email</th>
+                <th scope="col">Vai trò</th>
+                <th scope="col">Trạng thái</th>
+                <th scope="col"></th>
               </tr>
             </thead>
             <tbody>

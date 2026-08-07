@@ -6,13 +6,14 @@ export function ReportTable({ reports }) {
   return (
     <div className="table-wrap">
       <table>
+        <caption className="sr-only">Danh sách báo cáo của tôi</caption>
         <thead>
           <tr>
-            <th>Mã báo cáo</th>
-            <th>Mô tả</th>
-            <th>Địa chỉ</th>
-            <th>Ảnh</th>
-            <th>Ngày tạo</th>
+            <th scope="col">Mã báo cáo</th>
+            <th scope="col">Mô tả</th>
+            <th scope="col">Địa chỉ</th>
+            <th scope="col">Ảnh</th>
+            <th scope="col">Ngày tạo</th>
           </tr>
         </thead>
         <tbody>
@@ -40,7 +41,18 @@ export function ReportTable({ reports }) {
 }
 
 export function CitizenPage({ api, notify }) {
-  const [point, setPoint] = useState(null);
+  const [latStr, setLatStr] = useState('');
+  const [lngStr, setLngStr] = useState('');
+  const latNum = parseFloat(latStr);
+  const lngNum = parseFloat(lngStr);
+  const point =
+    latStr.trim() && lngStr.trim() && Number.isFinite(latNum) && Number.isFinite(lngNum)
+      ? { lat: latNum, lng: lngNum }
+      : null;
+  const setPointCoords = (lat, lng) => {
+    setLatStr(String(lat));
+    setLngStr(String(lng));
+  };
   const [files, setFiles] = useState([]);
   const [reports, setReports] = useState([]);
   const [result, setResult] = useState(null);
@@ -59,9 +71,24 @@ export function CitizenPage({ api, notify }) {
       .then((r) => setReports(r.data || []))
       .catch((e) => notify(errorText(e), 'error'));
   }, []);
+  const useCurrentLocation = () => {
+    if (!('geolocation' in navigator))
+      return notify('Trình duyệt không hỗ trợ lấy vị trí hiện tại.', 'error');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setPointCoords(pos.coords.latitude, pos.coords.longitude),
+      () =>
+        notify('Không lấy được vị trí hiện tại. Vui lòng nhập tọa độ hoặc chọn trên bản đồ.', 'error'),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+    );
+  };
+  const clearCoords = () => {
+    setLatStr('');
+    setLngStr('');
+  };
   async function submit(e) {
     e.preventDefault();
-    if (!point) return notify('Vui lòng chọn vị trí trên bản đồ.', 'error');
+    if (!point)
+      return notify('Vui lòng nhập tọa độ, dùng vị trí hiện tại hoặc chọn vị trí trên bản đồ.', 'error');
     const payload = new FormData();
     Object.entries(form).forEach(([key, value]) => value && payload.append(key, value));
     payload.append('latitude', point.lat);
@@ -107,7 +134,7 @@ export function CitizenPage({ api, notify }) {
         </section>
       )}
       <div className="two-col">
-        <MapView point={point} onPick={setPoint} height="520px" />
+        <MapView point={point} onPick={setPointCoords} height="520px" />
         <form className="panel form-grid" onSubmit={submit}>
           <h3>Nội dung báo cáo</h3>
           <label className="full">
@@ -133,9 +160,46 @@ export function CitizenPage({ api, notify }) {
               onChange={change}
             />
           </label>
-          <div className="coordinate">
-            Tọa độ: {point ? `${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}` : 'Chưa chọn'}
-          </div>
+          <fieldset className="full coordinate-entry">
+            <legend>Vị trí (tọa độ)</legend>
+            <span className="hint full">
+              Chọn trên bản đồ, nhập tọa độ hoặc dùng vị trí hiện tại — không bắt buộc dùng chuột.
+            </span>
+            <label>
+              Vĩ độ (Lat)
+              <input
+                type="number"
+                step="any"
+                name="lat"
+                inputMode="decimal"
+                autoComplete="off"
+                value={latStr}
+                onChange={(e) => setLatStr(e.target.value)}
+                placeholder="21.0285"
+              />
+            </label>
+            <label>
+              Kinh độ (Lng)
+              <input
+                type="number"
+                step="any"
+                name="lng"
+                inputMode="decimal"
+                autoComplete="off"
+                value={lngStr}
+                onChange={(e) => setLngStr(e.target.value)}
+                placeholder="105.8542"
+              />
+            </label>
+            <div className="coord-actions">
+              <button type="button" className="text-button" onClick={useCurrentLocation}>
+                Dùng vị trí hiện tại
+              </button>
+              <button type="button" className="text-button" onClick={clearCoords}>
+                Xóa tọa độ
+              </button>
+            </div>
+          </fieldset>
           <fieldset className="full">
             <legend>Người gửi</legend>
             <label>

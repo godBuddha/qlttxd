@@ -100,14 +100,15 @@ export function CaseList({ api, navigate, notify }) {
           <section className="panel">
             <div className="table-wrap">
               <table>
+                <caption className="sr-only">Danh sách hồ sơ xử lý</caption>
                 <thead>
                   <tr>
-                    <th>Mã HS</th>
-                    <th>Trạng thái</th>
-                    <th>Địa chỉ</th>
-                    <th>Ngày tạo</th>
-                    <th>Tọa độ</th>
-                    <th></th>
+                    <th scope="col">Mã HS</th>
+                    <th scope="col">Trạng thái</th>
+                    <th scope="col">Địa chỉ</th>
+                    <th scope="col">Ngày tạo</th>
+                    <th scope="col">Tọa độ</th>
+                    <th scope="col"></th>
                   </tr>
                 </thead>
                 <tbody>

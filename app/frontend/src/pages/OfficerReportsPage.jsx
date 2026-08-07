@@ -55,16 +55,17 @@ export function OfficerReportsPage({ api, user, navigate, notify }) {
       <section className="panel">
         <div className="table-wrap">
           <table>
+            <caption className="sr-only">Danh sách báo cáo vi phạm</caption>
             <thead>
               <tr>
-                <th>Mã BC</th>
-                <th>Người gửi</th>
-                <th>Mô tả</th>
-                <th>Địa chỉ</th>
-                <th>Ảnh</th>
-                <th>Ngày tạo</th>
-                <th>Hồ sơ</th>
-                <th></th>
+                <th scope="col">Mã BC</th>
+                <th scope="col">Người gửi</th>
+                <th scope="col">Mô tả</th>
+                <th scope="col">Địa chỉ</th>
+                <th scope="col">Ảnh</th>
+                <th scope="col">Ngày tạo</th>
+                <th scope="col">Hồ sơ</th>
+                <th scope="col"></th>
               </tr>
             </thead>
             <tbody>

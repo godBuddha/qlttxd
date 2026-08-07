@@ -3,7 +3,14 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { HOME } from '../lib/constants.js';
 
-export function MapView({ point, points = [], polygons = [], onPick, height = '360px' }) {
+export function MapView({
+  point,
+  points = [],
+  polygons = [],
+  onPick,
+  height = '360px',
+  label = 'Bản đồ GIS',
+}) {
   const node = useRef(null);
   const map = useRef(null);
   const layers = useRef(L.layerGroup());
@@ -43,7 +50,10 @@ export function MapView({ point, points = [], polygons = [], onPick, height = '3
           fillColor: '#1f6feb',
           fillOpacity: 1,
         });
-        if (p.label) marker.bindPopup(p.label);
+        if (p.label)
+          marker.bindPopup(
+            `${p.label}<br/>${Number(p.lat).toFixed(6)}, ${Number(p.lng).toFixed(6)}`
+          );
         marker.addTo(layers.current);
         return marker;
       });
@@ -65,5 +75,30 @@ export function MapView({ point, points = [], polygons = [], onPick, height = '3
       /* invalid GeoJSON — ignore */
     }
   }, [polygons]);
-  return <div ref={node} className="map" style={{ height }} aria-label="Bản đồ GIS" />;
+
+  // Human-readable, non-color text fallback of the points on the map so screen
+  // readers and text browsers get the context even though the markers have no
+  // ARIA role of their own (WCAG 1.1.1 / 1.4.1).
+  const listed = [
+    ...(point ? [{ ...point, label: 'Vị trí đã chọn' }] : []),
+    ...points.filter(Boolean),
+  ]
+    .filter((p) => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng)))
+    .map((p) => `${p.label || 'Điểm'}: ${Number(p.lat).toFixed(6)}, ${Number(p.lng).toFixed(6)}`);
+  const fallbackText = listed.length
+    ? `${label} hiển thị ${listed.length} điểm: ${listed.join('; ')}.`
+    : `${label}. Chưa có điểm nào được chọn.`;
+
+  return (
+    <div className="map-wrap">
+      <div
+        ref={node}
+        className="map"
+        style={{ height }}
+        role="application"
+        aria-label={label}
+      />
+      <p className="sr-only">{fallbackText}</p>
+    </div>
+  );
 }

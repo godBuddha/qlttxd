@@ -5,6 +5,8 @@ import { Loading } from '../components/Loading.jsx';
 import { Status } from '../components/Status.jsx';
 import { MapView } from '../components/MapView.jsx';
 import { EvidenceImage } from '../components/EvidenceImage.jsx';
+import { Dialog } from '../components/Dialog.jsx';
+import { Tabs, TabPanel } from '../components/Tabs.jsx';
 
 export function CaseDetail({ id, api, user, navigate, notify }) {
   const [item, setItem] = useState(null);
@@ -27,7 +29,6 @@ export function CaseDetail({ id, api, user, navigate, notify }) {
   // item since it is null while the case is still loading.
   useEffect(() => {
     if (!item) return;
-    const TAB_KEYS = ['overview', 'images', 'minutes', 'decision', 'remedy'];
     const handler = (e) => {
       const tag = e.target.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
@@ -37,16 +38,7 @@ export function CaseDetail({ id, api, user, navigate, notify }) {
         }
         return;
       }
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-        e.preventDefault();
-        setTab((prev) => {
-          const idx = TAB_KEYS.indexOf(prev);
-          if (idx < 0) return TAB_KEYS[0];
-          return e.key === 'ArrowRight'
-            ? TAB_KEYS[(idx + 1) % TAB_KEYS.length]
-            : TAB_KEYS[(idx - 1 + TAB_KEYS.length) % TAB_KEYS.length];
-        });
-      } else if (
+      if (
         e.key === 'Enter' &&
         can(user, 'case.update') &&
         state &&
@@ -136,22 +128,26 @@ export function CaseDetail({ id, api, user, navigate, notify }) {
         </section>
       </div>
       <section className="panel">
-        <div className="tabs">
-          {[
+        <Tabs
+          id="case-detail"
+          label="Chi tiết hồ sơ"
+          tabs={[
             ['overview', 'Timeline'],
             ['images', `Ảnh (${item.anh?.length || 0})`],
             ['minutes', 'Biên bản'],
             ['decision', 'Quyết định'],
             ['remedy', 'Khắc phục'],
-          ].map(([key, label]) => (
-            <button key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>
-              {label}
-            </button>
-          ))}
-        </div>
-        {tab === 'overview' && <Timeline item={item} />}
-        {tab === 'images' && <EvidenceGallery images={item.anh || []} />}
-        {tab === 'minutes' && (
+          ].map(([key, label]) => ({ key, label }))}
+          active={tab}
+          onChange={setTab}
+        />
+        <TabPanel id="case-detail" tabKey="overview" active={tab === 'overview'}>
+          <Timeline item={item} />
+        </TabPanel>
+        <TabPanel id="case-detail" tabKey="images" active={tab === 'images'}>
+          <EvidenceGallery images={item.anh || []} />
+        </TabPanel>
+        <TabPanel id="case-detail" tabKey="minutes" active={tab === 'minutes'}>
           <Minutes
             caseItem={item}
             api={api}
@@ -159,8 +155,8 @@ export function CaseDetail({ id, api, user, navigate, notify }) {
             notify={notify}
             refresh={load}
           />
-        )}
-        {tab === 'decision' && (
+        </TabPanel>
+        <TabPanel id="case-detail" tabKey="decision" active={tab === 'decision'}>
           <Decision
             caseItem={item}
             api={api}
@@ -168,8 +164,8 @@ export function CaseDetail({ id, api, user, navigate, notify }) {
             notify={notify}
             refresh={load}
           />
-        )}
-        {tab === 'remedy' && (
+        </TabPanel>
+        <TabPanel id="case-detail" tabKey="remedy" active={tab === 'remedy'}>
           <Remedy
             caseItem={item}
             api={api}
@@ -177,24 +173,16 @@ export function CaseDetail({ id, api, user, navigate, notify }) {
             notify={notify}
             refresh={load}
           />
-        )}
+        </TabPanel>
       </section>
     </>
   );
 }
 
 export function EvidenceGallery({ images }) {
-  const [lightbox, setLightbox] = useState(null);
-  useEffect(() => {
-    if (lightbox === null) return;
-    const h = (e) => {
-      if (e.key === 'Escape') setLightbox(null);
-      else if (e.key === 'ArrowLeft') setLightbox((lightbox - 1 + images.length) % images.length);
-      else if (e.key === 'ArrowRight') setLightbox((lightbox + 1) % images.length);
-    };
-    window.addEventListener('keydown', h);
-    return () => window.removeEventListener('keydown', h);
-  }, [lightbox, images.length]);
+  const [lightbox, setLightbox] = useState(null); // index of the open image, or null
+  const prev = (i) => setLightbox((i - 1 + images.length) % images.length);
+  const next = (i) => setLightbox((i + 1) % images.length);
   if (!images.length)
     return (
       <div className="tab-body">
@@ -206,27 +194,52 @@ export function EvidenceGallery({ images }) {
       <h3>Ảnh minh chứng</h3>
       <div className="evidence-gallery">
         {images.map((a, i) => (
-          <EvidenceImage
+          <button
             key={a.id}
-            duongDan={a.duong_dan}
-            alt={a.ten_goc}
-            className="evidence-img"
+            type="button"
+            className="evidence-thumb"
+            aria-label={`Xem ảnh phóng to: ${a.ten_goc}`}
             onClick={() => setLightbox(i)}
-            loading="lazy"
-          />
+          >
+            <EvidenceImage
+              duongDan={a.duong_dan}
+              alt={a.ten_goc}
+              className="evidence-img"
+              loading="lazy"
+            />
+          </button>
         ))}
       </div>
       {lightbox !== null && (
-        <div className="lightbox-overlay" onClick={() => setLightbox(null)}>
-          <button className="lightbox-close" onClick={() => setLightbox(null)}>
+        <Dialog
+          open
+          className="lightbox-overlay"
+          label={`Ảnh minh chứng: ${images[lightbox].ten_goc}`}
+          onClose={() => setLightbox(null)}
+          onOverlayClick={() => setLightbox(null)}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowLeft') {
+              e.preventDefault();
+              prev(lightbox);
+            } else if (e.key === 'ArrowRight') {
+              e.preventDefault();
+              next(lightbox);
+            }
+          }}
+        >
+          <button
+            type="button"
+            className="lightbox-close"
+            aria-label="Đóng ảnh phóng to"
+            onClick={() => setLightbox(null)}
+          >
             ×
           </button>
           <button
+            type="button"
             className="lightbox-prev"
-            onClick={(e) => {
-              e.stopPropagation();
-              setLightbox((lightbox - 1 + images.length) % images.length);
-            }}
+            aria-label="Ảnh trước"
+            onClick={() => prev(lightbox)}
           >
             ‹
           </button>
@@ -237,16 +250,15 @@ export function EvidenceGallery({ images }) {
             onClick={(e) => e.stopPropagation()}
           />
           <button
+            type="button"
             className="lightbox-next"
-            onClick={(e) => {
-              e.stopPropagation();
-              setLightbox((lightbox + 1) % images.length);
-            }}
+            aria-label="Ảnh sau"
+            onClick={() => next(lightbox)}
           >
             ›
           </button>
           <div className="lightbox-caption">{images[lightbox].ten_goc}</div>
-        </div>
+        </Dialog>
       )}
     </div>
   );
