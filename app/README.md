@@ -2,7 +2,7 @@
 
 Hệ thống quản lý xử lý vi phạm trật tự xây dựng, hỗ trợ toàn bộ luồng nghiệp vụ: người dân báo cáo → tiếp nhận → xác minh → lập biên bản → ban hành quyết định → theo dõi khắc phục → đóng hồ sơ.
 
-**Phiên bản hiện tại: v0.2.0** (2026-08-03) — Xem [CHANGELOG](#changelog-v020) bên dưới.
+**Phiên bản hiện tại: v0.3.2** (2026-08-07) — Xem [CHANGELOG](#changelog) bên dưới.
 
 ## Tính năng
 
