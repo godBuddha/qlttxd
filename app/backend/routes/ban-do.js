@@ -3,7 +3,8 @@
 const express = require('express');
 const { pointSelect } = require('../utils/helpers');
 
-module.exports = function banDoRoutes({ pool, authenticate, authorize }) {
+module.exports = function banDoRoutes({ pool, authenticate, authorize, configService }) {
+  const cfg = { getSync(cat, key, fb) { return configService ? configService.getSync(cat, key, fb) : fb; } };
   const router = express.Router();
 
   router.get(
@@ -13,7 +14,7 @@ module.exports = function banDoRoutes({ pool, authenticate, authorize }) {
     async (req, res, next) => {
       try {
         // M-15: pagination — default limit 500, max 2000
-        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 500, 1), 2000);
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || cfg.getSync('pagination', 'ban_do_default', 500), 1), cfg.getSync('pagination', 'ban_do_max', 2000));
         const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
         const offset = (page - 1) * limit;
 

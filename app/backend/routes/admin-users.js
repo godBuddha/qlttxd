@@ -4,7 +4,8 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const { requirePool, audit, invalidateUserTokens } = require('../utils/helpers');
 
-module.exports = function adminUsersRoutes({ pool, authenticate, authorize }) {
+module.exports = function adminUsersRoutes({ pool, authenticate, authorize, configService }) {
+  const cfg = { getSync(cat, key, fb) { return configService ? configService.getSync(cat, key, fb) : fb; } };
   const router = express.Router();
 
   // GET /api/v1/admin/users
@@ -15,7 +16,7 @@ module.exports = function adminUsersRoutes({ pool, authenticate, authorize }) {
     async (req, res, next) => {
       if (!requirePool(pool, res)) return;
       try {
-        const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200);
+        const limit = Math.min(Math.max(Number(req.query.limit) || cfg.getSync('pagination', 'users_default', 50), 1), cfg.getSync('pagination', 'users_max', 200));
         const page = Math.max(Number(req.query.page) || 1, 1);
         const offset = (page - 1) * limit;
         const countResult = await pool.query('SELECT count(*)::int AS total FROM users');
@@ -66,7 +67,7 @@ module.exports = function adminUsersRoutes({ pool, authenticate, authorize }) {
         const client = await pool.connect();
         try {
           await client.query('BEGIN');
-          const passwordHash = await bcrypt.hash(password, 10);
+          const passwordHash = await bcrypt.hash(password, cfg.getSync('auth', 'bcrypt_rounds', 10));
           const userResult = await client.query(
             `INSERT INTO users (username, password_hash, full_name, email, phone, is_active) VALUES ($1, $2, $3, $4, $5, COALESCE($6, true)) RETURNING id, username, full_name, email, phone, is_active`,
             [username, passwordHash, full_name.trim(), email || null, phone || null, is_active]
@@ -191,7 +192,7 @@ module.exports = function adminUsersRoutes({ pool, authenticate, authorize }) {
           }
           if (password) {
             updates.push(`password_hash=$${idx++}`);
-            values.push(await bcrypt.hash(password, 10));
+            values.push(await bcrypt.hash(password, cfg.getSync('auth', 'bcrypt_rounds', 10)));
           }
           if (updates.length) {
             values.push(userId);
@@ -351,7 +352,7 @@ module.exports = function adminUsersRoutes({ pool, authenticate, authorize }) {
         if (req.query.tu_ngay) w.push(add('thoi_gian>=', req.query.tu_ngay));
         if (req.query.den_ngay) w.push(add('thoi_gian<=', req.query.den_ngay));
         const where = w.length ? `WHERE ${w.join(' AND ')}` : '';
-        const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200);
+        const limit = Math.min(Math.max(Number(req.query.limit) || cfg.getSync('pagination', 'users_default', 50), 1), cfg.getSync('pagination', 'users_max', 200));
         const page = Math.max(Number(req.query.page) || 1, 1);
         vals.push(limit, (page - 1) * limit);
         const r = await pool.query(

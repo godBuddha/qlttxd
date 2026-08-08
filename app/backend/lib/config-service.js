@@ -256,6 +256,29 @@ class ConfigService {
   /** Register a listener callback(configId) */
   onNotify(cb) { this._listeners.push(cb); }
 
+  /** Mask secret values in API responses: returns '***' when is_secret=true, unless internal flag set */
+  _maskIfSecret(row, exposeSecret) {
+    if (!row || !row.is_secret) return row;
+    if (this._isInternal) return row;
+    const masked = Object.assign({}, row);
+    masked.value = '***';
+    return masked;
+  }
+
+  /** Synchronous config lookup — cache hit or fallback param only (no DB). Used during buildApp(). */
+  getSync(category, key, fallback) {
+    const ck = this._cacheKey('global', null, category, key);
+    const cached = this._cache.get(ck);
+    if (cached) return this._maskIfSecret(cached.row, true);
+    // Check env var as sync fallback
+    const envKey = `CONFIG_GLOBAL_${category.toUpperCase()}_${key.toUpperCase()}`;
+    const envVal = process.env[envKey];
+    if (envVal !== undefined) {
+      try { return JSON.parse(envVal); } catch { return envVal; }
+    }
+    return fallback;
+  }
+
   /** Internal helpers for testing */
   getCacheSize() { return this._cache.size; }
 

@@ -12,8 +12,8 @@ const { secret } = require('./utils/helpers');
 const { makeAuthenticate, authenticate, authorize } = require('./utils/middleware');
 const cookie = require('cookie');
 
-// M-13: request timeout middleware — tránh request treo vô hạn (default 30s)
-function requestTimeout(ms = 30000) {
+// M-13: request timeout middleware — tránh request treo vô hạn
+function requestTimeout(ms) {
   return (req, res, next) => {
     req.setTimeout(ms);
     res.setTimeout(ms, () => {
@@ -39,32 +39,64 @@ const banDoRoutes = require('./routes/ban-do');
 const docsRoutes = require('./routes/docs');
 const configRoutes = require('./routes/config');
 
-function buildApp({ pool }) {
-  if (!secret() || secret().length < 32) {
-    throw new Error('JWT_SECRET phải được cấu hình tối thiểu 32 ký tự');
-  }
+function createPool(configService) {
+  const cs = { getSync: configService ? configService.getSync.bind(configService) : _fallback => undefined };
+  return new Pool({
+    host: process.env.PGHOST,
+    port: process.env.PGPORT ? Number(process.env.PGPORT) : undefined,
+    database: process.env.PGDATABASE,
+    user: process.env.PGUSER,
+    password: process.env.PGPASSWORD || undefined,
+    max: cs.getSync('pool', 'max', 20) ?? 20,
+    idleTimeoutMillis: cs.getSync('pool', 'idle_timeout_ms', 30000) ?? 30000,
+    connectionTimeoutMillis: cs.getSync('pool', 'connect_timeout_ms', 5000) ?? 5000,
+  });
+}
+
+/** Build App Factory */
+module.exports.buildApp = function buildApp({ pool, configService }) {
+  // CONFIG-T4a: Lightweight sync config reader (cache|env|fallback only)
+  const cfg = {
+    getSync(cat, key, fb) {
+      if (configService && typeof configService.getSync === 'function') {
+        return configService.getSync(cat, key, fb);
+      }
+      // Pure-fallback no-op (tests may not supply configService)
+      return fb;
+    },
+  };
+
+  // ── Pre-create shared deps (before app instantiation) ──
   const tokenBlocklist = new TokenBlocklist({ pool });
-  // H-11: dọn reset_token định kỳ (timer unref không giữ process sống)
   new ResetTokenCleanup({ pool });
-  // #9: dọn user_tokens cũ hơn 30 ngày định kỳ
   new UserTokensCleanup({ pool });
-  // H-08: dọn audit_log >20 năm — archive file nén rồi xóa, chạy tự động hàng ngày
+
+  // CONFIG-T4a: AUDIT_RETENTION_DAYS with env override
   const auditRetention = new AuditRetention({
     pool,
-    retentionDays: Number(process.env.AUDIT_RETENTION_DAYS) || DEFAULT_RETENTION_DAYS,
+    retentionDays: Number(process.env.AUDIT_RETENTION_DAYS) || cfg.getSync('audit', 'retention_days', 7300),
   });
-  // CONFIG-T3: khởi tạo ConfigService cho hệ thống config + workflow
+
   const { ConfigService } = require('./lib/config-service');
-  const configService = new ConfigService();
-  // Fire-and-forget startup — nếu DB chưa sẵn sàng thì get() fallback env/param,
-  // cache sẽ được populate khi start hoàn tất (tương tự auditRetention.start()).
-  configService.start(pool).catch(err => console.error('[ConfigService] Lỗi khởi động:', err.message));
+  if (!configService) {
+    configService = new ConfigService();
+    configService.start(pool).catch(err => console.error('[ConfigService] Lỗi khởi động:', err.message));
+  }
+
   const authenticateWithBlocklist = makeAuthenticate(tokenBlocklist);
+
   const app = express();
   // Tin cậy proxy để req.ip trả về IP thật qua X-Forwarded-For khi behind proxy (C-03)
   app.set('trust proxy', process.env.TRUST_PROXY || 1);
   const corsOrigin = process.env.CORS_ORIGIN;
   const allowedOrigins = corsOrigin ? corsOrigin.split(',').map((x) => x.trim()) : [];
+
+  // CONFIG-T4a: runtime configs
+  const reqTimeoutMs = cfg.getSync('security', 'request_timeout_ms', 30000);
+  const corsMaxAgeSec = cfg.getSync('security', 'cors_max_age', 86400);
+  const jsonLimit = cfg.getSync('upload', 'body_limit_json', '1mb');
+  const urlLimit = cfg.getSync('upload', 'body_limit_url', '10kb');
+  const hstsMaxAge = cfg.getSync('security', 'hsts_max_age', 31536000);
 
   app.use((req, res, next) => {
     const origin = req.headers.origin;
@@ -75,7 +107,7 @@ function buildApp({ pool }) {
       res.setHeader('Access-Control-Allow-Credentials', 'true');
       res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE,OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Auth-Token,X-Request-Id');
-      res.setHeader('Access-Control-Max-Age', '86400');
+      res.setHeader('Access-Control-Max-Age', String(corsMaxAgeSec));
     }
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
@@ -91,8 +123,8 @@ function buildApp({ pool }) {
   });
   const { requestLogger } = require('./utils/logger');
   app.use(requestLogger);
-  app.use(express.json({ limit: '1mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+  app.use(express.json({ limit: jsonLimit }));
+  app.use(express.urlencoded({ extended: true, limit: urlLimit }));
   // Parse cookies from request headers
   app.use((req, res, next) => {
     req.cookies = cookie.parse(req.headers.cookie || '');
@@ -107,18 +139,14 @@ function buildApp({ pool }) {
 
     // Get CSRF token from cookie
     const csrfCookie = req.cookies?.qlttxd_csrf;
-    if (!csrfCookie) return next(); // No CSRF cookie = first visit or different domain, allow
+    if (!csrfCookie) return next();
 
-    // Get CSRF token from header
     const csrfHeader = req.get('x-csrf-token');
 
-    // Check Origin header for cross-site requests
     const origin = req.get('origin');
     const host = req.get('host');
     const isCrossSite = origin && host && !origin.includes(host);
 
-    // For cross-site requests, require matching CSRF header
-    // For same-site requests, the cookie is sent automatically (sameSite: lax)
     if (isCrossSite) {
       if (!csrfHeader || csrfHeader !== csrfCookie) {
         return res.status(403).json({ error: 'CSRF token không hợp lệ hoặc thiếu header x-csrf-token' });
@@ -128,8 +156,7 @@ function buildApp({ pool }) {
     next();
   });
 
-  // Compression — but never compress Server-Sent Events: buffering would hold
-  // pushed events and corrupt live streaming. Skip the /thong-bao/stream path.
+  // Compression — but never compress SSE: buffering would hold pushed events and corrupt live streaming.
   const compression = require('compression');
   app.use(
     compression({
@@ -140,8 +167,10 @@ function buildApp({ pool }) {
     })
   );
 
-  const { globalLimiter, writeLimiter } = require('./utils/rate-limit');
-  const { userLimiter } = require('./utils/rate-limit-user');
+  // CONFIG-T4a: rate-limiters từ configService
+  const { makeRateLimiters } = require('./utils/rate-limit');
+  const { makeUserLimiter } = require('./utils/rate-limit-user');
+  const { globalLimiter, writeLimiter } = makeRateLimiters(configService);
   app.use(globalLimiter);
 
   // Security headers via helmet
@@ -160,7 +189,7 @@ function buildApp({ pool }) {
       },
       crossOriginResourcePolicy: false,
       crossOriginOpenerPolicy: false,
-      hsts: { maxAge: 31536000, includeSubDomains: true },
+      hsts: { maxAge: hstsMaxAge, includeSubDomains: true },
     })
   );
 
@@ -180,10 +209,11 @@ function buildApp({ pool }) {
     }
     next();
   });
+  const userLimiter = makeUserLimiter(configService);
   app.use(userLimiter);
 
-  // M-13: timeout toàn cục cho mọi request (default 30s)
-  app.use(requestTimeout(Number(process.env.REQUEST_TIMEOUT_MS) || 30000));
+  // M-13: timeout toàn cục cho mọi request
+  app.use(requestTimeout(Number(process.env.REQUEST_TIMEOUT_MS) || reqTimeoutMs));
 
   // Register route modules
   app.use(authRoutes(deps));
@@ -215,35 +245,30 @@ function buildApp({ pool }) {
     return res.status(500).json({ error: 'Lỗi máy chủ nội bộ' });
   });
 
-  // H-08: khởi động AuditRetention (cleanup khi start + định kỳ hàng ngày)
+  // H-08: khởi động AuditRetention
   auditRetention.start();
 
   return app;
-}
+};
 
-function createPool() {
-  return new Pool({
-    host: process.env.PGHOST,
-    port: process.env.PGPORT ? Number(process.env.PGPORT) : undefined,
-    database: process.env.PGDATABASE,
-    user: process.env.PGUSER,
-    password: process.env.PGPASSWORD || undefined,
-    max: 20,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000,
-  });
-}
 if (require.main === module) {
-  const pool = createPool();
+  const { ConfigService } = require('./lib/config-service');
+  const configService = new ConfigService();
+  const pool = createPool(configService);
+  configService.start(pool).catch(err => console.error('[ConfigService] Lỗi khởi động:', err.message));
+
+  const app = module.exports.buildApp({ pool, configService });
+
+  // CONFIG-T4a: forced shutdown timer + audit retention days từ config
+  const forcedShutdownMs = configService.getSync('security', 'forced_shutdown_ms', 10000);
+
   const port = Number(process.env.PORT || 3000);
   const host = process.env.HOST || '0.0.0.0';
-  const app = buildApp({ pool });
   const server = app.listen(port, host, () =>
     console.log(`QLTTXD API đang nghe tại http://${host}:${port}`)
   );
   const shutdown = (signal) => {
     console.log(`[server] Received ${signal}, shutting down gracefully...`);
-    // Stop ConfigService notify listener
     if (app.configService && typeof app.configService.stop === 'function') {
       app.configService.stop();
     }
@@ -260,19 +285,19 @@ if (require.main === module) {
     setTimeout(() => {
       console.error('[server] Forced shutdown after 10s');
       process.exit(1);
-    }, 10000);
+    }, forcedShutdownMs);
   };
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
 }
-module.exports = {
-  buildApp,
-  createPool,
-  authenticate,
-  authorize,
-  requestTimeout,
-  coordinate: require('./utils/helpers').coordinate,
-  TokenBlocklist,
-  ResetTokenCleanup,
-  UserTokensCleanup,
-};
+
+// ── Named exports ──
+module.exports.buildApp = module.exports.buildApp;
+module.exports.createPool = createPool;
+module.exports.authenticate = authenticate;
+module.exports.authorize = authorize;
+module.exports.requestTimeout = requestTimeout;
+module.exports.coordinate = require('./utils/helpers').coordinate;
+module.exports.TokenBlocklist = TokenBlocklist;
+module.exports.ResetTokenCleanup = ResetTokenCleanup;
+module.exports.UserTokensCleanup = UserTokensCleanup;

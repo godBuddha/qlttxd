@@ -5,7 +5,8 @@ const jwt = require('jsonwebtoken');
 const crypto = require('node:crypto');
 const { secret } = require('../utils/helpers');
 
-module.exports = function thongBaoRoutes({ pool, authenticate, tokenBlocklist }) {
+module.exports = function thongBaoRoutes({ pool, authenticate, tokenBlocklist, configService }) {
+  const cfg = { getSync(cat, key, fb) { return configService ? configService.getSync(cat, key, fb) : fb; } };
   const router = express.Router();
 
   // POST /api/v1/thong-bao/sse-token — issue short-lived SSE token (60s) for EventSource
@@ -17,7 +18,7 @@ module.exports = function thongBaoRoutes({ pool, authenticate, tokenBlocklist })
       const sseToken = jwt.sign(
         { id: req.user.id, type: 'sse', scope: 'thong-bao/stream' },
         secret(),
-        { expiresIn: '60s', jwtid: crypto.randomUUID() }
+        { expiresIn: cfg.getSync('auth', 'sse_token_ttl', '60s'), jwtid: crypto.randomUUID() }
       );
       res.json({ token: sseToken, expiresIn: 60 });
     } catch (e) {
@@ -28,7 +29,7 @@ module.exports = function thongBaoRoutes({ pool, authenticate, tokenBlocklist })
   // GET /api/v1/thong-bao — list notifications for current user (paginated)
   router.get('/api/v1/thong-bao', authenticate, async (req, res, next) => {
     try {
-      const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
+      const limit = Math.min(Math.max(cfg.getSync('pagination', 'notifications_default', 20), 1), cfg.getSync('pagination', 'notifications_max', 100));
       const page = Math.max(Number(req.query.page) || 1, 1);
       const offset = (page - 1) * limit;
       const r = await pool.query(
@@ -102,7 +103,7 @@ module.exports = function thongBaoRoutes({ pool, authenticate, tokenBlocklist })
              FROM thong_bao
             WHERE nguoi_nhan_id=$1 AND kenh='portal' AND created_at > $2
             ORDER BY created_at ASC
-            LIMIT 50`,
+            LIMIT cfg.getSync('sse', 'poll_limit', 50)`,
           [user.id, cursor]
         );
         for (const row of r.rows) {
@@ -122,8 +123,8 @@ module.exports = function thongBaoRoutes({ pool, authenticate, tokenBlocklist })
       } catch {
         cleanup();
       }
-    }, 30000);
-    const pollTimer = setInterval(() => poll().catch(() => {}), 5000);
+    }, cfg.getSync('sse', 'heartbeat_ms', 30000));
+    const pollTimer = setInterval(() => poll().catch(() => {}), cfg.getSync('sse', 'poll_ms', 5000));
     poll().catch(() => {});
 
     let closed = false;

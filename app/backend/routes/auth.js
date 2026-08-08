@@ -11,7 +11,9 @@ const { sanitizeString } = require('../utils/sanitize');
 
 const startTime = Date.now();
 
-module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, authorize }) {
+module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, authorize, configService }) {
+  // CONFIG-T4a: lightweight sync reader from dependency
+  const cfg = { getSync(cat, key, fb) { return configService ? configService.getSync(cat, key, fb) : fb; } };
   const router = express.Router();
 
   // Rate limit for login/auth endpoints (disabled in test/debug mode)
@@ -21,9 +23,9 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
     process.env.QLTTXD_DEBUG_TOKENS === 'true'
       ? (_req, _res, next) => next()
       : rateLimit({
-          windowMs: 15 * 60 * 1000,
-          max: 10,
-          standardHeaders: true,
+          windowMs: cfg.getSync('rate_limit', 'global_window_ms', 900000),
+          max: cfg.getSync('rate_limit', 'auth_max', 10),
+        standardHeaders: true,
           legacyHeaders: false,
           message: { error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' },
         });
@@ -36,7 +38,7 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
         status: 'ok',
         db: 'connected',
         uptime: Math.floor((Date.now() - startTime) / 1000),
-        version: process.env.npm_package_version || '0.3.2',
+        version: process.env.npm_package_version,
       });
     } catch (e) {
       res.status(503).json({ status: 'error', db: 'disconnected', error: e.message });
@@ -55,7 +57,7 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
     try {
       const { ready, checks } = await readiness(pool);
       if (ready) {
-        res.json({ status: 'ready', checks, uptime: Math.floor((Date.now() - startTime) / 1000), version: process.env.npm_package_version || '0.3.2' });
+        res.json({ status: 'ready', checks, uptime: Math.floor((Date.now() - startTime) / 1000), version: process.env.npm_package_version });
       } else {
         res.status(503).json({ status: 'not_ready', checks });
       }
@@ -72,7 +74,7 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
         status: 'ok',
         db: 'connected',
         uptime: Math.floor((Date.now() - startTime) / 1000),
-        version: process.env.npm_package_version || '0.3.2',
+        version: process.env.npm_package_version,
         pool: { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount },
         process: {
           pid: process.pid,
@@ -135,7 +137,7 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
             .status(409)
             .json({ error: 'Quản trị viên đã tồn tại. Không thể đăng ký lại.' });
         }
-        const passwordHash = await bcrypt.hash(password, 10);
+        const passwordHash = await bcrypt.hash(password, cfg.getSync('auth', 'bcrypt_rounds', 10));
         const userResult = await client.query(
           `INSERT INTO users (username, password_hash, full_name, email, phone) VALUES ($1, $2, $3, $4, $5) RETURNING id, username, full_name, email, phone`,
           [safeUsername, passwordHash, safeFullName, safeEmail, safePhone]
@@ -156,7 +158,7 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
         );
         await client.query('COMMIT');
         const claims = { id: user.id, username: user.username, roles: ['admin'], permissions };
-        const token = jwt.sign(claims, secret(), { expiresIn: '5m', jwtid: crypto.randomUUID() });
+        const token = jwt.sign(claims, secret(), { expiresIn: cfg.getSync('auth', 'jwt_access_ttl', '5m'), jwtid: crypto.randomUUID() });
         await pool
           .query(
             'INSERT INTO user_tokens (user_id, jti) VALUES ($1, $2) ON CONFLICT (jti) DO NOTHING',
@@ -164,7 +166,7 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
           )
           .catch(() => {});
         const refreshToken = jwt.sign({ id: user.id, type: 'refresh' }, secret(), {
-          expiresIn: '7d',
+          expiresIn: cfg.getSync('auth', 'jwt_refresh_ttl', '7d'),
           jwtid: crypto.randomUUID(),
         });
         const rtDecoded = jwt.decode(refreshToken);
@@ -178,8 +180,8 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
         res.cookie('qlttxd_refresh_token', refreshToken, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+          sameSite: cfg.getSync('cookie', 'same_site', 'lax'),
+          maxAge: cfg.getSync('cookie', 'max_age_ms', 604800000), // 7 days
           path: '/',
         });
         // Set CSRF cookie for CSRF protection (readable by JS, sameSite lax)
@@ -187,8 +189,8 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
         res.cookie('qlttxd_csrf', csrfToken, {
           httpOnly: false,
           secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+          sameSite: cfg.getSync('cookie', 'same_site', 'lax'),
+          maxAge: cfg.getSync('cookie', 'max_age_ms', 604800000), // 7 days
           path: '/',
         });
         res.status(201).json({
@@ -241,7 +243,7 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
       };
       await pool.query('UPDATE users SET last_login_at=now() WHERE id=$1', [user.id]);
       await audit(pool, { user: claims, ip: req.ip }, 'login', 'users', user.id);
-      const token = jwt.sign(claims, secret(), { expiresIn: '5m', jwtid: crypto.randomUUID() });
+      const token = jwt.sign(claims, secret(), { expiresIn: cfg.getSync('auth', 'jwt_access_ttl', '5m'), jwtid: crypto.randomUUID() });
       await pool
         .query(
           'INSERT INTO user_tokens (user_id, jti) VALUES ($1, $2) ON CONFLICT (jti) DO NOTHING',
@@ -249,7 +251,7 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
         )
         .catch(() => {});
       const refreshToken = jwt.sign({ id: user.id, type: 'refresh' }, secret(), {
-        expiresIn: '7d',
+        expiresIn: cfg.getSync('auth', 'jwt_refresh_ttl', '7d'),
         jwtid: crypto.randomUUID(),
       });
       const rtDecoded = jwt.decode(refreshToken);
@@ -263,8 +265,8 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
       res.cookie('qlttxd_refresh_token', refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        sameSite: cfg.getSync('cookie', 'same_site', 'lax'),
+        maxAge: cfg.getSync('cookie', 'max_age_ms', 604800000), // 7 days
         path: '/',
       });
       // Set CSRF cookie for CSRF protection (readable by JS, sameSite lax)
@@ -272,8 +274,8 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
       res.cookie('qlttxd_csrf', csrfToken, {
         httpOnly: false,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        sameSite: cfg.getSync('cookie', 'same_site', 'lax'),
+        maxAge: cfg.getSync('cookie', 'max_age_ms', 604800000), // 7 days
         path: '/',
       });
       return res.json({
@@ -335,7 +337,7 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
         roles: user.roles || [],
         permissions: user.permissions || [],
       };
-      const token = jwt.sign(claims, secret(), { expiresIn: '5m', jwtid: crypto.randomUUID() });
+      const token = jwt.sign(claims, secret(), { expiresIn: cfg.getSync('auth', 'jwt_access_ttl', '5m'), jwtid: crypto.randomUUID() });
       await pool
         .query(
           'INSERT INTO user_tokens (user_id, jti) VALUES ($1, $2) ON CONFLICT (jti) DO NOTHING',
@@ -343,7 +345,7 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
         )
         .catch(() => {});
       const newRefreshToken = jwt.sign({ id: user.id, type: 'refresh' }, secret(), {
-        expiresIn: '7d',
+        expiresIn: cfg.getSync('auth', 'jwt_refresh_ttl', '7d'),
         jwtid: crypto.randomUUID(),
       });
       const newRtDecoded = jwt.decode(newRefreshToken);
@@ -357,8 +359,8 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
       res.cookie('qlttxd_refresh_token', newRefreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        sameSite: cfg.getSync('cookie', 'same_site', 'lax'),
+        maxAge: cfg.getSync('cookie', 'max_age_ms', 604800000), // 7 days
         path: '/',
       });
       // Set CSRF cookie for CSRF protection (readable by JS, sameSite lax)
@@ -366,8 +368,8 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
       res.cookie('qlttxd_csrf', csrfToken, {
         httpOnly: false,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        sameSite: cfg.getSync('cookie', 'same_site', 'lax'),
+        maxAge: cfg.getSync('cookie', 'max_age_ms', 604800000), // 7 days
         path: '/',
       });
       return res.json({
@@ -410,7 +412,7 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
         return res.status(401).json({ error: 'Mật khẩu cũ không đúng' });
       }
       await pool.query('UPDATE users SET password_hash=$1 WHERE id=$2', [
-        await bcrypt.hash(new_password, 10),
+        await bcrypt.hash(new_password, cfg.getSync('auth', 'bcrypt_rounds', 10)),
         req.user.id,
       ]);
       // Sau khi đổi mật khẩu, thu hồi toàn bộ token của user (C-02)
@@ -490,8 +492,8 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
     process.env.QLTTXD_DEBUG_TOKENS === 'true'
       ? (_req, _res, next) => next()
       : rateLimit({
-          windowMs: 15 * 60 * 1000,
-          max: Number(process.env.RATE_LIMIT_MAX || 200),
+          windowMs: cfg.getSync('rate_limit', 'global_window_ms', 900000),
+          max: Number(process.env.RATE_LIMIT_MAX || cfg.getSync('rate_limit', 'forgot_max', 200)),
           standardHeaders: true,
           legacyHeaders: false,
           message: { error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' },
@@ -524,7 +526,7 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
 
       const rawToken = crypto.randomBytes(32).toString('hex');
       const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-      const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+      const expiresAt = new Date(Date.now() + cfg.getSync('auth', 'reset_token_expiry_ms', 900000));
       await pool.query(
         'INSERT INTO reset_token (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
         [user.id, tokenHash, expiresAt]
@@ -599,7 +601,7 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
         return res.status(400).json({ error: 'Token không hợp lệ hoặc đã hết hạn' });
       }
 
-      const passwordHash = await bcrypt.hash(new_password, 10);
+      const passwordHash = await bcrypt.hash(new_password, cfg.getSync('auth', 'bcrypt_rounds', 10));
       await pool.query('UPDATE users SET password_hash=$1 WHERE id=$2', [
         passwordHash,
         record.user_id,
