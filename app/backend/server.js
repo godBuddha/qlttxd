@@ -37,6 +37,7 @@ const adminCatalogsRoutes = require('./routes/admin-catalogs');
 const thongBaoRoutes = require('./routes/thong-bao');
 const banDoRoutes = require('./routes/ban-do');
 const docsRoutes = require('./routes/docs');
+const configRoutes = require('./routes/config');
 
 function buildApp({ pool }) {
   if (!secret() || secret().length < 32) {
@@ -52,6 +53,12 @@ function buildApp({ pool }) {
     pool,
     retentionDays: Number(process.env.AUDIT_RETENTION_DAYS) || DEFAULT_RETENTION_DAYS,
   });
+  // CONFIG-T3: khởi tạo ConfigService cho hệ thống config + workflow
+  const { ConfigService } = require('./lib/config-service');
+  const configService = new ConfigService();
+  // Fire-and-forget startup — nếu DB chưa sẵn sàng thì get() fallback env/param,
+  // cache sẽ được populate khi start hoàn tất (tương tự auditRetention.start()).
+  configService.start(pool).catch(err => console.error('[ConfigService] Lỗi khởi động:', err.message));
   const authenticateWithBlocklist = makeAuthenticate(tokenBlocklist);
   const app = express();
   // Tin cậy proxy để req.ip trả về IP thật qua X-Forwarded-For khi behind proxy (C-03)
@@ -163,6 +170,7 @@ function buildApp({ pool }) {
     tokenBlocklist,
     authenticate: authenticateWithBlocklist,
     authorize,
+    configService,
   };
 
   // Write rate limiter for state-changing methods
@@ -189,6 +197,10 @@ function buildApp({ pool }) {
   app.use(thongBaoRoutes(deps));
   app.use(banDoRoutes(deps));
   app.use(docsRoutes(deps));
+  app.use(configRoutes(deps));
+
+  // Store configService on app for shutdown handling
+  app.configService = configService;
 
   app.use((error, req, res, _next) => {
     if (error instanceof require('multer').MulterError) {
@@ -231,6 +243,10 @@ if (require.main === module) {
   );
   const shutdown = (signal) => {
     console.log(`[server] Received ${signal}, shutting down gracefully...`);
+    // Stop ConfigService notify listener
+    if (app.configService && typeof app.configService.stop === 'function') {
+      app.configService.stop();
+    }
     server.close(() => {
       console.log('[server] HTTP server closed');
       pool
