@@ -8,7 +8,7 @@ Trạng thái: PLAN ONLY — chưa sửa code, chưa triển khai implementation
 Xử lý có truy vết toàn bộ Issue từ:
 
 - `docs/AUDIT-REPORT-v0.3.2.md`
-- `docs/REVIEW-UX-v0.3.2.md`
+- `docs/reviews/REVIEW-UX-v0.3.2.md`
 - `docs/reviews/A11Y-REVIEW-v0.3.2.md`
 
 Mọi thay đổi phải đi theo chuỗi:
