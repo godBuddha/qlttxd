@@ -2,8 +2,9 @@
 
 const { createTransporter, sendEmail, isSmtpConfigured } = require('./email');
 
-const BATCH_SIZE = 10;
-const POLL_INTERVAL_MS = 30 * 1000; // 30 giây
+/** Default values — used when configService is unavailable */
+const DEFAULT_BATCH_SIZE = 10;
+const DEFAULT_POLL_INTERVAL_MS = 30 * 1000; // 30 giây
 
 /**
  * Notification Worker — polling thong_bao kenh='email', trang_thai='cho_gui'.
@@ -12,13 +13,32 @@ class NotificationWorker {
   /**
    * @param {object} opts
    * @param {import('pg').Pool} opts.pool
+   * @param {import('../lib/config-service').ConfigService} [opts.configService] - optional config reader
    * @param {number} [opts.intervalMs]
    * @param {number} [opts.batchSize]
    */
-  constructor({ pool, intervalMs = POLL_INTERVAL_MS, batchSize = BATCH_SIZE } = {}) {
+  constructor({ pool, configService, intervalMs, batchSize } = {}) {
     this._pool = pool;
-    this._intervalMs = intervalMs;
+    // Resolve batchSize: explicit param → configService → fallback
+    if (batchSize === undefined || batchSize === null) {
+      if (configService && typeof configService.getSync === 'function') {
+        const csVal = configService.getSync('notification', 'worker_batch_size', DEFAULT_BATCH_SIZE);
+        batchSize = Number(csVal) || DEFAULT_BATCH_SIZE;
+      } else {
+        batchSize = DEFAULT_BATCH_SIZE;
+      }
+    }
     this._batchSize = batchSize;
+    // Resolve interval: explicit param → configService → fallback
+    if (intervalMs === undefined || intervalMs === null) {
+      if (configService && typeof configService.getSync === 'function') {
+        const csVal = configService.getSync('notification', 'worker_poll_interval_ms', DEFAULT_POLL_INTERVAL_MS);
+        intervalMs = Number(csVal) || DEFAULT_POLL_INTERVAL_MS;
+      } else {
+        intervalMs = DEFAULT_POLL_INTERVAL_MS;
+      }
+    }
+    this._intervalMs = intervalMs;
     this._timer = null;
     this._transporter = null;
     this._running = false;
@@ -106,4 +126,4 @@ class NotificationWorker {
   }
 }
 
-module.exports = { NotificationWorker, BATCH_SIZE, POLL_INTERVAL_MS };
+module.exports = { NotificationWorker, DEFAULT_BATCH_SIZE, DEFAULT_POLL_INTERVAL_MS };

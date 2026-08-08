@@ -6,9 +6,11 @@ const path = require('node:path');
 const { createWriteStream } = require('node:fs');
 const { pipeline } = require('node:stream/promises');
 
+/** Default values — used when configService is unavailable */
 const DEFAULT_RETENTION_DAYS = 7300; // 20 năm = 365 * 20 ngày
-const BATCH_SIZE = 500;              // xóa theo batch để không khóa bảng lâu
-const ARCHIVE_DIR = 'audit_archive';
+const DEFAULT_BATCH_SIZE = 500;      // xóa theo batch để không khóa bảng lâu
+const DEFAULT_ARCHIVE_DIR = 'audit_archive';
+const DEFAULT_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 giờ
 
 /**
  * AuditRetention — archive cũ audit_log ra file nén rồi xóa khỏi DB.
@@ -25,21 +27,51 @@ const ARCHIVE_DIR = 'audit_archive';
 class AuditRetention {
   /**
    * @param {object} opts
-   * @param {import('pg').Pool} opts.pool         PostgreSQL pool
-   * @param {number}    [opts.retentionDays]       số ngày giữ lại (default 7300)
-   * @param {number}    [opts.intervalMs]          chu kỳ chạy (default 24h)
-   * @param {string}    [opts.archiveBaseDir]      thư mục chứa uploads/default './'
+   * @param {import('pg').Pool} opts.pool               PostgreSQL pool
+   * @param {import('../../lib/config-service').ConfigService} [opts.configService] - optional config reader
+   * @param {number}    [opts.retentionDays]              số ngày giữ lại (default 7300)
+   * @param {number}    [opts.intervalMs]                 chu kỳ chạy (default 24h)
+   * @param {string}    [opts.archiveBaseDir]             thư mục chứa uploads/default './'
    */
-  constructor({
-    pool,
-    retentionDays = DEFAULT_RETENTION_DAYS,
-    intervalMs = 24 * 60 * 60 * 1000, // 24 giờ
-    archiveBaseDir = '.',
-  } = {}) {
+  constructor({ pool, configService, retentionDays, intervalMs, archiveBaseDir } = {}) {
     this._pool = pool;
+    // Resolve retentionDays: explicit param → configService → fallback
+    if (retentionDays === undefined || retentionDays === null) {
+      if (configService && typeof configService.getSync === 'function') {
+        retentionDays = Number(configService.getSync('audit', 'retention_days', DEFAULT_RETENTION_DAYS));
+      } else {
+        retentionDays = DEFAULT_RETENTION_DAYS;
+      }
+    }
     this._retentionDays = retentionDays;
-    this._archiveBaseDir = path.resolve(archiveBaseDir);
+    // Resolve archive dir name from config → fallback
+    let archiveDirName = DEFAULT_ARCHIVE_DIR;
+    if (configService && typeof configService.getSync === 'function') {
+      const ad = configService.getSync('audit', 'archive_dir', DEFAULT_ARCHIVE_DIR);
+      if (ad && typeof ad === 'string') archiveDirName = ad;
+    }
+    this._archiveBaseDir = archiveBaseDir ? path.resolve(archiveBaseDir) : '.';
+    this._archiveDirName = archiveDirName;
+    // Resolve interval: explicit param → configService → fallback
+    if (intervalMs === undefined || intervalMs === null) {
+      if (configService && typeof configService.getSync === 'function') {
+        intervalMs = Number(configService.getSync('audit', 'interval_ms', DEFAULT_INTERVAL_MS));
+      } else {
+        intervalMs = DEFAULT_INTERVAL_MS;
+      }
+    }
     this._intervalMs = intervalMs;
+    // Resolve batch size: explicit param → configService → fallback
+    let batchSize = DEFAULT_BATCH_SIZE;
+    const rawBatchSize = Number(process.env.AUDIT_BATCH_SIZE);
+    if (!Number.isNaN(rawBatchSize)) {
+      batchSize = rawBatchSize;
+    } else if (configService && typeof configService.getSync === 'function') {
+      const csVal = configService.getSync('audit', 'batch_size', DEFAULT_BATCH_SIZE);
+      batchSize = Number(csVal) || DEFAULT_BATCH_SIZE;
+    }
+    this._batchSize = batchSize;
+
     this._timer = null;
 
     // Advisory-lock key duy nhất cho job này
@@ -122,8 +154,8 @@ class AuditRetention {
       // Bước 3: xóa theo batch sau khi archive thành công
       const ids = oldRows.map((r) => r.id);
       let totalDeleted = 0;
-      for (let i = 0; i < ids.length; i += BATCH_SIZE) {
-        const chunk = ids.slice(i, i + BATCH_SIZE);
+      for (let i = 0; i < ids.length; i += this._batchSize) {
+        const chunk = ids.slice(i, i + this._batchSize);
         const res = await this._pool.query(
           'DELETE FROM audit_log WHERE id = ANY($1::bigint[])',
           [chunk]
@@ -168,9 +200,9 @@ class AuditRetention {
   /** Query audit_log cũ hơn retentionDays */
   async _queryExpiredRows() {
     const res = await this._pool.query(
-      `SELECT id, nguoi_dung_id, hanh_dong, bang_bi_tac_dong, id_ban_ghi, 
-              chi_tiet, ip, thoi_gian, request_id 
-       FROM audit_log 
+      `SELECT id, nguoi_dung_id, hanh_dong, bang_bi_tac_dong, id_ban_ghi,
+              chi_tiet, ip, thoi_gian, request_id
+       FROM audit_log
        WHERE thoi_gian < now() - ($1::int * interval '1 day')
        ORDER BY thoi_gian ASC`,
       [this._retentionDays]
@@ -185,7 +217,7 @@ class AuditRetention {
       .slice(0, 7); // YYYY-MM
     const ts = Date.now();
     const fileName = `audit-${dateStr}-${ts}.json.gz`;
-    const dir = path.join(this._archiveBaseDir, ARCHIVE_DIR);
+    const dir = path.join(this._archiveBaseDir, this._archiveDirName);
 
     // Tạo thư mục nếu chưa tồn tại
     await this._ensureDir(dir);
@@ -239,7 +271,7 @@ class AuditRetention {
   }
 
   get archiveDir() {
-    return path.join(this._archiveBaseDir, ARCHIVE_DIR);
+    return path.join(this._archiveBaseDir, this._archiveDirName);
   }
 }
 

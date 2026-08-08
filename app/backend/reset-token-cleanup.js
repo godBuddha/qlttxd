@@ -1,6 +1,7 @@
 'use strict';
 
-const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 giờ
+/** Default value — used when configService is unavailable */
+const DEFAULT_INTERVAL_MS = 60 * 60 * 1000; // 1 giờ
 
 /**
  * Dọn dẹp định kỳ bảng reset_token.
@@ -12,11 +13,20 @@ const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 giờ
 class ResetTokenCleanup {
   /**
    * @param {object} opts
-   * @param {import('pg').Pool} opts.pool - PostgreSQL connection pool
-   * @param {number} [opts.intervalMs] - chu kỳ dọn dẹp (mặc định 1 giờ)
+   * @param {import('pg').Pool} opts.pool                - PostgreSQL connection pool
+   * @param {import('../lib/config-service').ConfigService} [opts.configService] - optional config reader
+   * @param {number} [opts.intervalMs]                     - chu kỳ dọn dẹp (mặc định 1 giờ)
    */
-  constructor({ pool, intervalMs = CLEANUP_INTERVAL_MS } = {}) {
+  constructor({ pool, configService, intervalMs } = {}) {
     this._pool = pool;
+    // Resolve interval: explicit param → configService → fallback
+    if (intervalMs === undefined || intervalMs === null) {
+      if (configService && typeof configService.getSync === 'function') {
+        intervalMs = configService.getSync('cleanup', 'reset_token_interval_ms', DEFAULT_INTERVAL_MS);
+      } else {
+        intervalMs = DEFAULT_INTERVAL_MS;
+      }
+    }
     this._timer = setInterval(() => this._cleanup(), intervalMs);
     this._timer.unref(); // không giữ process sống khi tắt server
   }

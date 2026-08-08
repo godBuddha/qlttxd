@@ -38,7 +38,7 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
         status: 'ok',
         db: 'connected',
         uptime: Math.floor((Date.now() - startTime) / 1000),
-        version: process.env.npm_package_version,
+        version: process.env.npm_package_version || '0.3.2',
       });
     } catch (e) {
       res.status(503).json({ status: 'error', db: 'disconnected', error: e.message });
@@ -57,7 +57,7 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
     try {
       const { ready, checks } = await readiness(pool);
       if (ready) {
-        res.json({ status: 'ready', checks, uptime: Math.floor((Date.now() - startTime) / 1000), version: process.env.npm_package_version });
+        res.json({ status: 'ready', checks, uptime: Math.floor((Date.now() - startTime) / 1000), version: process.env.npm_package_version || '0.3.2' });
       } else {
         res.status(503).json({ status: 'not_ready', checks });
       }
@@ -74,7 +74,7 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
         status: 'ok',
         db: 'connected',
         uptime: Math.floor((Date.now() - startTime) / 1000),
-        version: process.env.npm_package_version,
+        version: process.env.npm_package_version || '0.3.2',
         pool: { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount },
         process: {
           pid: process.pid,

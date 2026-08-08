@@ -128,7 +128,7 @@ class ConfigService {
       await client.query('COMMIT');
 
       // NOTIFY other instances
-      await client.query(`NOTIFY config_changed, '${JSON.stringify({ category, key, scope, scopeId })}'`);
+      await client.query(`SELECT pg_notify('config_changed', $1)`, [JSON.stringify({ category, key, scope, scopeId })]);
 
       // Audit (if we have req.user from middleware)
       if (req.user && userId) {
@@ -192,18 +192,36 @@ class ConfigService {
     this._pool = pool;
 
     // Load all configs into cache
-    const r = await pool.query(
-      `SELECT scope, scope_id::text, category, key, value, is_secret FROM system_config ORDER BY category, key`
-    );
-    for (const row of r.rows) {
-      const ck = this._cacheKey(row.scope, row.scope_id, row.category, row.key);
-      this._cache.set(ck, { row, ts: Date.now() });
+    try {
+      const r = await pool.query(
+        `SELECT scope, scope_id::text, category, key, value, is_secret FROM system_config ORDER BY category, key`
+      );
+      for (const row of r.rows) {
+        const ck = this._cacheKey(row.scope, row.scope_id, row.category, row.key);
+        this._cache.set(ck, { row, ts: Date.now() });
+      }
+    } catch (err) {
+      console.error('[ConfigService] Cache load failed:', err.message);
     }
 
-    // Subscribe to LISTEN channel
-    const notifyDsn = process.env.DATABASE_URL
-      ? { connectionString: process.env.DATABASE_URL, statement_timeout: 0 }
-      : {
+    // Subscribe to LISTEN channel — use a separate Client.
+    // Build connection config from pool options if available, else from env.
+    try {
+      let notifyDsn;
+      if (process.env.DATABASE_URL) {
+        notifyDsn = { connectionString: process.env.DATABASE_URL, statement_timeout: 0 };
+      } else if (pool.options) {
+        // Reuse pool's connection config (handles Unix sockets correctly)
+        notifyDsn = {
+          host: pool.options.host,
+          port: pool.options.port || 5432,
+          database: pool.options.database,
+          user: pool.options.user,
+          password: pool.options.password || undefined,
+          statement_timeout: 0,
+        };
+      } else {
+        notifyDsn = {
           host: process.env.PGHOST,
           port: Number(process.env.PGPORT) || 5432,
           database: process.env.PGDATABASE,
@@ -211,24 +229,37 @@ class ConfigService {
           password: process.env.PGPASSWORD || undefined,
           statement_timeout: 0,
         };
-    this._notifyClient = new Client(notifyDsn);
-    await this._notifyClient.connect();
-    await this._notifyClient.query('LISTEN config_changed');
-
-    this._notifyClient.on('notification', (msg) => {
-      let data;
-      try { data = JSON.parse(msg.payload); } catch { return; }
-      if (data.category && data.key) {
-        const ck = this._cacheKey(data.scope || 'global', data.scopeId || null, data.category, data.key);
-        this._invalidate(ck);
-      } else {
-        // Wildcard reload — clear entire cache and re-query
-        this._cache.clear();
-        this.reloadFromDB();
       }
-    });
 
-    console.log('[ConfigService] Started — cache loaded, LISTEN active');
+      // Skip NOTIFY if host looks like a Unix socket path (starts with '/')
+      // pg.Client doesn't support Unix sockets well — use pool.query('NOTIFY') instead
+      if (notifyDsn.host && String(notifyDsn.host).startsWith('/')) {
+        console.log('[ConfigService] Started — cache loaded, NOTIFY via pool (Unix socket mode)');
+        this._usePoolNotify = true;
+      } else {
+        this._notifyClient = new Client(notifyDsn);
+        await this._notifyClient.connect();
+        await this._notifyClient.query('LISTEN config_changed');
+
+        this._notifyClient.on('notification', (msg) => {
+          let data;
+          try { data = JSON.parse(msg.payload); } catch { return; }
+          if (data.category && data.key) {
+            const ck = this._cacheKey(data.scope || 'global', data.scopeId || null, data.category, data.key);
+            this._invalidate(ck);
+          } else {
+            // Wildcard reload — clear entire cache and re-query
+            this._cache.clear();
+            this.reloadFromDB();
+          }
+        });
+
+        console.log('[ConfigService] Started — cache loaded, LISTEN active');
+      }
+    } catch (err) {
+      console.error('[ConfigService] LISTEN setup failed (non-critical):', err.message);
+      this._usePoolNotify = true;
+    }
   }
 
   /** Force-reload cache from DB */

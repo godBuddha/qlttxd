@@ -1,17 +1,37 @@
 'use strict';
 
-const CLEANUP_INTERVAL_MS = 30 * 60 * 1000; // 30 phút
+/** Default values — used when configService is unavailable */
+const DEFAULT_INTERVAL_MS = 30 * 60 * 1000; // 30 phút
+const DEFAULT_TTL_MS = 8 * 60 * 60 * 1000;  // 8 giờ
 
 class TokenBlocklist {
   /**
    * @param {object} opts
-   * @param {import('pg').Pool} opts.pool - PostgreSQL connection pool
-   * @param {number} [opts.ttlMs] - thời gian sống của JTI trong blocklist (mặc định 8h)
+   * @param {import('pg').Pool} opts.pool          - PostgreSQL connection pool
+   * @param {import('../lib/config-service').ConfigService} [opts.configService] - optional config reader
+   * @param {number} [opts.ttlMs]                    - thời gian sống của JTI trong blocklist (mặc định 8h)
+   * @param {number} [opts.intervalMs]                - chu kỳ dọn dẹp (mặc định 30 phút)
    */
-  constructor({ pool, ttlMs = 8 * 60 * 60 * 1000 } = {}) {
+  constructor({ pool, configService, ttlMs, intervalMs } = {}) {
     this._pool = pool;
+    // Resolve TTL: explicit param → configService → fallback
+    if (ttlMs === undefined || ttlMs === null) {
+      if (configService && typeof configService.getSync === 'function') {
+        ttlMs = configService.getSync('cleanup', 'token_blocklist_ttl_ms', DEFAULT_TTL_MS);
+      } else {
+        ttlMs = DEFAULT_TTL_MS;
+      }
+    }
     this._ttl = ttlMs;
-    this._timer = setInterval(() => this._cleanup(), CLEANUP_INTERVAL_MS);
+    // Resolve interval: explicit param → configService → fallback
+    if (intervalMs === undefined || intervalMs === null) {
+      if (configService && typeof configService.getSync === 'function') {
+        intervalMs = configService.getSync('cleanup', 'token_blocklist_interval_ms', DEFAULT_INTERVAL_MS);
+      } else {
+        intervalMs = DEFAULT_INTERVAL_MS;
+      }
+    }
+    this._timer = setInterval(() => this._cleanup(), intervalMs);
     this._timer.unref(); // không giữ process sống khi tắt server
   }
 

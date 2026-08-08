@@ -55,6 +55,9 @@ function createPool(configService) {
 
 /** Build App Factory */
 module.exports.buildApp = function buildApp({ pool, configService }) {
+  // Ensure JWT_SECRET is set (random fallback if missing)
+  secret();
+
   // CONFIG-T4a: Lightweight sync config reader (cache|env|fallback only)
   const cfg = {
     getSync(cat, key, fb) {
@@ -67,13 +70,14 @@ module.exports.buildApp = function buildApp({ pool, configService }) {
   };
 
   // ── Pre-create shared deps (before app instantiation) ──
-  const tokenBlocklist = new TokenBlocklist({ pool });
-  new ResetTokenCleanup({ pool });
-  new UserTokensCleanup({ pool });
+  const tokenBlocklist = new TokenBlocklist({ pool, configService });
+  new ResetTokenCleanup({ pool, configService });
+  new UserTokensCleanup({ pool, configService });
 
-  // CONFIG-T4a: AUDIT_RETENTION_DAYS with env override
+  // CONFIG-T4a: AUDIT_RETENTION_DAYS with env override + configService
   const auditRetention = new AuditRetention({
     pool,
+    configService,
     retentionDays: Number(process.env.AUDIT_RETENTION_DAYS) || cfg.getSync('audit', 'retention_days', 7300),
   });
 

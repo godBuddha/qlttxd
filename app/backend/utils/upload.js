@@ -5,21 +5,48 @@ const fs = require('node:fs');
 const crypto = require('node:crypto');
 const multer = require('multer');
 
+const DEFAULT_UPLOAD_MB = 10;
 const uploadDirectory = path.resolve(process.env.UPLOAD_DIR || './uploads');
 fs.mkdirSync(uploadDirectory, { recursive: true });
-const storage = multer.diskStorage({
-  destination: (_req, _file, done) => done(null, uploadDirectory),
-  filename: (_req, file, done) =>
-    done(
-      null,
-      `${Date.now()}-${crypto.randomUUID()}${path.extname(file.originalname).toLowerCase()}`
-    ),
-});
-const upload = multer({
-  storage,
-  limits: { fileSize: Number(process.env.MAX_UPLOAD_MB || 10) * 1024 * 1024 },
-  fileFilter: (_req, file, done) => done(null, file.mimetype.startsWith('image/')),
-});
+
+/** Compute effective MAX_UPLOAD_MB env → configService → fallback */
+function resolveMaxUploadMb(configService) {
+  // Env override has priority (per task requirement: KEEP process.env override)
+  const envVal = Number(process.env.MAX_UPLOAD_MB);
+  if (!Number.isNaN(envVal)) return envVal;
+  // Then configService
+  if (configService && typeof configService.getSync === 'function') {
+    const csVal = configService.getSync('upload', 'max_mb', DEFAULT_UPLOAD_MB);
+    const parsed = Number(csVal);
+    if (!Number.isNaN(parsed) && parsed > 0) return parsed;
+  }
+  // Fallback
+  return DEFAULT_UPLOAD_MB;
+}
+
+/** Create a multer upload instance with configurable max size.
+ * @param {import('../lib/config-service').ConfigService} [configService]
+ * @returns {{ upload: import('multer').Middleware, maxUploadMb: number }}
+ */
+function createUpload(configService) {
+  const maxUploadMb = resolveMaxUploadMb(configService);
+  const storage = multer.diskStorage({
+    destination: (_req, _file, done) => done(null, uploadDirectory),
+    filename: (_req, file, done) =>
+      done(
+        null,
+        `${Date.now()}-${crypto.randomUUID()}${path.extname(file.originalname).toLowerCase()}`
+      ),
+  });
+  const uploadInstance = multer({
+    storage,
+    limits: { fileSize: maxUploadMb * 1024 * 1024 },
+    fileFilter: (_req, file, done) => done(null, file.mimetype.startsWith('image/')),
+  });
+  return { upload: uploadInstance, maxUploadMb };
+}
+
+const { upload, maxUploadMb } = createUpload();
 
 function hasSafeImageMagic(file) {
   const bytes = fs.readFileSync(file.path);
