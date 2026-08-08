@@ -13,16 +13,31 @@ export function CaseDetail({ id, api, user, navigate, notify }) {
   const [item, setItem] = useState(null);
   const [tab, setTab] = useState('overview');
   const [busy, setBusy] = useState(false);
-  const [state, setState] = useState('');
+  const [selectedState, setSelectedState] = useState('');
+  const [statusHistory, setStatusHistory] = useState([]);
+  const [transitionError, setTransitionError] = useState(null);
   const load = () =>
     api(`/api/v1/ho-so/${id}`)
       .then((r) => {
         setItem(r.data);
-        setState(r.data.trang_thai);
+        setSelectedState(r.data.trang_thai);
       })
       .catch((e) => notify(errorText(e), 'error'));
   useEffect(() => {
     load();
+  }, [id]);
+
+  // Load status change history from audit log
+  useEffect(() => {
+    if (!id) return;
+    api(`/api/v1/admin/audit-log?bang=ho_so&hanh_dong=case.status_change`)
+      .then((r) => {
+        const logs = (r.data || [])
+          .filter((l) => String(l.id_ban_ghi) === String(id))
+          .sort((a, b) => new Date(a.thoi_gian) - new Date(b.thoi_gian));
+        setStatusHistory(logs);
+      })
+      .catch(() => setStatusHistory([]));
   }, [id]);
 
   // NOTE: this effect must be declared BEFORE the `if (!item)` early return so
@@ -34,7 +49,7 @@ export function CaseDetail({ id, api, user, navigate, notify }) {
       const tag = e.target.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
         if (e.key === 'Escape') {
-          setState(item.trang_thai);
+          setSelectedState(item.trang_thai);
           e.target.blur();
         }
         return;
@@ -42,32 +57,55 @@ export function CaseDetail({ id, api, user, navigate, notify }) {
       if (
         e.key === 'Enter' &&
         can(user, 'case.update') &&
-        state &&
-        state !== item.trang_thai &&
+        selectedState &&
+        selectedState !== item.trang_thai &&
         !busy
       ) {
         transition();
       } else if (e.key === 'Escape') {
-        setState(item.trang_thai);
+        setSelectedState(item.trang_thai);
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [item, state, busy, user]);
+  }, [item, selectedState, busy, user]);
   if (!item) return <Loading />;
-  async function transition() {
-    if (!state || state === item.trang_thai) return;
+
+  // Build visible transitions: allowed by workflow + role check
+  const rawNextStates = TRANSITIONS[item.trang_thai] || [];
+  const userRoles = (user?.roles || []);
+  const visibleTransitions = rawNextStates.filter((next) => {
+    // If user has admin role, allow everything
+    if (userRoles.includes('admin')) return true;
+    // Otherwise check role permissions via backend's canTransition logic
+    // We replicate the same rule set here for client-side filtering
+    const rolePermissions = {
+      case_handler: new Set(['da_tiep_nhan', 'dang_khac_phuc', 'da_khac_phuc', 'da_dong', 'da_lap_bien_ban']),
+      verifier: new Set(['dang_xac_minh', 'cho_bo_sung', 'cho_lap_bien_ban', 'da_dong']),
+      leader: new Set(['cho_xac_minh', 'dang_xac_minh', 'cho_bo_sung', 'cho_lap_bien_ban', 'da_ra_quyet_dinh', 'da_dong', 'da_huy', 'da_chuyen_co_quan']),
+    };
+    for (const role of userRoles) {
+      const perms = rolePermissions[role];
+      if (perms && perms.has(next)) return true;
+    }
+    return false;
+  });
+
+  async function transition(targetState) {
+    if (!targetState || targetState === item.trang_thai) return;
     setBusy(true);
+    setTransitionError(null);
     try {
       await api(`/api/v1/ho-so/${id}/trang-thai`, {
         method: 'PATCH',
-        body: JSON.stringify({ trang_thai: state }),
+        body: JSON.stringify({ trang_thai: targetState }),
       });
       notify('Đã cập nhật trạng thái.', 'success');
       load();
     } catch (e) {
-      notify(errorText(e), 'error');
-      setState(item.trang_thai);
+      const msg = errorText(e);
+      setTransitionError(msg.includes('không hợp lệ') ? msg : `Không thực hiện được: ${msg}`);
+      setSelectedState(item.trang_thai);
     } finally {
       setBusy(false);
     }
@@ -102,20 +140,31 @@ export function CaseDetail({ id, api, user, navigate, notify }) {
           </dl>
           {can(user, 'case.update') && (
             <div className="action-box">
-              <label>
-                Chuyển trạng thái
-                <select value={state} onChange={(e) => setState(e.target.value)}>
-                  {(TRANSITIONS[item.trang_thai] || []).map((x) => (
-                    <option key={x} value={x}>
+              <label>Chuyển trạng thái</label>
+              {visibleTransitions.length > 0 ? (
+                <div className="transition-buttons">
+                  {visibleTransitions.map((x) => (
+                    <button
+                      key={x}
+                      type="button"
+                      disabled={busy || x === item.trang_thai}
+                      onClick={() => transition(x)}
+                      title={STATE_LABELS[x] || x}
+                      className="transition-btn"
+                    >
                       {STATE_LABELS[x]}
-                    </option>
+                    </button>
                   ))}
-                </select>
-              </label>
-              <button disabled={busy || state === item.trang_thai} onClick={transition}>
-                Cập nhật
-              </button>
-              <small>Hệ thống chỉ chấp nhận các chuyển trạng thái hợp lệ.</small>
+                </div>
+              ) : (
+                <p className="empty" style={{ textAlign: 'center', gridColumn: '1 / -1' }}>
+                  Không có chuyển trạng thái nào khả dụng.
+                </p>
+              )}
+              {transitionError && (
+                <p className="field-error">{transitionError}</p>
+              )}
+              <small>Hệ thống chỉ chấp nhận các chuyển trạng thái hợp lệ theo vai trò.</small>
             </div>
           )}
         </section>
@@ -143,7 +192,7 @@ export function CaseDetail({ id, api, user, navigate, notify }) {
           onChange={setTab}
         />
         <TabPanel id="case-detail" tabKey="overview" active={tab === 'overview'}>
-          <Timeline item={item} />
+          <Timeline item={item} history={statusHistory} />
         </TabPanel>
         <TabPanel id="case-detail" tabKey="images" active={tab === 'images'}>
           <EvidenceGallery images={item.anh || []} />
@@ -265,20 +314,80 @@ export function EvidenceGallery({ images }) {
   );
 }
 
-export function Timeline({ item }) {
+export function Timeline({ item, history }) {
+  // Build timeline entries from audit log status changes + initial creation
+  const entries = [];
+
+  // Start: case creation
+  if (item.created_at) {
+    entries.push({
+      state: null,
+      label: 'Khởi tạo hồ sơ',
+      timestamp: item.created_at,
+      user: null,
+      detail: {},
+    });
+  }
+
+  // Insert status change events chronologically
+  if (history && history.length > 0) {
+    for (const log of history) {
+      const detail = typeof log.chi_tiet === 'string' ? JSON.parse(log.chi_tiet) : log.chi_tiet;
+      const fromLabel = detail.from ? STATE_LABELS[detail.from] || detail.from : '';
+      const toLabel = detail.to ? STATE_LABELS[detail.to] || detail.to : '';
+      entries.push({
+        state: detail.to,
+        label: `${fromLabel}${fromLabel ? ' → ' : ''}${toLabel}`,
+        timestamp: log.thoi_gian,
+        user: log.full_name || log.username || null,
+        detail,
+      });
+    }
+  }
+
+  // Add current state if not already covered by last history entry
+  // Only add fallback if we already have some timeline entries (otherwise leave it empty)
+  const hasCurrentInHistory =
+    history && history.length > 0
+      ? (() => {
+          const last = history[history.length - 1];
+          const detail = typeof last.chi_tiet === 'string' ? JSON.parse(last.chi_tiet) : last.chi_tiet;
+          return detail.to === item.trang_thai;
+        })()
+      : false;
+
+  if (!hasCurrentInHistory && entries.length > 0) {
+    entries.push({
+      state: item.trang_thai,
+      label: STATE_LABELS[item.trang_thai] || item.trang_thai,
+      timestamp: item.updated_at,
+      user: null,
+      detail: {},
+    });
+  }
+
   return (
     <div>
       <h3>Tiến trình xử lý</h3>
-      <ol className="timeline">
-        <li>
-          <b>Khởi tạo hồ sơ</b>
-          <span>{dateText(item.created_at)}</span>
-        </li>
-        <li className="current">
-          <b>{STATE_LABELS[item.trang_thai]}</b>
-          <span>Cập nhật {dateText(item.updated_at)}</span>
-        </li>
-      </ol>
+      {entries.length === 0 ? (
+        <p className="empty">Chưa có dữ liệu tiến trình.</p>
+      ) : (
+        <ol className="timeline">
+          {entries.map((e, i) => {
+            const isCurrent = e.state === item.trang_thai;
+            const isTerminal = ['da_dong', 'da_huy', 'da_chuyen_co_quan'].includes(e.state);
+            return (
+              <li key={i} className={`${isCurrent ? 'current' : ''} ${isTerminal ? 'terminal' : ''}`}>
+                <b>{e.label}</b>
+                <span>
+                  {dateText(e.timestamp)}
+                  {e.user && <> · <em>{e.user}</em></>}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      )}
     </div>
   );
 }

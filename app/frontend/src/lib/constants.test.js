@@ -29,6 +29,7 @@ describe('STATES / STATE_LABELS consistency', () => {
   it('không có state lạ ngoài danh sách đã định nghĩa', () => {
     const KNOWN = [
       'cho_tiep_nhan',
+      'da_tiep_nhan',
       'cho_xac_minh',
       'dang_xac_minh',
       'cho_bo_sung',
@@ -41,6 +42,7 @@ describe('STATES / STATE_LABELS consistency', () => {
       'da_khac_phuc',
       'da_dong',
       'da_huy',
+      'da_chuyen_co_quan',
     ];
     for (const s of STATES) expect(KNOWN).toContain(s);
   });

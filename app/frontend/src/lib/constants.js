@@ -2,6 +2,7 @@ export const HOME = [21.0285, 105.8542]; // Hà Nội
 
 export const STATES = [
   'cho_tiep_nhan',
+  'da_tiep_nhan',              // NEW: đã tiếp nhận
   'cho_xac_minh',
   'dang_xac_minh',
   'cho_bo_sung',
@@ -14,10 +15,12 @@ export const STATES = [
   'da_khac_phuc',
   'da_dong',
   'da_huy',
+  'da_chuyen_co_quan',         // NEW: chuyển cơ quan khác
 ];
 
 export const STATE_LABELS = {
   cho_tiep_nhan: 'Chờ tiếp nhận',
+  da_tiep_nhan: 'Đã tiếp nhận',
   cho_xac_minh: 'Chờ xác minh',
   dang_xac_minh: 'Đang xác minh',
   cho_bo_sung: 'Chờ bổ sung',
@@ -30,11 +33,18 @@ export const STATE_LABELS = {
   da_khac_phuc: 'Đã khắc phục',
   da_dong: 'Đã đóng',
   da_huy: 'Đã hủy',
+  da_chuyen_co_quan: 'Chuyển cơ quan khác',
 };
 
-export const TRANSITIONS = {
-  cho_tiep_nhan: ['cho_xac_minh', 'da_huy'],
-  cho_xac_minh: ['dang_xac_minh', 'cho_bo_sung', 'da_huy'],
+export const TRANSITIONS = Object.freeze({
+  // Terminal states — no outgoing transitions
+  da_dong: [],
+  da_huy: [],
+  da_chuyen_co_quan: [],
+  // Workflow transitions
+  cho_tiep_nhan: ['cho_xac_minh', 'da_tiep_nhan', 'da_huy', 'da_chuyen_co_quan'],
+  da_tiep_nhan: ['cho_xac_minh', 'cho_bo_sung', 'da_huy'],
+  cho_xac_minh: ['dang_xac_minh', 'cho_bo_sung', 'da_huy', 'da_chuyen_co_quan'],
   dang_xac_minh: ['cho_bo_sung', 'cho_lap_bien_ban', 'da_huy'],
   cho_bo_sung: ['cho_xac_minh', 'da_huy'],
   cho_lap_bien_ban: ['da_lap_bien_ban', 'da_huy'],
@@ -44,7 +54,7 @@ export const TRANSITIONS = {
   dang_khac_phuc: ['da_khac_phuc'],
   da_khac_phuc: ['da_dong'],
   cho_duyet_dieu_81: ['cho_lap_bien_ban', 'da_huy'],
-};
+});
 
 export const AUDIT_TABLES = [
   '',
