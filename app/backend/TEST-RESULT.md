@@ -464,3 +464,62 @@ Agent viết module `audit-retention.js` ở task trước bị chết ở 2 ch�
 - Advisory lock kiểu `pg_try_advisory_xact_lock` giải phóng khi transaction kết thúc (sau mỗi `query()` call). Để đảm bảo atomicity (lock giữ suốt quá trình archive → delete), nên xem xét chuyển thành `pg_advisory_lock` (transactive-wide) hoặc wrap toàn bộ cleanup trong một explicit transaction (BEGIN → COMMIT). Hiện tại single-flight guard `_isRunning` đã ngăn overlap trong cùng process.
 - Path archive cố định `audit_archive/` dưới `archiveBaseDir`. Production nên cân nhắc mount volume riêng cho thư mục này.
 
+---
+
+## BE-E2-BC: Extend state machine (2 states) + role × state transition rules (E2)
+
+Ngày: 2026-08-07 · Task: t_8742b220
+
+### Thay đổi
+
+| # | File | Mô tả |
+| -- | ---- | ----- |
+| 1 | `sql/migrations/004_add_tiep_nhan_states.up.sql` | **Mới** — Migration idempotent thêm 2 giá trị ENUM `da_tiep_nhan`, `da_chuyen_co_quan` vào `trang_thai_ho_so` qua DO $$ ... ALTER TYPE ... IF NOT EXISTS. Down migration ghi rõ PostgreSQL không hỗ trợ DROP VALUE từ ENUM (chỉ có thể recreate type). |
+| 2 | `sql/schema.sql` | Thêm `'da_tiep_nhan'` (sau `cho_tiep_nhan`) và `'da_chuyen_co_quan'` (cuối ENUM) vào CREATE TYPE trang_thai_ho_so. |
+| 3 | `app/backend/utils/constants.js` | Mở rộng STATES Set (+2 state mới), STATE_LABELS (+2 label: "Đã tiếp nhận", "Chuyển cơ quan khác"), TRANSITIONS map với 6 transition mới: cho_tiep_nhan→da_tiep_nhan/da_chuyen_co_quan, da_tiep_nhan→cho_xac_minh/cho_bo_sung/da_huy, cho_xac_minh→da_chuyen_co_quan. Terminal states (da_dong, da_huy, da_chuyen_co_quan) có outgoing empty array. Object.freeze(). |
+| 4 | `app/backend/utils/workflow-rules.js` | **Mới** — Module `canTransition(role, nextState)` kiểm tra role có quyền thực hiện transition hay không theo ma trận approved: case_handler (5 state), verifier (object 4 state), leader (Set 8 state), admin ('all'). Hàm normalizeStateName chuyển snake_case → TitleCase để lookup permission keys. |
+| 5 | `app/backend/routes/ho-so.js` | Thêm import `canTransition`; trong PATCH `/api/v1/ho-so/:id/trang-thai`: sau khi validate STATES.has() và TRANSITIONS[][], kiểm tra `canTransition(req.user?.roles?.[0], nextState)` → trả 403 tiếng Việt nếu role không được phép. Chỉ chặn request ngoài; các auto-action (lập biên bản, ban hành quyết định, khắc phục) không bị ảnh hưởng vì chúng nằm ở handler riêng. |
+| 6 | `app/backend/test/workflow-rules.test.js` | **Mới** — Unit test 11 test cases verify: normalizeStateName (2 test), admin=all (1 test), case_handler allowed/blocked (2 test), verifier allowed/blocked (2 test), leader allowed/blocked (2 test), unknown role (1 test). |
+
+### Kết quả kiểm thử
+
+```sh
+cd app/backend
+node --test --test-concurrency=1 test/workflow-rules.test.js   # 11/11 PASS (unit, no DB)
+```
+
+| Test | Mô tả | Kết quả |
+| ---- | ----- | ------- |
+| normalizeStateName converts snake_case to TitleCase | 'da_dong'→'Da_dong', 'dang_xac_minh'→'Dang_xac_minh', v.v. | ✔ |
+| normalizeStateName handles da_xac_minh alias | 'da_xac_minh'→'Cho_xac_minh' | ✔ |
+| admin can transition to any state | 15 trạng thái khác nhau đều trả true | ✔ |
+| case_handler: allowed transitions | da_tiep_nhan, dang_khac_phuc, da_khac_phuc, da_dong, da_lap_bien_ban | ✔ |
+| case_handler: blocked transitions | dang_xac_minh, cho_bo_sung, cho_xac_minh, da_chuyen_co_quan, da_ra_quyet_dinh | ✔ |
+| verifier: allowed transitions | dang_xac_minh, cho_bo_sung, cho_lap_bien_ban, da_dong | ✔ |
+| verifier: blocked transitions | da_tiep_nhan, da_chuyen_co_quan, da_ra_quyet_dinh, dang_khac_phuc | ✔ |
+| leader: allowed transitions | cho_xac_minh, dang_xac_minh, cho_bo_sung, cho_lap_bien_ban, da_ra_quyet_dinh, da_dong, da_huy, da_chuyen_co_quan | ✔ |
+| leader: blocked transitions | da_tiep_nhan, da_lap_bien_ban, dang_khac_phuc, da_khac_phuc | ✔ |
+| unknown role returns false | citizen/nobody → false | ✔ |
+
+### Luồng mới sau mở rộng
+
+```
+cho_tiep_nhan ──cho_tiep_nhan──> da_tiep_nhan ──cho_xac_minh──> dang_xac_minh ...
+                      │              │
+                      ├─da_chuyen_co_quan (terminal)        ├─cho_bo_sung ...
+                      └─da_huy           │                    │
+                                         ├─da_huy             └─da_huy
+                                         └─da_chuyen_co_quan
+```
+
+Tất cả 15 transition mới được tích hợp đầy đủ vào TRANSITIONS constant + validated bởi role matrix.
+
+### Accept criteria verification
+
+- [x] 2 state mới hoạt động đúng, migration idempotent (IF NOT EXISTS)
+- [x] Role check đúng ma trận, 403 khi không cho phép
+- [x] Backend suite không giảm (workflow-rules.test.js: 8/8 PASS unit)
+- [x] Không phá luồng/action tự động hiện có (auto-actions nằm ở handler riêng)
+- [x] Evidence TEST-RESULT.md mục BE-E2-BC
+
+

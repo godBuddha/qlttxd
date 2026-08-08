@@ -251,6 +251,7 @@ CREATE TABLE nguoi_vi_pham (
 -- Hồ sơ xử lý vi phạm (vụ việc) — bảng trung tâm của hệ thống.
 CREATE TYPE trang_thai_ho_so AS ENUM (
     'cho_tiep_nhan',            -- Chờ tiếp nhận (báo cáo mới gửi)
+    'da_tiep_nhan',             -- Đã tiếp nhận (cán bộ đã nhận hồ sơ) [NEW]
     'cho_xac_minh',             -- Chờ xác minh
     'dang_xac_minh',            -- Đang xác minh
     'cho_bo_sung',              -- Chờ bổ sung thông tin
@@ -262,7 +263,8 @@ CREATE TYPE trang_thai_ho_so AS ENUM (
     'cho_duyet_dieu_81',        -- Đang xử lý công trình đang thi công (Điều 81)
     'da_khac_phuc',             -- Đã khắc phục xong, chờ kiểm tra lại
     'da_dong',                  -- Đóng hồ sơ (hoàn tất)
-    'da_huy'                    -- Hủy (không đủ cơ sở / sai phạm ngoài thẩm quyền)
+    'da_huy',                   -- Hủy (không đủ cơ sở / sai phạm ngoài thẩm quyền)
+    'da_chuyen_co_quan'         -- Chuyển cơ quan khác [NEW]
 );
 
 CREATE TABLE ho_so (

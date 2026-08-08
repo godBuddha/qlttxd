@@ -13,6 +13,7 @@ const {
 } = require('../utils/helpers');
 const { isSmtpConfigured } = require('../lib/email');
 const { STATES, STATE_LABELS, TRANSITIONS, AUDIT_ACTIONS } = require('../utils/constants');
+const { canTransition } = require('../utils/workflow-rules');
 const { generateBienBan, generateQuyetDinh } = require('../gov_docx');
 
 module.exports = function hoSoRoutes({ pool, authenticate, authorize }) {
@@ -194,6 +195,13 @@ module.exports = function hoSoRoutes({ pool, authenticate, authorize }) {
         if (!old) return res.status(404).json({ error: 'Không tìm thấy hồ sơ' });
         if (!TRANSITIONS[old.trang_thai]?.includes(nextState))
           {return res.status(400).json({ error: 'Chuyển trạng thái không hợp lệ' });}
+        // C — Role × state transition rules: only allowed roles may perform a transition
+        const userRole = req.user?.roles?.[0] || '';
+        if (userRole && !canTransition(userRole, nextState)) {
+          return res.status(403).json({
+            error: `Vai trò "${req.user.roles.join(', ')}" không có quyền chuyển sang trạng thái ${STATE_LABELS[nextState] || nextState}`,
+          });
+        }
         const r = await pool.query(
           'UPDATE ho_so SET trang_thai=$1 WHERE id=$2 RETURNING id,ma_ho_so,trang_thai,updated_at',
           [nextState, req.params.id]
