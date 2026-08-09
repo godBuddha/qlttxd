@@ -11,13 +11,18 @@
         reverse_proxy http://backend:3001
     }
 
-    # Frontend static files (built by Vite)
-    root * /srv
-    file_server {
-        try_files {path} /index.html
+    # Backend API proxy
+    handle /api/* {
+        reverse_proxy http://backend:3001
     }
 
-    # Backend API proxy
-    reverse_proxy /api/* http://backend:3001
-    reverse_proxy /uploads/* http://backend:3001
+    # Uploads proxy
+    handle /uploads/* {
+        reverse_proxy http://backend:3001
+    }
+
+    # Frontend static files (built by Vite) — SPA fallback
+    root * /srv
+    try_files {path} /index.html
+    file_server
 }

@@ -40,6 +40,7 @@ $$ LANGUAGE plpgsql;
 -- ---------------------------------------------------------------------------
 -- 1. Xóa đối tượng cũ (theo thứ tự phụ thuộc ngược) để script chạy lại được
 -- ---------------------------------------------------------------------------
+DROP TABLE IF EXISTS schema_migrations        CASCADE;
 DROP TABLE IF EXISTS audit_log               CASCADE;
 DROP TABLE IF EXISTS tep_dinh_kem            CASCADE;
 DROP TABLE IF EXISTS thong_bao               CASCADE;
@@ -230,6 +231,9 @@ CREATE TABLE bao_cao_vi_pham (
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Chỉ mục hỗ trợ "báo cáo của tôi" (tra cứu theo người gửi) — H-04
+CREATE INDEX idx_bao_cao_nguoi_gui ON bao_cao_vi_pham (nguoi_gui_id);
+
 -- Chủ thể vi phạm (cá nhân hoặc tổ chức bị xử lý).
 -- (Đặt trước ho_so vì ho_so tham chiếu nguoi_vi_pham.id)
 CREATE TABLE nguoi_vi_pham (
@@ -247,6 +251,7 @@ CREATE TABLE nguoi_vi_pham (
 -- Hồ sơ xử lý vi phạm (vụ việc) — bảng trung tâm của hệ thống.
 CREATE TYPE trang_thai_ho_so AS ENUM (
     'cho_tiep_nhan',            -- Chờ tiếp nhận (báo cáo mới gửi)
+    'da_tiep_nhan',             -- Đã tiếp nhận (cán bộ đã nhận hồ sơ) [NEW]
     'cho_xac_minh',             -- Chờ xác minh
     'dang_xac_minh',            -- Đang xác minh
     'cho_bo_sung',              -- Chờ bổ sung thông tin
@@ -258,7 +263,8 @@ CREATE TYPE trang_thai_ho_so AS ENUM (
     'cho_duyet_dieu_81',        -- Đang xử lý công trình đang thi công (Điều 81)
     'da_khac_phuc',             -- Đã khắc phục xong, chờ kiểm tra lại
     'da_dong',                  -- Đóng hồ sơ (hoàn tất)
-    'da_huy'                    -- Hủy (không đủ cơ sở / sai phạm ngoài thẩm quyền)
+    'da_huy',                   -- Hủy (không đủ cơ sở / sai phạm ngoài thẩm quyền)
+    'da_chuyen_co_quan'         -- Chuyển cơ quan khác [NEW]
 );
 
 CREATE TABLE ho_so (
@@ -268,6 +274,7 @@ CREATE TABLE ho_so (
     loai_vi_pham_id     UUID REFERENCES loai_vi_pham(id),     -- phân loại nhóm (sau xác minh)
     hanh_vi_id          UUID REFERENCES hanh_vi_vi_pham(id),  -- hành vi cụ thể (sau xác minh)
     nguoi_nop_id        UUID REFERENCES users(id),            -- cán bộ thụ lý hồ sơ
+    nguoi_xu_ly_id      UUID REFERENCES users(id),            -- cán bộ được phân công xử lý
     trang_thai          trang_thai_ho_so NOT NULL DEFAULT 'cho_tiep_nhan',
     nguoi_vi_pham_id    UUID REFERENCES nguoi_vi_pham(id),    -- chủ thể bị xử lý (tạo trước, tham chiếu ở đây)
 
@@ -296,10 +303,13 @@ CREATE TRIGGER trg_ho_so_updated_at
 -- Chỉ mục hỗ trợ tra cứu, lọc theo trạng thái và GIS.
 CREATE INDEX idx_ho_so_trang_thai  ON ho_so (trang_thai);
 CREATE INDEX idx_ho_so_nguoi_nop   ON ho_so (nguoi_nop_id);
+CREATE INDEX idx_ho_so_nguoi_xu_ly ON ho_so (nguoi_xu_ly_id);
 CREATE INDEX idx_ho_so_huyen       ON ho_so (quan_huyen_id);
 CREATE INDEX idx_ho_so_xa          ON ho_so (phuong_xa_id);
 CREATE INDEX idx_ho_so_toa_do      ON ho_so USING GIST (toa_do);
 CREATE INDEX idx_ho_so_created     ON ho_so (created_at);
+-- Partial index cho danh sách hồ sơ đang hoạt động (không bị xóa mềm) — H-04
+CREATE INDEX idx_ho_so_active ON ho_so (created_at) WHERE deleted_at IS NULL;
 
 -- ---------------------------------------------------------------------------
 -- 6. Biên bản vi phạm hành chính
@@ -385,6 +395,9 @@ CREATE TABLE thong_bao (
     ngay_gui        TIMESTAMPTZ,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Partial index cho hộp thư thông báo chưa đọc (da_gui) — H-04
+CREATE INDEX idx_thong_bao_unread ON thong_bao (nguoi_nhan_id, trang_thai) WHERE trang_thai = 'da_gui';
 
 -- ---------------------------------------------------------------------------
 -- 10. Tệp đính kèm (ảnh chứng cứ, văn bản scan...)
@@ -545,7 +558,58 @@ INSERT INTO permissions (code, name, module) VALUES
     ('gis.manage',         'Quản lý dữ liệu GIS',          'gis'),
     ('report.statistics',  'Thống kê, báo cáo',            'report'),
     ('admin.users',        'Quản trị người dùng, RBAC',    'admin'),
-    ('admin.audit',        'Xem nhật ký kiểm toán',        'admin')
+    ('admin.audit',        'Xem nhật ký kiểm toán',        'admin'),
+    ('admin.locations',    'Quản lý địa điểm (đơn vị hành chính)', 'admin')
 ON CONFLICT (code) DO NOTHING;
+
+-- ---------------------------------------------------------------------------
+-- 14. Bảng theo dõi migration (schema_migrations)
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version     VARCHAR(100) PRIMARY KEY,
+    checksum    VARCHAR(200),
+    applied_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Token blocklist for revocation
+CREATE TABLE IF NOT EXISTS token_blocklist (
+    jti         VARCHAR(100) PRIMARY KEY,
+    expires_at  TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_token_blocklist_expires ON token_blocklist(expires_at);
+
+-- Token tracking for invalidation
+CREATE TABLE IF NOT EXISTS user_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    jti VARCHAR(100) NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_user_tokens_user ON user_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_tokens_jti ON user_tokens(jti);
+
+-- Refresh tokens for token rotation
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    jti VARCHAR(100) NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_jti ON refresh_tokens(jti);
+
+-- Password reset tokens (forgot-password flow)
+CREATE TABLE IF NOT EXISTS reset_token (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash  VARCHAR(64) NOT NULL,
+    expires_at  TIMESTAMPTZ NOT NULL,
+    used        BOOLEAN NOT NULL DEFAULT false,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_reset_token_user ON reset_token(user_id);
+CREATE INDEX IF NOT EXISTS idx_reset_token_hash ON reset_token(token_hash);
 
 COMMIT;

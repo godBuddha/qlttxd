@@ -80,4 +80,16 @@ SELECT r.id, p.id FROM roles r, permissions p
 WHERE r.code='admin'
 ON CONFLICT DO NOTHING;
 
+-- ---------------------------------------------------------------------------
+-- 5. Seed admin.locations permission (idempotent)
+-- ---------------------------------------------------------------------------
+INSERT INTO permissions (code, name, module) VALUES
+  ('admin.locations', 'Quản lý địa điểm', 'admin')
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r, permissions p
+WHERE r.code = 'admin' AND p.code = 'admin.locations'
+ON CONFLICT DO NOTHING;
+
 COMMIT;
