@@ -47,6 +47,36 @@ const AdminLocationsPage = lazy(() =>
 const AdminCatalogPage = lazy(() =>
   import('./admin/AdminCatalogPage.jsx').then((m) => ({ default: m.AdminCatalogPage }))
 );
+const SettingsCenter = lazy(() =>
+  import('./admin/SettingsCenter.jsx').then((m) => ({ default: m.SettingsCenter }))
+);
+const SettingsAuth = lazy(() =>
+  import('./admin/SettingsAuth.jsx').then((m) => ({ default: m.SettingsAuth }))
+);
+const SettingsUpload = lazy(() =>
+  import('./admin/SettingsUpload.jsx').then((m) => ({ default: m.SettingsUpload }))
+);
+const SettingsRateLimit = lazy(() =>
+  import('./admin/SettingsRateLimit.jsx').then((m) => ({ default: m.SettingsRateLimit }))
+);
+const SettingsSecurity = lazy(() =>
+  import('./admin/SettingsSecurity.jsx').then((m) => ({ default: m.SettingsSecurity }))
+);
+const SettingsUI = lazy(() =>
+  import('./admin/SettingsUI.jsx').then((m) => ({ default: m.SettingsUI }))
+);
+const SettingsAudit = lazy(() =>
+  import('./admin/SettingsAudit.jsx').then((m) => ({ default: m.SettingsAudit }))
+);
+const SettingsNotification = lazy(() =>
+  import('./admin/SettingsNotification.jsx').then((m) => ({ default: m.SettingsNotification }))
+);
+const SettingsExport = lazy(() =>
+  import('./admin/SettingsExport.jsx').then((m) => ({ default: m.SettingsExport }))
+);
+const SettingsValidation = lazy(() =>
+  import('./admin/SettingsValidation.jsx').then((m) => ({ default: m.SettingsValidation }))
+);
 
 // Icon library for accessible, font-independent navigation icons
 import {
@@ -60,6 +90,7 @@ import {
   Map,
   NotebookText,
   ScrollText,
+  Settings,
   User,
   Users,
 } from 'lucide-react';
@@ -76,6 +107,16 @@ function getPath(page, id) {
     'admin-audit': '/admin/audit-log',
     'admin-locations': '/admin/locations',
     'admin-catalog': '/admin/catalog',
+    'admin-settings': '/admin/settings',
+    'admin-settings-auth': '/admin/settings/auth',
+    'admin-settings-upload': '/admin/settings/upload',
+    'admin-settings-rate-limit': '/admin/settings/rate-limit',
+    'admin-settings-security': '/admin/settings/security',
+    'admin-settings-ui': '/admin/settings/ui',
+    'admin-settings-audit': '/admin/settings/audit',
+    'admin-settings-notification': '/admin/settings/notification',
+    'admin-settings-export': '/admin/settings/export',
+    'admin-settings-validation': '/admin/settings/validation',
     report: '/report',
     profile: '/profile',
     'officer-reports': '/officer-reports',
@@ -97,6 +138,16 @@ function getPageFromPath(path) {
     '/admin/audit-log': 'admin-audit',
     '/admin/locations': 'admin-locations',
     '/admin/catalog': 'admin-catalog',
+    '/admin/settings': 'admin-settings',
+    '/admin/settings/auth': 'admin-settings-auth',
+    '/admin/settings/upload': 'admin-settings-upload',
+    '/admin/settings/rate-limit': 'admin-settings-rate-limit',
+    '/admin/settings/security': 'admin-settings-security',
+    '/admin/settings/ui': 'admin-settings-ui',
+    '/admin/settings/audit': 'admin-settings-audit',
+    '/admin/settings/notification': 'admin-settings-notification',
+    '/admin/settings/export': 'admin-settings-export',
+    '/admin/settings/validation': 'admin-settings-validation',
     '/report': 'report',
     '/profile': 'profile',
     '/officer-reports': 'officer-reports',
@@ -318,6 +369,17 @@ function App() {
                 >
                   <ScrollText size={16} aria-hidden="true"/> Nhật ký hệ thống
                 </button>
+                <button
+                  aria-current={
+                    route.page.startsWith('admin-settings') ? 'page' : undefined
+                  }
+                  className={
+                    route.page.startsWith('admin-settings') ? 'selected' : ''
+                  }
+                  onClick={() => nav('admin-settings')}
+                >
+                  <Settings size={16} aria-hidden="true"/> Cài đặt hệ thống
+                </button>
               </>
             )}
             {can(user, 'admin.locations') && (
@@ -426,6 +488,76 @@ function App() {
             </ErrorBoundary>
           )}
           {route.page === 'profile' && <ProfilePage api={api} user={user} notify={notify} />}
+          {route.page === 'admin-settings' && (
+            <ErrorBoundary>
+              <Suspense fallback={<Loading />}>
+                <SettingsCenter api={api} notify={notify} />
+              </Suspense>
+            </ErrorBoundary>
+          )}
+          {route.page === 'admin-settings-auth' && (
+            <ErrorBoundary>
+              <Suspense fallback={<Loading />}>
+                <SettingsAuth api={api} notify={notify} />
+              </Suspense>
+            </ErrorBoundary>
+          )}
+          {route.page === 'admin-settings-upload' && (
+            <ErrorBoundary>
+              <Suspense fallback={<Loading />}>
+                <SettingsUpload api={api} notify={notify} />
+              </Suspense>
+            </ErrorBoundary>
+          )}
+          {route.page === 'admin-settings-rate-limit' && (
+            <ErrorBoundary>
+              <Suspense fallback={<Loading />}>
+                <SettingsRateLimit api={api} notify={notify} />
+              </Suspense>
+            </ErrorBoundary>
+          )}
+          {route.page === 'admin-settings-security' && (
+            <ErrorBoundary>
+              <Suspense fallback={<Loading />}>
+                <SettingsSecurity api={api} notify={notify} />
+              </Suspense>
+            </ErrorBoundary>
+          )}
+          {route.page === 'admin-settings-ui' && (
+            <ErrorBoundary>
+              <Suspense fallback={<Loading />}>
+                <SettingsUI api={api} notify={notify} />
+              </Suspense>
+            </ErrorBoundary>
+          )}
+          {route.page === 'admin-settings-audit' && (
+            <ErrorBoundary>
+              <Suspense fallback={<Loading />}>
+                <SettingsAudit api={api} notify={notify} />
+              </Suspense>
+            </ErrorBoundary>
+          )}
+          {route.page === 'admin-settings-notification' && (
+            <ErrorBoundary>
+              <Suspense fallback={<Loading />}>
+                <SettingsNotification api={api} notify={notify} />
+              </Suspense>
+            </ErrorBoundary>
+          )}
+          {route.page === 'admin-settings-export' && (
+            <ErrorBoundary>
+              <Suspense fallback={<Loading />}>
+                <SettingsExport api={api} notify={notify} />
+              </Suspense>
+            </ErrorBoundary>
+          )}
+          {route.page === 'admin-settings-validation' && (
+            <ErrorBoundary>
+              <Suspense fallback={<Loading />}>
+                <SettingsValidation api={api} notify={notify} />
+              </Suspense>
+            </ErrorBoundary>
+          )}
           {![
             'home',
             'dashboard',
@@ -439,6 +571,16 @@ function App() {
             'admin-audit',
             'admin-locations',
             'admin-catalog',
+            'admin-settings',
+            'admin-settings-auth',
+            'admin-settings-upload',
+            'admin-settings-rate-limit',
+            'admin-settings-security',
+            'admin-settings-ui',
+            'admin-settings-audit',
+            'admin-settings-notification',
+            'admin-settings-export',
+            'admin-settings-validation',
             'report',
             'profile',
           ].includes(route.page) && <NotFound navigate={nav} />}
