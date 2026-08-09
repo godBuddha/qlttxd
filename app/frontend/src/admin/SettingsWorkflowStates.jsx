@@ -24,7 +24,7 @@ export function SettingsWorkflowStates({ api, _notify }) {
 
   if (loading) return <Loading />;
   if (error) return (
-    <div className="panel" style={{ color: '#dc2626', padding: 24 }}>
+    <div className="notice error">
       Lỗi: {error}
     </div>
   );
@@ -36,39 +36,45 @@ export function SettingsWorkflowStates({ api, _notify }) {
           <p className="eyebrow">Quản trị hệ thống</p>
           <h2>Trạng thái workflow</h2>
         </div>
-        <small style={{ color: 'var(--muted, #6c757d)' }}>
+        <p className="settings-subtitle">
           Danh sách 15 trạng thái hiện có (chỉ xem, sửa trong DB migration)
-        </small>
+        </p>
       </div>
       <section className="panel">
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ borderBottom: '2px solid var(--border)' }}>
-              <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 13, fontWeight: 600, color: 'var(--muted, #6c757d)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Thứ tự</th>
-              <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 13, fontWeight: 600, color: 'var(--muted, #6c757d)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mã</th>
-              <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 13, fontWeight: 600, color: 'var(--muted, #6c757d)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tên trạng thái</th>
-              <th style={{ padding: '8px 12px', textAlign: 'center', fontSize: 13, fontWeight: 600, color: 'var(--muted, #6c757d)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Kết thúc</th>
-            </tr>
-          </thead>
-          <tbody>
-            {states.map((s, idx) => (
-              <tr key={s.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontSize: 13 }}>{idx + 1}</td>
-                <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontSize: 13, color: '#1a56db' }}>{s.code}</td>
-                <td style={{ padding: '10px 12px' }}>
-                  <strong>{s.label}</strong>
-                </td>
-                <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                  {s.is_terminal ? (
-                    <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 12, background: '#fef2f2', color: '#dc2626', fontSize: 12, fontWeight: 600 }}>Đã xong</span>
-                  ) : (
-                    <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 12, background: '#f0fdf4', color: '#16a34a', fontSize: 12, fontWeight: 600 }}>Tiếp tục</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {states.length === 0 ? (
+          <p className="empty">
+            Chưa có trạng thái workflow nào được cấu hình.
+          </p>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th className="table-cell-center">Thứ tự</th>
+                  <th>Mã</th>
+                  <th>Tên trạng thái</th>
+                  <th className="table-cell-center">Kết thúc</th>
+                </tr>
+              </thead>
+              <tbody>
+                {states.map((s, idx) => (
+                  <tr key={s.id}>
+                    <td className="table-cell-center"><code className="state-code">{idx + 1}</code></td>
+                    <td><code className="state-code primary">{s.code}</code></td>
+                    <td><strong>{s.label}</strong></td>
+                    <td className="table-cell-center">
+                      {s.is_terminal ? (
+                        <span className="terminal-badge yes">Đã xong</span>
+                      ) : (
+                        <span className="terminal-badge no">Tiếp tục</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </>
   );

@@ -71,9 +71,9 @@ export function SettingsAudit({ api, notify }) {
           <p className="eyebrow">Quản trị hệ thống</p>
           <h2>Cấu hình nhật ký</h2>
         </div>
-        <small style={{ color: 'var(--muted, #6c757d)' }}>
+        <p className="settings-subtitle">
           Lưu trữ nhật ký và bản ghi
-        </small>
+        </p>
       </div>
       <section className="panel">
         <ConfigTable

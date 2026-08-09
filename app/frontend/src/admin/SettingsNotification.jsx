@@ -75,9 +75,9 @@ export function SettingsNotification({ api, notify }) {
           <p className="eyebrow">Quản trị hệ thống</p>
           <h2>Cấu hình thông báo</h2>
         </div>
-        <small style={{ color: 'var(--muted, #6c757d)' }}>
+        <p className="settings-subtitle">
           Worker, SSE heartbeat và kênh thông báo
-        </small>
+        </p>
       </div>
       <section className="panel">
         <ConfigTable

@@ -2,9 +2,6 @@ import { useState, useEffect } from 'react';
 import { Loading } from '../components/Loading.jsx';
 
 /** Shared style objects */
-const thStyle = { padding: '8px 12px', textAlign: 'center', fontSize: 13, fontWeight: 600, color: 'var(--muted, #6c757d)', textTransform: 'uppercase', letterSpacing: '0.05em' };
-const tdStyle = { padding: '10px 12px', verticalAlign: 'middle' };
-const btnStyle = { padding: '6px 14px', background: '#1a56db', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 13, fontWeight: 500 };
 
 export function SettingsRolePermissions({ api, _notify }) {
   const [matrix, setMatrix] = useState({});
@@ -83,51 +80,19 @@ export function SettingsRolePermissions({ api, _notify }) {
     const isChanged = checked !== currentVal;
     return (
       <button
-        onClick={() => handleToggle(roleCode, stateCode)}
-        style={{
-          width: 40,
-          height: 24,
-          borderRadius: 12,
-          border: 'none',
-          cursor: 'pointer',
-          position: 'relative',
-          transition: 'background-color 0.2s',
-          backgroundColor: checked ? '#1a56db' : '#d1d5db',
-        }}
-        role="switch"
+        className="toggle-switch"
         aria-checked={checked}
         aria-label={`Phân quyền ${roles.find(r => r.code === roleCode)?.name || roleCode} cho trạng thái ${stateCode}`}
       >
-        <span style={{
-          position: 'absolute',
-          top: 2,
-          left: checked ? 18 : 2,
-          width: 20,
-          height: 20,
-          borderRadius: '50%',
-          background: '#fff',
-          transition: 'left 0.2s',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-        }} />
-        {isChanged && (
-          <span style={{
-            position: 'absolute',
-            bottom: -2,
-            right: -2,
-            width: 8,
-            height: 8,
-            borderRadius: '50%',
-            background: '#f59e0b',
-            border: '1px solid #fff',
-          }} />
-        )}
+        <span className="toggle-thumb" />
+        {isChanged && <span className="toggle-changed" />}
       </button>
     );
   }
 
   if (loading) return <Loading />;
   if (error) return (
-    <div className="panel" style={{ color: '#dc2626', padding: 24 }}>
+    <div className="notice error">
       Lỗi: {error}
     </div>
   );
@@ -139,56 +104,58 @@ export function SettingsRolePermissions({ api, _notify }) {
           <p className="eyebrow">Quản trị hệ thống</p>
           <h2>Quyền theo vai trò</h2>
         </div>
-        <small style={{ color: 'var(--muted, #6c757d)' }}>
+        <p className="settings-subtitle">
           Bật/tắt quyền truy cập từng trạng thái cho mỗi vai trò
-        </small>
+        </p>
       </div>
       <section className="panel">
         {hasChanges && (
-          <div style={{ padding: '12px 16px', marginBottom: 16, background: '#fef3c7', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: 13, fontWeight: 500 }}>Có thay đổi chưa lưu.</span>
-            <button onClick={saveAll} disabled={saving} style={btnStyle}>
+          <div className="unsaved-bar">
+            <span>Có thay đổi chưa lưu.</span>
+            <button onClick={saveAll} disabled={saving}>
               {saving ? 'Đang lưu...' : 'Lưu tất cả'}
             </button>
             <button className="text-button" onClick={cancelChanges} disabled={saving}>Bỏ thay đổi</button>
           </div>
         )}
 
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ borderBottom: '2px solid var(--border)' }}>
-              <th style={{ ...thStyle, textAlign: 'left' }}>Trạng thái</th>
-              {roles.map((r) => (
-                <th key={r.code} style={thStyle}>
-                  <div>{r.name}</div>
-                  <small style={{ fontWeight: 400, fontSize: 11 }}>{r.code}</small>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {states.map((s) => (
-              <tr key={s.code} style={{ borderBottom: '1px solid var(--border)' }}>
-                <td style={{ ...tdStyle, fontWeight: 500 }}>
-                  <span>{s.label}</span>
-                  <br />
-                  <small style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--muted, #6c757d)' }}>{s.code}</small>
-                  {s.is_terminal && (
-                    <span style={{ marginLeft: 4, fontSize: 10, color: '#dc2626' }}>● kết thúc</span>
-                  )}
-                </td>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th className="table-cell-center">Trạng thái</th>
                 {roles.map((r) => (
-                  <td key={`${r.code}-${s.code}`} style={{ ...tdStyle, textAlign: 'center' }}>
-                    {renderCheckbox(r.code, s.code)}
-                  </td>
+                  <th key={r.code}>
+                    <div>{r.name}</div>
+                    <small className="role-code-display">{r.code}</small>
+                  </th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {states.map((s) => (
+                <tr key={s.code}>
+                  <td className="state-label-text">
+                    <span>{s.label}</span>
+                    <br />
+                    <small className="state-code-display">{s.code}</small>
+                    {s.is_terminal && (
+                      <span className="terminal-indicator">● kết thúc</span>
+                    )}
+                  </td>
+                  {roles.map((r) => (
+                    <td key={`${r.code}-${s.code}`} className="table-cell-center">
+                      {renderCheckbox(r.code, s.code)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         {states.length === 0 && (
-          <p style={{ color: 'var(--muted, #6c757d)', textAlign: 'center', padding: 32 }}>
+          <p className="empty">
             Chưa có dữ liệu phân quyền nào được cấu hình.
           </p>
         )}

@@ -71,9 +71,9 @@ export function SettingsUI({ api, notify }) {
           <p className="eyebrow">Quản trị hệ thống</p>
           <h2>Cấu hình giao diện</h2>
         </div>
-        <small style={{ color: 'var(--muted, #6c757d)' }}>
+        <p className="settings-subtitle">
           Vĩ trí trung tâm, chủ đề và ngôn ngữ hiển thị
-        </small>
+        </p>
       </div>
       <section className="panel">
         <ConfigTable

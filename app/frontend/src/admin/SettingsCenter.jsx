@@ -23,26 +23,14 @@ function NavLink({ to, active, onClick, children }) {
   };
   return (
     <button
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        width: '100%',
-        padding: '8px 16px',
-        border: 'none',
-        background: active ? '#e3f2fd' : 'transparent',
-        color: active ? '#1a56db' : 'inherit',
-        cursor: 'pointer',
-        textAlign: 'left',
-        borderLeft: active ? '3px solid #1a56db' : '3px solid transparent',
-        fontWeight: active ? 600 : 400,
-      }}
+      className={active ? 'selected' : ''}
       aria-current={active ? 'page' : undefined}
       onClick={handleClick}
     >
-      <span style={{ marginRight: 8 }}>{children[0]}</span>
+      <span className="nav-icon">{children[0]}</span>
       <div>
         <div>{children[1]}</div>
-        <small style={{ color: 'var(--muted, #6c757d)' }}>
+        <small className="card-desc">
           {children[2] || ''}
         </small>
       </div>
@@ -54,13 +42,7 @@ function NavLink({ to, active, onClick, children }) {
 function CategoryCard({ cat, onClick }) {
   return (
     <div
-      style={{
-        border: '1px solid var(--border)',
-        borderRadius: 8,
-        padding: 16,
-        cursor: 'pointer',
-        transition: 'background-color 0.2s',
-      }}
+      className="settings-card"
       onClick={onClick}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -72,14 +54,14 @@ function CategoryCard({ cat, onClick }) {
       tabIndex="0"
       aria-label={`Cài đặt ${cat.label}`}
     >
-      <div style={{ fontSize: 24, marginBottom: 8 }}>{cat.icon}</div>
-      <div style={{ fontWeight: 600, marginBottom: 4 }}>{cat.label}</div>
-      <small style={{ color: 'var(--muted, #6c757d)' }}>{cat.desc}</small>
+      <div className="card-icon">{cat.icon}</div>
+      <div className="card-label">{cat.label}</div>
+      <div className="card-desc">{cat.desc}</div>
     </div>
   );
 }
 
-export function SettingsCenter({ api, notify }) {
+export function SettingsCenter({ _api, _notify }) {
   const [activeTab, setActiveTab] = useState(
     () => window.location.pathname.split('/').pop() || 'auth'
   );
@@ -92,17 +74,9 @@ export function SettingsCenter({ api, notify }) {
           <h2>Cài đặt hệ thống</h2>
         </div>
       </div>
-      <div style={{ display: 'flex', gap: 0 }}>
+      <div className="settings-layout">
         {/* Sidebar */}
-        <aside
-          style={{
-            width: 260,
-            minWidth: 260,
-            borderRight: '1px solid var(--border)',
-            padding: '12px 0',
-            background: '#f8f9fa',
-          }}
-        >
+        <aside className="settings-sidebar">
           <nav aria-label="Danh mục cài đặt">
             {CATEGORIES.map((cat) => (
               <NavLink
@@ -119,12 +93,10 @@ export function SettingsCenter({ api, notify }) {
           </nav>
         </aside>
         {/* Main content — quick overview cards */}
-        <main style={{ flex: 1, padding: 24 }}>
-          <h3 style={{ margin: '0 0 16px' }}>
-            Danh mục cài đặt
-          </h3>
-          <section className="panel" style={{ padding: 24 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
+        <main className="settings-main">
+          <h3>Danh mục cài đặt</h3>
+          <section className="panel">
+            <div className="settings-grid">
               {CATEGORIES.map((cat) => (
                 <CategoryCard
                   key={cat.key}

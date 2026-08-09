@@ -71,9 +71,9 @@ export function SettingsSecurity({ api, notify }) {
           <p className="eyebrow">Quản trị hệ thống</p>
           <h2>Cấu hình bảo mật</h2>
         </div>
-        <small style={{ color: 'var(--muted, #6c757d)' }}>
+        <p className="settings-subtitle">
           Quy tắc bảo mật và giới hạn thời gian
-        </small>
+        </p>
       </div>
       <section className="panel">
         <ConfigTable
