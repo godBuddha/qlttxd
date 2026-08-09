@@ -5,7 +5,7 @@ import { Loading } from '../components/Loading.jsx';
  * SettingsValidation — read-only view of validation rules.
  * No editing/saving allowed.
  */
-export function SettingsValidation({ api, _notify }) {
+export function SettingsValidation({ api, _notify, navigate }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -43,6 +43,11 @@ export function SettingsValidation({ api, _notify }) {
         <div>
           <p className="eyebrow">Quản trị hệ thống</p>
           <h2>Quy tắc kiểm tra</h2>
+          {navigate && (
+            <button className="back" onClick={() => navigate('admin-settings')}>
+              ← Quay lại Cài đặt
+            </button>
+          )}
         </div>
         <p className="settings-subtitle">
           Các quy tắc validation hiện tại (chỉ xem)

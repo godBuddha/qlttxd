@@ -9,7 +9,7 @@ const FIELDS = [
   { key: 'body_limit_urlencoded', label: 'Giới hạn URL-encoded', type: 'text', placeholder: '1kb' },
 ];
 
-export function SettingsUpload({ api, notify }) {
+export function SettingsUpload({ api, notify, navigate }) {
   const [configs, setConfigs] = useState({});
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
@@ -72,6 +72,11 @@ export function SettingsUpload({ api, notify }) {
         <div>
           <p className="eyebrow">Quản trị hệ thống</p>
           <h2>Cấu hình tải lên</h2>
+          {navigate && (
+            <button className="back" onClick={() => navigate('admin-settings')}>
+              ← Quay lại Cài đặt
+            </button>
+          )}
         </div>
         <p className="settings-subtitle">
           Kích thước và định dạng tệp tải lên

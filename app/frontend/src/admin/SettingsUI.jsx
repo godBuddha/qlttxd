@@ -9,7 +9,7 @@ const FIELDS = [
   { key: 'LANGUAGE', label: 'Ngôn ngữ', type: 'text', placeholder: 'vi' },
 ];
 
-export function SettingsUI({ api, notify }) {
+export function SettingsUI({ api, notify, navigate }) {
   const [configs, setConfigs] = useState({});
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
@@ -70,6 +70,11 @@ export function SettingsUI({ api, notify }) {
         <div>
           <p className="eyebrow">Quản trị hệ thống</p>
           <h2>Cấu hình giao diện</h2>
+          {navigate && (
+            <button className="back" onClick={() => navigate('admin-settings')}>
+              ← Quay lại Cài đặt
+            </button>
+          )}
         </div>
         <p className="settings-subtitle">
           Vĩ trí trung tâm, chủ đề và ngôn ngữ hiển thị

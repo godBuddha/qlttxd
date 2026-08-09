@@ -12,7 +12,7 @@ const FIELDS = [
   { key: 'cookie_same_site', label: 'Cookie SameSite', type: 'text', placeholder: 'strict' },
 ];
 
-export function SettingsAuth({ api, notify }) {
+export function SettingsAuth({ api, notify, navigate }) {
   const [configs, setConfigs] = useState({});
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
@@ -89,6 +89,11 @@ export function SettingsAuth({ api, notify }) {
         <div>
           <p className="eyebrow">Quản trị hệ thống</p>
           <h2>Cấu hình xác thực</h2>
+          {navigate && (
+            <button className="back" onClick={() => navigate('admin-settings')}>
+              ← Quay lại Cài đặt
+            </button>
+          )}
         </div>
         <p className="settings-subtitle">
           Cấu hình JWT, cookie và mật khẩu

@@ -4,7 +4,7 @@ import { Loading } from '../components/Loading.jsx';
 /**
  * SettingsWorkflowStates — read-only table of workflow states.
  */
-export function SettingsWorkflowStates({ api, _notify }) {
+export function SettingsWorkflowStates({ api, _notify, navigate }) {
   const [states, setStates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -35,6 +35,11 @@ export function SettingsWorkflowStates({ api, _notify }) {
         <div>
           <p className="eyebrow">Quản trị hệ thống</p>
           <h2>Trạng thái workflow</h2>
+          {navigate && (
+            <button className="back" onClick={() => navigate('admin-settings')}>
+              ← Quay lại Cài đặt
+            </button>
+          )}
         </div>
         <p className="settings-subtitle">
           Danh sách 15 trạng thái hiện có (chỉ xem, sửa trong DB migration)

@@ -11,7 +11,7 @@ const FIELDS = [
   { key: 'channels', label: 'Kênh thông báo', type: 'text', readonly: true, note: 'Chỉ xem — quản lý từ backend' },
 ];
 
-export function SettingsNotification({ api, notify }) {
+export function SettingsNotification({ api, notify, navigate }) {
   const [configs, setConfigs] = useState({});
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
@@ -74,6 +74,11 @@ export function SettingsNotification({ api, notify }) {
         <div>
           <p className="eyebrow">Quản trị hệ thống</p>
           <h2>Cấu hình thông báo</h2>
+          {navigate && (
+            <button className="back" onClick={() => navigate('admin-settings')}>
+              ← Quay lại Cài đặt
+            </button>
+          )}
         </div>
         <p className="settings-subtitle">
           Worker, SSE heartbeat và kênh thông báo

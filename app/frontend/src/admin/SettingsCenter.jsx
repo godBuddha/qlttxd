@@ -1,5 +1,3 @@
-import { useState } from 'react';
-
 const CATEGORIES = [
   { key: 'auth', label: 'Xác thực', icon: '🔑', desc: 'JWT, cookie, mật khẩu' },
   { key: 'upload', label: 'Tải lên', icon: '📎', desc: 'Kích thước, định dạng tệp' },
@@ -15,17 +13,11 @@ const CATEGORIES = [
   { key: 'role-permissions', label: 'Quyền theo vai trò', icon: '👥', desc: 'Phân quyền RBAC' },
 ];
 
-// Simple Link component for sidebar navigation
-function NavLink({ to, active, onClick, children }) {
-  const handleClick = () => {
-    if (onClick) onClick();
-    window.history.pushState({}, '', to);
-  };
+// Sidebar navigation item — calls navigate instead of pushState
+function NavLink({ cat, navigate, children }) {
   return (
     <button
-      className={active ? 'selected' : ''}
-      aria-current={active ? 'page' : undefined}
-      onClick={handleClick}
+      onClick={() => navigate('admin-settings-' + cat.key)}
     >
       <span className="nav-icon">{children[0]}</span>
       <div>
@@ -38,16 +30,16 @@ function NavLink({ to, active, onClick, children }) {
   );
 }
 
-// Category card for dashboard view
-function CategoryCard({ cat, onClick }) {
+// Category card for dashboard view — calls navigate
+function CategoryCard({ cat, navigate }) {
   return (
     <div
       className="settings-card"
-      onClick={onClick}
+      onClick={() => navigate('admin-settings-' + cat.key)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          onClick();
+          navigate('admin-settings-' + cat.key);
         }
       }}
       role="button"
@@ -61,11 +53,7 @@ function CategoryCard({ cat, onClick }) {
   );
 }
 
-export function SettingsCenter({ _api, _notify }) {
-  const [activeTab, setActiveTab] = useState(
-    () => window.location.pathname.split('/').pop() || 'auth'
-  );
-
+export function SettingsCenter({ _api, _notify, navigate }) {
   return (
     <>
       <div className="page-title">
@@ -81,9 +69,8 @@ export function SettingsCenter({ _api, _notify }) {
             {CATEGORIES.map((cat) => (
               <NavLink
                 key={cat.key}
-                to={`/admin/settings/${cat.key}`}
-                active={activeTab === cat.key}
-                onClick={() => setActiveTab(cat.key)}
+                cat={cat}
+                navigate={navigate}
               >
                 <span>{cat.icon}</span>
                 <span>{cat.label}</span>
@@ -101,7 +88,7 @@ export function SettingsCenter({ _api, _notify }) {
                 <CategoryCard
                   key={cat.key}
                   cat={cat}
-                  onClick={() => setActiveTab(cat.key)}
+                  navigate={navigate}
                 />
               ))}
             </div>

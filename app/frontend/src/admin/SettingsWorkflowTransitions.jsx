@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Loading } from '../components/Loading.jsx';
 
-export function SettingsWorkflowTransitions({ api, notify }) {
+export function SettingsWorkflowTransitions({ api, notify, navigate }) {
   const [transitions, setTransitions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -64,6 +64,11 @@ export function SettingsWorkflowTransitions({ api, notify }) {
         <div>
           <p className="eyebrow">Quản trị hệ thống</p>
           <h2>Chuyển trạng thái</h2>
+          {navigate && (
+            <button className="back" onClick={() => navigate('admin-settings')}>
+              ← Quay lại Cài đặt
+            </button>
+          )}
         </div>
         <p className="settings-subtitle">
           Chỉnh sửa nhãn và thứ tự các chuyển trạng thái

@@ -11,7 +11,7 @@ const FIELDS = [
   { key: 'user_max', label: 'User actions tối đa', type: 'number', placeholder: '10' },
 ];
 
-export function SettingsRateLimit({ api, notify }) {
+export function SettingsRateLimit({ api, notify, navigate }) {
   const [configs, setConfigs] = useState({});
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
@@ -72,6 +72,11 @@ export function SettingsRateLimit({ api, notify }) {
         <div>
           <p className="eyebrow">Quản trị hệ thống</p>
           <h2>Cấu hình giới hạn tốc độ</h2>
+          {navigate && (
+            <button className="back" onClick={() => navigate('admin-settings')}>
+              ← Quay lại Cài đặt
+            </button>
+          )}
         </div>
         <p className="settings-subtitle">
           Quy tắc giới hạn yêu cầu API

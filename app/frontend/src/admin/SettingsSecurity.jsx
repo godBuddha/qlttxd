@@ -9,7 +9,7 @@ const FIELDS = [
   { key: 'forced_shutdown_ms', label: 'Buộc tắt máy (ms)', type: 'number', placeholder: '0' },
 ];
 
-export function SettingsSecurity({ api, notify }) {
+export function SettingsSecurity({ api, notify, navigate }) {
   const [configs, setConfigs] = useState({});
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
@@ -70,6 +70,11 @@ export function SettingsSecurity({ api, notify }) {
         <div>
           <p className="eyebrow">Quản trị hệ thống</p>
           <h2>Cấu hình bảo mật</h2>
+          {navigate && (
+            <button className="back" onClick={() => navigate('admin-settings')}>
+              ← Quay lại Cài đặt
+            </button>
+          )}
         </div>
         <p className="settings-subtitle">
           Quy tắc bảo mật và giới hạn thời gian

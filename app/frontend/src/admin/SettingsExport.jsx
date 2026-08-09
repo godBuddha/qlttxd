@@ -7,7 +7,7 @@ const FIELDS = [
   { key: 'max_rows', label: 'Số dòng tối đa', type: 'number', placeholder: '10000' },
 ];
 
-export function SettingsExport({ api, notify }) {
+export function SettingsExport({ api, notify, navigate }) {
   const [configs, setConfigs] = useState({});
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
@@ -69,6 +69,11 @@ export function SettingsExport({ api, notify }) {
         <div>
           <p className="eyebrow">Quản trị hệ thống</p>
           <h2>Cấu hình xuất dữ liệu</h2>
+          {navigate && (
+            <button className="back" onClick={() => navigate('admin-settings')}>
+              ← Quay lại Cài đặt
+            </button>
+          )}
         </div>
         <p className="settings-subtitle">
           Định dạng xuất file

@@ -3,7 +3,7 @@ import { Loading } from '../components/Loading.jsx';
 
 /** Shared style objects */
 
-export function SettingsRolePermissions({ api, _notify }) {
+export function SettingsRolePermissions({ api, _notify, navigate }) {
   const [matrix, setMatrix] = useState({});
   const [roles, setRoles] = useState([]);
   const [states, setStates] = useState([]);
@@ -103,6 +103,11 @@ export function SettingsRolePermissions({ api, _notify }) {
         <div>
           <p className="eyebrow">Quản trị hệ thống</p>
           <h2>Quyền theo vai trò</h2>
+          {navigate && (
+            <button className="back" onClick={() => navigate('admin-settings')}>
+              ← Quay lại Cài đặt
+            </button>
+          )}
         </div>
         <p className="settings-subtitle">
           Bật/tắt quyền truy cập từng trạng thái cho mỗi vai trò

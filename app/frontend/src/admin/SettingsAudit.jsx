@@ -9,7 +9,7 @@ const FIELDS = [
   { key: 'interval_ms', label: 'Interval (ms)', type: 'number', placeholder: '300000' },
 ];
 
-export function SettingsAudit({ api, notify }) {
+export function SettingsAudit({ api, notify, navigate }) {
   const [configs, setConfigs] = useState({});
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
@@ -70,6 +70,11 @@ export function SettingsAudit({ api, notify }) {
         <div>
           <p className="eyebrow">Quản trị hệ thống</p>
           <h2>Cấu hình nhật ký</h2>
+          {navigate && (
+            <button className="back" onClick={() => navigate('admin-settings')}>
+              ← Quay lại Cài đặt
+            </button>
+          )}
         </div>
         <p className="settings-subtitle">
           Lưu trữ nhật ký và bản ghi

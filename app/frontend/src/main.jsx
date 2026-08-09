@@ -506,91 +506,91 @@ function App() {
           {route.page === 'admin-settings' && (
             <ErrorBoundary>
               <Suspense fallback={<Loading />}>
-                <SettingsCenter api={api} notify={notify} />
+                <SettingsCenter api={api} notify={notify} navigate={nav} />
               </Suspense>
             </ErrorBoundary>
           )}
           {route.page === 'admin-settings-auth' && (
             <ErrorBoundary>
               <Suspense fallback={<Loading />}>
-                <SettingsAuth api={api} notify={notify} />
+                <SettingsAuth api={api} notify={notify} navigate={nav} />
               </Suspense>
             </ErrorBoundary>
           )}
           {route.page === 'admin-settings-upload' && (
             <ErrorBoundary>
               <Suspense fallback={<Loading />}>
-                <SettingsUpload api={api} notify={notify} />
+                <SettingsUpload api={api} notify={notify} navigate={nav} />
               </Suspense>
             </ErrorBoundary>
           )}
           {route.page === 'admin-settings-rate-limit' && (
             <ErrorBoundary>
               <Suspense fallback={<Loading />}>
-                <SettingsRateLimit api={api} notify={notify} />
+                <SettingsRateLimit api={api} notify={notify} navigate={nav} />
               </Suspense>
             </ErrorBoundary>
           )}
           {route.page === 'admin-settings-security' && (
             <ErrorBoundary>
               <Suspense fallback={<Loading />}>
-                <SettingsSecurity api={api} notify={notify} />
+                <SettingsSecurity api={api} notify={notify} navigate={nav} />
               </Suspense>
             </ErrorBoundary>
           )}
           {route.page === 'admin-settings-ui' && (
             <ErrorBoundary>
               <Suspense fallback={<Loading />}>
-                <SettingsUI api={api} notify={notify} />
+                <SettingsUI api={api} notify={notify} navigate={nav} />
               </Suspense>
             </ErrorBoundary>
           )}
           {route.page === 'admin-settings-audit' && (
             <ErrorBoundary>
               <Suspense fallback={<Loading />}>
-                <SettingsAudit api={api} notify={notify} />
+                <SettingsAudit api={api} notify={notify} navigate={nav} />
               </Suspense>
             </ErrorBoundary>
           )}
           {route.page === 'admin-settings-notification' && (
             <ErrorBoundary>
               <Suspense fallback={<Loading />}>
-                <SettingsNotification api={api} notify={notify} />
+                <SettingsNotification api={api} notify={notify} navigate={nav} />
               </Suspense>
             </ErrorBoundary>
           )}
           {route.page === 'admin-settings-export' && (
             <ErrorBoundary>
               <Suspense fallback={<Loading />}>
-                <SettingsExport api={api} notify={notify} />
+                <SettingsExport api={api} notify={notify} navigate={nav} />
               </Suspense>
             </ErrorBoundary>
           )}
           {route.page === 'admin-settings-validation' && (
             <ErrorBoundary>
               <Suspense fallback={<Loading />}>
-                <SettingsValidation api={api} notify={notify} />
+                <SettingsValidation api={api} notify={notify} navigate={nav} />
               </Suspense>
             </ErrorBoundary>
           )}
           {route.page === 'admin-settings-workflow-states' && (
             <ErrorBoundary>
               <Suspense fallback={<Loading />}>
-                <SettingsWorkflowStates api={api} notify={notify} />
+                <SettingsWorkflowStates api={api} notify={notify} navigate={nav} />
               </Suspense>
             </ErrorBoundary>
           )}
           {route.page === 'admin-settings-workflow-transitions' && (
             <ErrorBoundary>
               <Suspense fallback={<Loading />}>
-                <SettingsWorkflowTransitions api={api} notify={notify} />
+                <SettingsWorkflowTransitions api={api} notify={notify} navigate={nav} />
               </Suspense>
             </ErrorBoundary>
           )}
           {route.page === 'admin-settings-role-permissions' && (
             <ErrorBoundary>
               <Suspense fallback={<Loading />}>
-                <SettingsRolePermissions api={api} notify={notify} />
+                <SettingsRolePermissions api={api} notify={notify} navigate={nav} />
               </Suspense>
             </ErrorBoundary>
           )}
