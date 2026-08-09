@@ -303,10 +303,10 @@ module.exports = function configRoutes({ pool, authenticate, authorize }) {
 
           const newValStr = JSON.stringify(newValue);
 
-          // Pass the JS value directly to pg; driver serializes native types to jsonb correctly.
+          // Use pre-encoded JSON string + explicit text→jsonb cast to handle all value types.
           await client.query(
-            `UPDATE system_config SET value=$2::jsonb, updated_at=now() WHERE id=$1`,
-            [oldRow.id, newValue]
+            `UPDATE system_config SET value=$2::text::jsonb, updated_at=now() WHERE id=$1`,
+            [oldRow.id, newValStr]
           );
 
           await client.query(

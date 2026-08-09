@@ -2,7 +2,7 @@
 
 > Xử lý vi phạm trật tự xây dựng: người dân báo cáo → tiếp nhận → xác minh → lập biên bản → ban hành quyết định → theo dõi khắc phục → đóng hồ sơ.
 
-**v0.3.2** · Node.js 24 + React 19 + PostgreSQL 16/PostGIS · Self-hosted Docker
+**v0.3.3** · Node.js 24 + React 19 + PostgreSQL 16/PostGIS · Self-hosted Docker
 
 ---
 
@@ -77,6 +77,25 @@
 | Dashboard | Danh sách hồ sơ       | Bản đồ                              |
 | --------- | --------------------- | ----------------------------------- |
 | ![Mobile Dashboard](docs/screenshots/v0.3.2/30-mobile-dashboard.png) | ![Mobile Cases](docs/screenshots/v0.3.2/31-mobile-cases.png) | ![Mobile Bản đồ](docs/screenshots/v0.3.2/32-mobile-ban-do.png) |
+
+### ⚙️ Admin — Settings Center (v0.3.3)
+
+|| Tổng quan                                          | Auth                                             | Rate Limit                                        |
+|| -------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------- |
+|| ![Settings Overview](app/frontend/src/admin/__screenshots__/settings-overview.svg) | ![Auth Settings](app/frontend/src/admin/__screenshots__/settings-auth.svg) | ![Rate Limit](app/frontend/src/admin/__screenshots__/settings-rate-limit.svg) |
+
+|| Workflow States                                    | Role Permissions                                 | Upload                                            |
+|| -------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------- |
+|| ![Workflow States](app/frontend/src/admin/__screenshots__/settings-workflow-states.svg) | ![Role Perms](app/frontend/src/admin/__screenshots__/settings-role-permissions.svg) | ![Upload](app/frontend/src/admin/__screenshots__/settings-upload.svg) |
+
+## ✨ Tính năng v0.3.3 — Enterprise Settings Center
+
+- **ConfigService:** Cấu hình runtime từ database (`system_config` table), cache-in-memory, pg_notify real-time push
+- **17 Config API endpoints:** GET/PUT `config`, workflow states/transitions/role-permissions, export/import, validation rules, notification channels, MIME types, config history + rollback
+- **Migration 005:** 9 bảng mới (system_config, config_history, config_schema, workflow_states, workflow_transitions, role_state_permissions, allowed_mime_types, notification_channels, validation_rules) với 54 seed records
+- **ConfigProvider React Context:** Dynamic config cho toàn bộ app (JWT TTL, bcrypt rounds, rate limits, upload limits...)
+- **useConfig hook:** Declarative config access trong components
+- **12 Settings pages** — Admin UI: Overview, Auth, Upload, Rate Limit, Security, Notifications, Pagination, Cleanup, Pool, SSE, Version, Workflows (States/Transitions/Role Permissions)
 
 ---
 

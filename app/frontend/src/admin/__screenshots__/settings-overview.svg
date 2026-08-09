@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 900" width="1280" height="900">
+  <defs>
+    <style>
+      .bg { fill: #f8f9fa; }
+      .sidebar { fill: #1a1a2e; }
+      .header { fill: #ffffff; stroke: #dee2e6; stroke-width: 1; }
+      .title { font-family: system-ui, sans-serif; font-size: 24px; font-weight: bold; fill: #1a1a2e; }
+      .subtitle { font-family: system-ui, sans-serif; font-size: 14px; fill: #6c757d; }
+      .card { fill: #ffffff; stroke: #dee2e6; stroke-width: 1; rx: 8; ry: 8; }
+      .card-title { font-family: system-ui, sans-serif; font-size: 16px; font-weight: 600; fill: #1a1a2e; }
+      .card-desc { font-family: system-ui, sans-serif; font-size: 12px; fill: #6c757d; }
+      .route-item { font-family: monospace; font-size: 11px; fill: #007bff; }
+      .sidebar-title { font-family: system-ui, sans-serif; font-size: 14px; fill: #ffffff; }
+      .sidebar-item { font-family: system-ui, sans-serif; font-size: 12px; fill: #adb5bd; }
+      .active-item { font-family: system-ui, sans-serif; font-size: 12px; fill: #ffffff; font-weight: 600; }
+      .badge { font-family: system-ui, sans-serif; font-size: 10px; fill: #fff; background: #0d6efd; }
+      .divider { stroke: #dee2e6; stroke-width: 1; }
+      .status-ok { fill: #198754; font-family: system-ui, sans-serif; font-size: 12px; }
+      .placeholder-text { font-family: system-ui, sans-serif; font-size: 48px; fill: #e9ecef; font-weight: bold; text-anchor: middle; }
+    </style>
+  </defs>
+  
+  <!-- Background -->
+  <rect x="0" y="0" width="1280" height="900" class="bg"/>
+  
+  <!-- Sidebar -->
+  <rect x="0" y="0" width="220" height="900" class="sidebar"/>
+  <text x="20" y="35" class="sidebar-title">QLTTXD</text>
+  <text x="20" y="55" class="sidebar-item">Settings Center</text>
+  <line x1="20" y1="70" x2="200" y2="70" class="divider"/>
+  
+  <text x="20" y="90" class="active-item">Overview</text>
+<text x="20" y="118" class="sidebar-item">System Config</text>
+<text x="20" y="146" class="sidebar-item">Auth Settings</text>
+<text x="20" y="174" class="sidebar-item">Upload Settings</text>
+<text x="20" y="202" class="sidebar-item">Rate Limit</text>
+<text x="20" y="230" class="sidebar-item">Security</text>
+<text x="20" y="258" class="sidebar-item">UI Theme</text>
+<text x="20" y="286" class="sidebar-item">Audit Log</text>
+<text x="20" y="314" class="sidebar-item">Notifications</text>
+<text x="20" y="342" class="sidebar-item">Workflows</text>
+<text x="20" y="370" class="sidebar-item">Role Perms</text>
+  
+  <!-- Header -->
+  <rect x="220" y="0" width="1060" height="60" class="header"/>
+  <text x="250" y="38" class="title">Settings Center — Overview</text>
+  <text x="1200" y="38" class="subtitle">Main dashboard showing all configuration categories</text>
+  
+  <!-- Main Content Area -->
+  <rect x="250" y="80" width="990" height="780" class="card"/>
+  
+  <!-- Route Information -->
+  <rect x="270" y="110" width="350" height="60" class="card"/>
+  <text x="290" y="135" class="card-title">API Routes</text>
+  <text x="290" y="155" class="route-item">GET /api/v1/config</text>
+  <text x="290" y="170" class="route-item">PUT /api/v1/config/:category/:key</text>
+  
+  <!-- Status Badge -->
+  <rect x="1050" y="110" width="100" height="30" rx="15" ry="15" fill="#198754"/>
+  <text x="1100" y="130" fill="#fff" font-family="system-ui" font-size="12" text-anchor="middle" font-weight="bold">✓ ACTIVE</text>
+  
+  <!-- Placeholder Screenshot Text -->
+  <text x="640" y="450" class="placeholder-text">Screenshot Required</text>
+  <text x="640" y="480" font-family="system-ui" font-size="14" fill="#adb5bd" text-anchor="middle">Playwright browser test needed</text>
+  <text x="640" y="500" font-family="system-ui" font-size="12" fill="#dee2e6" text-anchor="middle">(Missing: libglib/libnss/libX11 in container)</text>
+  
+  <!-- Generated Timestamp -->
+  <text x="250" y="880" font-family="system-ui" font-size="10" fill="#ced4da">Generated during QA test run — CONFIG-T7 task</text>
+</svg>
