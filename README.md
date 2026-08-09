@@ -80,72 +80,55 @@
 
 ### ⚙️ Admin — Settings Center (v0.3.3)
 
-|| Tổng quan                                          | Auth                                             | Rate Limit                                        |
-|| -------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------- |
-|| ![Settings Overview](app/frontend/src/admin/__screenshots__/settings-overview.svg) | ![Auth Settings](app/frontend/src/admin/__screenshots__/settings-auth.svg) | ![Rate Limit](app/frontend/src/admin/__screenshots__/settings-rate-limit.svg) |
+| Tổng quan                                          | Auth                                             | Rate Limit                                        |
+| -------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------- |
+| ![Settings Overview](app/frontend/src/admin/__screenshots__/settings-overview.svg) | ![Auth Settings](app/frontend/src/admin/__screenshots__/settings-auth.svg) | ![Rate Limit](app/frontend/src/admin/__screenshots__/settings-rate-limit.svg) |
 
-|| Workflow States                                    | Role Permissions                                 | Upload                                            |
-|| -------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------- |
-|| ![Workflow States](app/frontend/src/admin/__screenshots__/settings-workflow-states.svg) | ![Role Perms](app/frontend/src/admin/__screenshots__/settings-role-permissions.svg) | ![Upload](app/frontend/src/admin/__screenshots__/settings-upload.svg) |
-
-## ✨ Tính năng v0.3.3 — Enterprise Settings Center
-
-- **ConfigService:** Cấu hình runtime từ database (`system_config` table), cache-in-memory, pg_notify real-time push
-- **17 Config API endpoints:** GET/PUT `config`, workflow states/transitions/role-permissions, export/import, validation rules, notification channels, MIME types, config history + rollback
-- **Migration 005:** 9 bảng mới (system_config, config_history, config_schema, workflow_states, workflow_transitions, role_state_permissions, allowed_mime_types, notification_channels, validation_rules) với 54 seed records
-- **ConfigProvider React Context:** Dynamic config cho toàn bộ app (JWT TTL, bcrypt rounds, rate limits, upload limits...)
-- **useConfig hook:** Declarative config access trong components
-- **12 Settings pages** — Admin UI: Overview, Auth, Upload, Rate Limit, Security, Notifications, Pagination, Cleanup, Pool, SSE, Version, Workflows (States/Transitions/Role Permissions)
+| Workflow States                                    | Role Permissions                                 | Upload                                            |
+| -------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------- |
+| ![Workflow States](app/frontend/src/admin/__screenshots__/settings-workflow-states.svg) | ![Role Perms](app/frontend/src/admin/__screenshots__/settings-role-permissions.svg) | ![Upload](app/frontend/src/admin/__screenshots__/settings-upload.svg) |
 
 ---
 
-## ✨ Tính năng v0.2.1
+## ✨ Tính năng
 
-- **Hardening bảo mật:** Helmet security headers (CSP/HSTS/nosniff), Rate limit cho auth endpoints (429)
-- **Health mở rộng:** DB ping + uptime + version
-- **Đổi mật khẩu:** Endpoint `PATCH /api/v1/auth/password`
-- **Audit log:** Endpoint `GET /api/v1/admin/audit-log` với filter + phân trang
-- **Xuất báo cáo:** CSV + PII masking theo quyền
-- **Xuất PDF:** Báo cáo PDF tiếng Việt
+### v0.3.3 — Enterprise Settings Center
 
-### Frontend mới
+- **ConfigService:** Cấu hình runtime từ database (`system_config` table), cache-in-memory, `pg_notify` real-time replication, Unix socket support
+- **17 Config API endpoints:** GET/PUT/POST config, workflow states/transitions/role-permissions, export/import, validation rules, notification channels, MIME types, config history + rollback
+- **Migration 005:** 9 bảng mới (`system_config`, `config_history`, `config_schema`, `workflow_states`, `workflow_transitions`, `role_state_permissions`, `allowed_mime_types`, `notification_channels`, `validation_rules`) với 54 seed records
+- **ConfigProvider + useConfig hook:** Dynamic config cho toàn bộ frontend app
+- **12 Settings pages:** Overview, Auth, Upload, Rate Limit, Security, UI, Audit, Notification, Export, Validation, Workflow States/Transitions, Role Permissions
+- **71 hardcoded values replaced:** Server config, JWT TTL, bcrypt rounds, rate limits, cookie settings, cleanup intervals, pagination defaults, SSE settings — tất cả đọc từ ConfigService
+- **CSS design system integration:** Settings Center sử dụng chung design tokens với toàn bộ app
 
-- Trang Nhật ký hệ thống (Audit Log) — admin
-- Trang Danh mục (loại vi phạm, hành vi, mức phạt) — admin
-- Trang Hồ sơ cá nhân + đổi mật khẩu — tất cả user
-- Trang Báo cáo/Thống kê + nút xuất CSV/PDF
-- Hiển thị ảnh minh chứng trong chi tiết hồ sơ
-
-### Cải tiến
-
-- `schema_migrations` table trong schema
-- `GET /api/v1/ho-so/:id` trả thêm `khac_phuc[]`
-- `admin.locations` permission trong seed
-
-### Dependencies mới
-
-- Backend: `helmet`, `express-rate-limit`, `csv-stringify`, `pdfkit`
-
-## ✨ Tính năng v0.3.2
+### v0.3.2 — Security & Real-time
 
 - **Sinh văn bản hành chính DOCX:** Biên bản & Quyết định xử phạt theo thể thức NĐ 30/2020/NĐ-CP
 - **Client-side routing:** Browser history (Back/Forward, deep-link), mỗi route lazy-load + ErrorBoundary riêng
-- **Real-time thông báo:** SSE push qua `EventSource` (thay polling), fallback polling + auto-reconnect
-- **Bảo mật nâng cao:** Token refresh qua HttpOnly cookie, JWT không lộ qua URL (blob-based image), password change revoke toàn bộ token, CSP cứng, RATE_LIMIT + user-level limiter
+- **Real-time thông báo:** SSE push qua `EventSource`, fallback polling + auto-reconnect
+- **Bảo mật nâng cao:** Token refresh qua HttpOnly cookie, JWT không lộ qua URL (blob-based image), password change revoke toàn bộ token, CSP cứng, rate limit + user-level limiter
 - **Pagination:** Danh sách hồ sơ, báo cáo, bản đồ, admin users, audit log
 - **Frontend test suite:** Vitest + React Testing Library
-- **Service worker:** Offline fallback, cache versioned per build (không stale)
+- **Service worker:** Offline fallback, cache versioned per build
 
-## ✨ Tính năng v0.2.0
+### v0.3.x — Workflow & UX
 
-- **Quản lý địa điểm:** Admin CRUD quận/huyện & phường/xã, nhập boundary GeoJSON MultiPolygon (SRID 4326) với preview bản đồ Leaflet, chặn xóa khi có ràng buộc, audit log đầy đủ.
-- **Hardening bảo mật:** Rate limit (login/auth/upload), Helmet security headers (CSP/HSTS/nosniff), Upload kiểm tra magic-byte (JPEG/PNG/GIF/WebP), Script dọn tệp mồ côi, Health endpoint mở rộng.
-- **Báo cáo & Xuất dữ liệu:** Xuất CSV/PDF theo trạng thái/quận/tháng, che dữ liệu cá nhân (PII) theo quyền, phân trang batch cho dữ liệu lớn.
-- **5 vai trò RBAC:** Công dân, Cán bộ thụ lý, Xác minh viên, Lãnh đạo, Quản trị viên — 27 quyền chi tiết theo module.
-- **13 trạng thái hồ sơ:** Luồng trạng thái có kiểm soát, audit log bất biến.
-- **Bản đồ GIS:** PostGIS (SRID 4326), ranh giới hành chính quận/phường Hà Nội, hiển thị vị trí vi phạm trên Leaflet.
-- **Biên bản & Quyết định:** Theo NĐ 16/2022, theo dõi khắc phục hậu quả.
-- **Cổng công dân:** Báo cáo vi phạm với vị trí trên bản đồ, ảnh minh chứng, theo dõi trạng thái.
+- **15 trạng thái hồ sơ:** Mở rộng từ 13 lên 15 (thêm `da_tiep_nhan`, `da_chuyen_co_quan`)
+- **Role × State transition matrix:** Mỗi vai trò chỉ chuyển được trạng thái được phép
+- **Workflow UX:** State timeline, badges/filter, role-aware transition buttons
+- **SSE authentication:** HttpOnly cookie + CSRF protection
+- **Audit log retention:** Archive → purge, 20 năm, daily job, advisory lock
+
+### v0.2.x — Core Platform
+
+- **5 vai trò RBAC:** Công dân, Cán bộ thụ lý, Xác minh viên, Lãnh đạo, Quản trị viên — 27 quyền chi tiết
+- **Bản đồ GIS:** PostGIS (SRID 4326), ranh giới hành chính quận/phường Hà Nội, Leaflet
+- **Biên bản & Quyết định:** Theo NĐ 16/2022, theo dõi khắc phục hậu quả
+- **Cổng công dân:** Báo cáo vi phạm với vị trí trên bản đồ, ảnh minh chứng, theo dõi trạng thái
+- **Admin CRUD:** Quận/huyện, phường/xã, danh mục, người dùng, phân quyền
+- **Hardening:** Helmet headers, rate limit, upload magic-byte, health checks
+- **Xuất dữ liệu:** CSV, PDF, DOCX + PII masking theo quyền
 
 ---
 
@@ -200,16 +183,21 @@ Truy cập http://localhost → Đăng ký admin → Dashboard.
 
 ## 📡 API Endpoints
 
-| Module          | Endpoints                                                      | Ghi chú                         |
-| --------------- | -------------------------------------------------------------- | ------------------------------- |
-| Auth            | `setup-status`, `setup-admin`, `login`, `logout`, `password`   | JWT + rate-limit + đổi mật khẩu |
-| Admin Users     | CRUD người dùng, vai trò, phân quyền                           | Cần `admin.users`               |
-| Admin Locations | CRUD quận/huyện, phường/xã + boundary GeoJSON                  | Cần `admin.locations`           |
-| Audit Log       | `GET /api/v1/admin/audit-log` + filter + phân trang            | Cần `admin.audit` (v0.2.1)      |
-| Hồ sơ           | CRUD hồ sơ, chuyển trạng thái, biên bản, quyết định, khắc phục | 13 trạng thái                   |
-| Báo cáo         | Tạo + theo dõi báo cáo vi phạm                                 | Công dân                        |
-| Thống kê        | Tổng quan, xuất CSV/PDF + PII masking                          | Cần `report.statistics`         |
-| Health          | `/health`                                                      | DB ping + uptime + version      |
+| Module              | Endpoints                                                      | Ghi chú                              |
+| ------------------- | -------------------------------------------------------------- | ------------------------------------ |
+| Auth                | `setup-status`, `setup-admin`, `login`, `logout`, `password`   | JWT + rate-limit + cookie refresh    |
+| Admin Users         | CRUD người dùng, vai trò, phân quyền                           | Cần `admin.users`                    |
+| Admin Locations     | CRUD quận/huyện, phường/xã + boundary GeoJSON                  | Cần `admin.locations`                |
+| Audit Log           | `GET /api/v1/admin/audit-log` + filter + phân trang            | Cần `admin.audit`                    |
+| Hồ sơ               | CRUD hồ sơ, chuyển trạng thái, biên bản, quyết định, khắc phục | 15 trạng thái, role × state matrix  |
+| Báo cáo             | Tạo + theo dõi báo cáo vi phạm                                 | Công dân                             |
+| Thống kê            | Tổng quan, xuất CSV/PDF + PII masking                          | Cần `report.statistics`              |
+| Config              | GET/PUT/POST config theo category, history, rollback           | Cần `admin.config` (v0.3.3)         |
+| Workflow            | States, transitions, role-permissions                          | Admin (v0.3.3)                       |
+| Config Import/Export| Export toàn bộ / Import batch config                           | Admin (v0.3.3)                       |
+| Validation Rules    | GET validation rules                                           | Admin (v0.3.3)                       |
+| Notification        | SSE stream, channels, allowed MIME types                       | Authenticated users                  |
+| Health              | `/health`, `/health/live`, `/health/ready`, `/health/detailed` | DB ping + uptime + version           |
 
 > Danh sách đầy đủ: [app/README.md § API Endpoints](app/README.md#api-endpoints)
 
@@ -219,106 +207,95 @@ Truy cập http://localhost → Đăng ký admin → Dashboard.
 
 ```
 qlttxd/
-├── README.md                    ← Bạn đang đọc
-├── BRIEF.md                     # Tóm tắt dự án
-├── CHANGELOG.md                 # Lịch sử thay đổi
-├── app/                         # Ứng dụng self-host
+├── README.md                         ← Bạn đang đọc
+├── BRIEF.md                          # Tóm tắt dự án
+├── CHANGELOG.md                      # Lịch sử thay đổi
+├── app/
 │   ├── docker-compose.yml
-│   ├── backend/                 # Node.js + Express API
-│   │   ├── server.js            # Main app (helmet, rate-limit, audit)
-│   │   └── test/                # 91 tests (hardening, reporting, export)
-│   ├── frontend/                # React 19 + Vite SPA
-│   ├── db/init/                 # Schema + seed SQL
-│   └── scripts/                 # Backup, update
-├── docs/                        # Tài liệu dự án
-│   ├── 00-tong-ket.md           # Tổng kết
-│   ├── 01..09-*.md              # Thiết kế, quy trình
-│   ├── 10..11-*.md              # Kế hoạch v0.2.0
-│   ├── screenshots/             # Ảnh demo UI
-│   │   ├── v0.2.0-full/         # 24 ảnh toàn bộ UI v0.2.0
-│   │   ├── v0.2.1/              # 26 ảnh UI v0.2.1
-│   │   └── README.md            # Index + mô tả ảnh
-│   ├── specs/v0.2.1/            # 15 task specs v0.2.1
-│   └── BOM-v0.2.0.md           # Bill of Materials
-├── sql/                         # Database (schema, seed, migrations, verify)
-├── scripts/                     # Staging + screenshot scripts
-└── taplieu/                     # Văn bản pháp luật (NĐ15, NĐ16, NĐ50, NĐ62)
+│   ├── backend/                      # Node.js + Express API
+│   │   ├── server.js                 # App factory (helmet, rate-limit, audit)
+│   │   ├── lib/config-service.js     # ConfigService — DB-backed config platform
+│   │   ├── routes/config.js          # 17 Config API endpoints
+│   │   ├── routes/auth.js            # Auth + health + readiness
+│   │   ├── routes/ho-so.js           # Hồ sơ CRUD + state machine
+│   │   ├── routes/bao-cao.js         # Báo cáo vi phạm
+│   │   ├── routes/thong-bao.js       # SSE notifications
+│   │   ├── routes/admin-users.js     # User management
+│   │   ├── routes/admin-locations.js # GIS locations
+│   │   ├── routes/admin-catalogs.js  # Danh mục
+│   │   ├── routes/ban-do.js          # Bản đồ GIS
+│   │   ├── routes/thong-ke.js        # Statistics + export
+│   │   ├── utils/                    # middleware, helpers, rate-limit, constants
+│   │   ├── jobs/                     # audit-retention, cleanup workers
+│   │   ├── migrations/               # 001–005 schema migrations
+│   │   └── test/                     # 26 test files
+│   ├── frontend/                     # React 19 + Vite SPA
+│   │   ├── src/
+│   │   │   ├── lib/                  # api.js, ConfigContext, AuthContext, constants
+│   │   │   ├── admin/                # Settings Center (12 pages), admin pages
+│   │   │   ├── pages/                # Dashboard, CaseList, CaseDetail, CitizenPage...
+│   │   │   ├── components/           # Login, Tabs, Lightbox, Dialog...
+│   │   │   └── styles.css            # Design system (CSS variables + classes)
+│   │   └── test/                     # Vitest + React Testing Library
+│   ├── db/init/                      # Schema + seed SQL
+│   └── scripts/                      # Backup, update
+├── docs/                             # Tài liệu dự án
+│   ├── screenshots/                  # Ảnh demo UI (v0.2.0, v0.2.1, v0.3.2, v0.3.3)
+│   ├── specs/                        # Task specifications
+│   └── *.md                          # Thiết kế, quy trình, kế hoạch
+├── sql/                              # Database (schema, seed, migrations, verify)
+├── scripts/                          # Staging + screenshot scripts
+└── taplieu/                          # Văn bản pháp luật (NĐ15, NĐ16, NĐ50, NĐ62)
 ```
 
 ---
 
-## 🧪 Test
+## 🧪 Tests
 
 ```bash
-cd app/backend
-npm test        # 70 unit/integration test
+# Backend (26 test files)
+cd app/backend && npm test
+
+# Frontend (12 test files)
+cd app/frontend && npx vitest run
+
+# Config API tests
+cd app/backend && node --test test/config-service.test.js --test-concurrency=1
 ```
 
-| Kiểm tra           | Kết quả                    |
-| ------------------ | -------------------------- |
-| Backend unit tests | 91/91 PASS                 |
-| Frontend build     | ✅                         |
-| verify-db.sql      | 18/18 PASS                 |
-| Security smoke     | 0 HIGH findings (7 checks) |
+| Kiểm tra                | Kết quả                     |
+| ----------------------- | --------------------------- |
+| Backend tests           | 264+ tests (26 files)       |
+| Frontend tests          | 70/70 PASS (12 files)       |
+| Config API tests        | 37/37 PASS                  |
+| Frontend build          | ✅ SUCCESS                  |
+| Security smoke          | 0 HIGH findings             |
 
 ---
 
-## 📋 CHANGELOG v0.2.0
+## 🔒 Bảo mật
 
-**Ngày:** 2026-08-03
-
-### Tính năng mới
-
-- **Quản lý địa điểm:** 8 endpoints CRUD quận/huyện + phường/xã, boundary GeoJSON MultiPolygon, preview bản đồ, guard xóa an toàn (409), audit log.
-- **Hardening bảo mật:** Rate limit, Helmet headers, upload magic-byte, dọn tệp mồ côi, health endpoint mở rộng.
-- **Báo cáo & Xuất dữ liệu:** Xuất CSV/PDF, che PII theo quyền, phân trang batch.
-- **Permission mới:** `admin.locations`, `report.statistics`.
-
-### Cải tiến
-
-- Migration 002 idempotent (up/down).
-- verify-db.sql: 18 assertions (admin.locations, migration 002, audit indexes, request_id).
-- Frontend: AdminLocationsPage (2 panel, modal, preview polygon), menu Địa điểm theo permission.
-
-### Dependencies mới
-
-- Backend: `express-rate-limit`, `helmet`, `file-type`, `pdfkit`, `csv-stringify`
-- Frontend: Không thêm runtime dependency
-
-> CHANGELOG đầy đủ: [app/README.md § CHANGELOG](app/README.md#changelog-v020)
+- **Authentication:** JWT access (5 phút) + refresh token (7 ngày) qua HttpOnly cookie
+- **Authorization:** RBAC 5 vai trò, 27 quyền, role × state transition matrix
+- **Rate limiting:** Global (100 req/15min), Auth (10 req/15min), Write (30 req/15min), User-level
+- **Security headers:** Helmet (CSP, HSTS 1 năm, nosniff, X-Frame-Options, Referrer-Policy)
+- **Upload:** Magic-byte validation (JPEG/PNG/GIF/WebP), size limit (configurable)
+- **Password:** Bcrypt (configurable rounds), min 32-char JWT_SECRET enforced
+- **Audit:** Full CRUD logging với user, action, table, IP, request_id
+- **PII masking:** Phone/email che theo quyền
+- **Token management:** Blocklist, cleanup workers, password change revokes all tokens
 
 ---
 
-## 📋 CHANGELOG v0.2.1
+## 📋 Version History
 
-**Ngày:** 2026-08-06
-
-### Tính năng mới
-
-- **Hardening bảo mật:** Helmet security headers (CSP/HSTS/nosniff), Rate limit cho auth endpoints (429)
-- **Health mở rộng:** DB ping + uptime + version
-- **Đổi mật khẩu:** Endpoint `PATCH /api/v1/auth/password`
-- **Audit log:** Endpoint `GET /api/v1/admin/audit-log` với filter + phân trang
-- **Xuất báo cáo:** CSV + PII masking theo quyền
-- **Xuất PDF:** Báo cáo PDF tiếng Việt
-
-### Frontend mới
-
-- Trang Nhật ký hệ thống (Audit Log) — admin
-- Trang Danh mục (loại vi phạm, hành vi, mức phạt) — admin
-- Trang Hồ sơ cá nhân + đổi mật khẩu — tất cả user
-- Trang Báo cáo/Thống kê + nút xuất CSV/PDF
-- Hiển thị ảnh minh chứng trong chi tiết hồ sơ
-
-### Cải tiến
-
-- `schema_migrations` table trong schema
-- `GET /api/v1/ho-so/:id` trả thêm `khac_phuc[]`
-- `admin.locations` permission trong seed
-
-### Dependencies mới
-
-- Backend: `helmet`, `express-rate-limit`, `csv-stringify`, `pdfkit`
+| Version | Ngày       | Highlight                                          |
+| ------- | ---------- | -------------------------------------------------- |
+| v0.3.3  | 2026-08-09 | Enterprise Settings Center — ConfigService + 12 UI |
+| v0.3.2  | 2026-08-08 | Security hardening, real-time SSE, DOCX export     |
+| v0.3.x  | 2026-08-07 | Workflow UX, 15 states, role × state matrix        |
+| v0.2.1  | 2026-08-06 | Helmet, rate limit, audit log, CSV/PDF export      |
+| v0.2.0  | 2026-08-03 | RBAC, GIS, admin CRUD, hardening                   |
 
 > CHANGELOG đầy đủ: [CHANGELOG.md](CHANGELOG.md)
 
@@ -328,21 +305,14 @@ npm test        # 70 unit/integration test
 
 | Tài liệu                                                                   | Mô tả                                                                   |
 | -------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| [app/README.md](app/README.md)                                             | Hướng dẫn triển khai chi tiết (Docker, backup, update, troubleshooting) |
+| [CHANGELOG.md](CHANGELOG.md)                                               | Lịch sử thay đổi chi tiết                                              |
 | [BRIEF.md](BRIEF.md)                                                       | Tóm tắt dự án                                                           |
+| [app/README.md](app/README.md)                                             | Hướng dẫn triển khai (Docker, backup, update, troubleshooting)         |
 | [docs/00-tong-ket.md](docs/00-tong-ket.md)                                 | Tổng kết kiến trúc                                                      |
 | [docs/01-phan-tich-phap-ly.md](docs/01-phan-tich-phap-ly.md)               | Phân tích pháp lý                                                       |
 | [docs/02-quy-trinh-nghiep-vu.md](docs/02-quy-trinh-nghiep-vu.md)           | Quy trình nghiệp vụ                                                     |
-| [docs/03-dac-ta-nghiep-vu.md](docs/03-dac-ta-nghiep-vu.md)                 | Đặc tả nghiệp vụ                                                        |
 | [docs/04-thiet-ke-csdl.md](docs/04-thiet-ke-csdl.md)                       | Thiết kế CSDL                                                           |
-| [docs/05-thiet-ke-giao-dien.md](docs/05-thiet-ke-giao-dien.md)             | Thiết kế giao diện                                                      |
-| [docs/06-postgis-toolchain.md](docs/06-postgis-toolchain.md)               | PostGIS toolchain                                                       |
 | [docs/07-huong-dan-van-hanh.md](docs/07-huong-dan-van-hanh.md)             | Hướng dẫn vận hành                                                      |
-| [docs/08-quality-gate-process.md](docs/08-quality-gate-process.md)         | Quality gate process                                                    |
-| [docs/10-ke-hoach-nang-cap-v0.2.0.md](docs/10-ke-hoach-nang-cap-v0.2.0.md) | Kế hoạch nâng cấp v0.2.0                                                |
-| [docs/11-task-spec-v0.2.0.md](docs/11-task-spec-v0.2.0.md)                 | Task specification v0.2.0                                               |
-| [docs/BOM-v0.2.0.md](docs/BOM-v0.2.0.md)                                   | Bill of Materials                                                       |
-| [docs/acceptance-matrix-v0.2.0.md](docs/acceptance-matrix-v0.2.0.md)       | Ma trận nghiệm thu                                                      |
 | [docs/screenshots/README.md](docs/screenshots/README.md)                   | Index screenshots                                                       |
 
 ---
