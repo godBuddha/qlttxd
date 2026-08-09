@@ -4,6 +4,7 @@ import './styles.css';
 
 import { request, can } from './lib/api.js';
 import { AuthProvider, useAuth } from './lib/AuthContext.jsx';
+import { ConfigProvider } from './lib/ConfigContext.jsx';
 
 import { Notice } from './components/Notice.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
@@ -449,7 +450,9 @@ function App() {
 createRoot(document.getElementById('root')).render(
   <ErrorBoundary>
     <AuthProvider>
-      <App />
+      <ConfigProvider>
+        <App />
+      </ConfigProvider>
     </AuthProvider>
   </ErrorBoundary>
 );

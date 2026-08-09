@@ -100,3 +100,45 @@ export const AUDIT_ACTION_LABELS = {
   update_permissions: 'Phân quyền',
   change_password: 'Đổi mật khẩu',
 };
+
+// ──────────────────────────────────────────────
+// Dynamic helpers — accept a configService (the useConfig context value)
+// and return state/transition data from the backend when available,
+// falling back to the static exports above.
+// ──────────────────────────────────────────────
+
+/**
+ * Get resolved states array from config service or fallback static list.
+ * @param {object|null} configService - The ConfigProvider context value (from useConfig)
+ * @returns {string[]} Array of state strings
+ */
+export function getStates(configService) {
+  if (configService?.states && configService.states.length > 0) {
+    return configService.states;
+  }
+  return STATES;
+}
+
+/**
+ * Get resolved labels map from config service or fallback static map.
+ * @param {object|null} configService - The ConfigProvider context value (from useConfig)
+ * @returns {object} Map of state -> label string
+ */
+export function getStateLabels(configService) {
+  if (configService?.stateLabels) {
+    return configService.stateLabels;
+  }
+  return STATE_LABELS;
+}
+
+/**
+ * Get resolved transitions matrix from config service or fallback static object.
+ * @param {object|null} configService - The ConfigProvider context value (from useConfig)
+ * @returns {object} Map of state -> [next_state_strings]
+ */
+export function getTransitions(configService) {
+  if (configService?.transitions !== undefined && configService.transitions !== null) {
+    return configService.transitions;
+  }
+  return TRANSITIONS;
+}
