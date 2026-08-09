@@ -10,6 +10,9 @@ const CATEGORIES = [
   { key: 'notification', label: 'Thông báo', icon: '🔔', desc: 'Worker, SSE heartbeat' },
   { key: 'export', label: 'Xuất dữ liệu', icon: '📤', desc: 'MIME types xuất file' },
   { key: 'validation', label: 'Quy tắc kiểm tra', icon: '✅', desc: 'Validation rules' },
+  { key: 'workflow-states', label: 'Trạng thái workflow', icon: '🔄', desc: 'Danh sách trạng thái' },
+  { key: 'workflow-transitions', label: 'Chuyển trạng thái', icon: '🔀', desc: 'Quy tắc chuyển đổi' },
+  { key: 'role-permissions', label: 'Quyền theo vai trò', icon: '👥', desc: 'Phân quyền RBAC' },
 ];
 
 // Simple Link component for sidebar navigation

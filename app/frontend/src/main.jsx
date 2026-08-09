@@ -77,6 +77,15 @@ const SettingsExport = lazy(() =>
 const SettingsValidation = lazy(() =>
   import('./admin/SettingsValidation.jsx').then((m) => ({ default: m.SettingsValidation }))
 );
+const SettingsWorkflowStates = lazy(() =>
+  import('./admin/SettingsWorkflowStates.jsx').then((m) => ({ default: m.SettingsWorkflowStates }))
+);
+const SettingsWorkflowTransitions = lazy(() =>
+  import('./admin/SettingsWorkflowTransitions.jsx').then((m) => ({ default: m.SettingsWorkflowTransitions }))
+);
+const SettingsRolePermissions = lazy(() =>
+  import('./admin/SettingsRolePermissions.jsx').then((m) => ({ default: m.SettingsRolePermissions }))
+);
 
 // Icon library for accessible, font-independent navigation icons
 import {
@@ -117,6 +126,9 @@ function getPath(page, id) {
     'admin-settings-notification': '/admin/settings/notification',
     'admin-settings-export': '/admin/settings/export',
     'admin-settings-validation': '/admin/settings/validation',
+    'admin-settings-workflow-states': '/admin/settings/workflow-states',
+    'admin-settings-workflow-transitions': '/admin/settings/workflow-transitions',
+    'admin-settings-role-permissions': '/admin/settings/role-permissions',
     report: '/report',
     profile: '/profile',
     'officer-reports': '/officer-reports',
@@ -148,6 +160,9 @@ function getPageFromPath(path) {
     '/admin/settings/notification': 'admin-settings-notification',
     '/admin/settings/export': 'admin-settings-export',
     '/admin/settings/validation': 'admin-settings-validation',
+    '/admin/settings/workflow-states': 'admin-settings-workflow-states',
+    '/admin/settings/workflow-transitions': 'admin-settings-workflow-transitions',
+    '/admin/settings/role-permissions': 'admin-settings-role-permissions',
     '/report': 'report',
     '/profile': 'profile',
     '/officer-reports': 'officer-reports',
@@ -558,7 +573,28 @@ function App() {
               </Suspense>
             </ErrorBoundary>
           )}
-          {![
+          {route.page === 'admin-settings-workflow-states' && (
+            <ErrorBoundary>
+              <Suspense fallback={<Loading />}>
+                <SettingsWorkflowStates api={api} notify={notify} />
+              </Suspense>
+            </ErrorBoundary>
+          )}
+          {route.page === 'admin-settings-workflow-transitions' && (
+            <ErrorBoundary>
+              <Suspense fallback={<Loading />}>
+                <SettingsWorkflowTransitions api={api} notify={notify} />
+              </Suspense>
+            </ErrorBoundary>
+          )}
+          {route.page === 'admin-settings-role-permissions' && (
+            <ErrorBoundary>
+              <Suspense fallback={<Loading />}>
+                <SettingsRolePermissions api={api} notify={notify} />
+              </Suspense>
+            </ErrorBoundary>
+          )}
+          {[
             'home',
             'dashboard',
             'cases',
@@ -581,6 +617,9 @@ function App() {
             'admin-settings-notification',
             'admin-settings-export',
             'admin-settings-validation',
+            'admin-settings-workflow-states',
+            'admin-settings-workflow-transitions',
+            'admin-settings-role-permissions',
             'report',
             'profile',
           ].includes(route.page) && <NotFound navigate={nav} />}
