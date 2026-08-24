@@ -497,7 +497,8 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
       ? (_req, _res, next) => next()
       : rateLimit({
           windowMs: cfg.getSync('rate_limit', 'global_window_ms', 900000),
-          max: Number(process.env.RATE_LIMIT_MAX || cfg.getSync('rate_limit', 'forgot_max', 200)),
+          // HC-03: no env override — forgot_max is managed via Settings Center
+          max: Number(cfg.getSync('rate_limit', 'forgot_max', 200)),
           standardHeaders: true,
           legacyHeaders: false,
           message: { error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' },

@@ -6,7 +6,7 @@
  * NOTE: Route order matters! Specific/special routes must come BEFORE parameterized
  * routes like /:category/:key which would otherwise capture them.
  */
-module.exports = function configRoutes({ pool, authenticate, authorize }) {
+module.exports = function configRoutes({ pool, authenticate, authorize, auditRetention }) {
   const express = require('express');
   const { requirePool, audit } = require('../utils/helpers');
   const router = express.Router();
@@ -20,6 +20,299 @@ module.exports = function configRoutes({ pool, authenticate, authorize }) {
     const scope = req.query.scope || 'global';
     return scope === 'global' ? GLOBAL_SCOPE_UUID : null;
   }
+
+  // ═══════════════════════════════════════════════
+  // WAVE 1 — shared helpers for bulk/import/test-smtp/purge-now
+  // ═══════════════════════════════════════════════
+
+  /**
+   * Parse an incoming config value the same way PUT /:category/:key does:
+   * object/array → as-is; string → try JSON.parse with raw-string fallback.
+   * @returns {{ ok: boolean, value?: *, error?: string }}
+   */
+  function parseConfigValue(value) {
+    if (value === undefined || value === null) {
+      return { ok: false, error: 'Thiếu trường value' };
+    }
+    if (typeof value === 'object') return { ok: true, value };
+    if (typeof value === 'string') {
+      try { return { ok: true, value: JSON.parse(value) }; } catch { return { ok: true, value }; }
+    }
+    return { ok: true, value };
+  }
+
+  /**
+   * Core single-item set logic shared by PUT /:category/:key and bulk endpoints.
+   * MUST be called inside an open transaction on `client`.
+   * @param {import('pg').PoolClient} client
+   * @param {{ category: string, key: string, value: * }} item
+   * @param {object} req — express request (user/ip/requestId)
+   * @param {string} [scopeUuid] — resolved global scope UUID
+   * @returns {{ category: string, key: string, old_value: *, new_value: * }}
+   * @throws Error('CONFIG_NOT_FOUND') | Error('CONFIG_READONLY') | validation Error
+   */
+  async function setOneInTx(client, { category, key, value }, req, scopeUuid = GLOBAL_SCOPE_UUID) {
+    const scope = 'global';
+    const r = await client.query(
+      `SELECT id, value, is_readonly FROM system_config WHERE scope=$1 AND scope_id=$2::uuid AND category=$3 AND key=$4`,
+      [scope, scopeUuid, category, key]
+    );
+    if (!r.rows.length) {
+      throw Object.assign(new Error(`Không tìm thấy cấu hình ${category}/${key}`), { code: 'CONFIG_NOT_FOUND' });
+    }
+    const oldRow = r.rows[0];
+    if (oldRow.is_readonly) {
+      throw Object.assign(new Error(`Cấu hình ${category}/${key} chỉ đọc, không thể thay đổi`), { code: 'CONFIG_READONLY' });
+    }
+
+    let newValue;
+    if (typeof value === 'object' && value !== null) {
+      newValue = value;
+    } else if (typeof value === 'string') {
+      try { newValue = JSON.parse(value); } catch { newValue = value; }
+    } else {
+      newValue = value;
+    }
+
+    const newValStr = JSON.stringify(newValue);
+    // Use pre-encoded JSON string + explicit text→jsonb cast to handle all value types.
+    await client.query(
+      `UPDATE system_config SET value=$2::text::jsonb, updated_at=now() WHERE id=$1`,
+      [oldRow.id, newValStr]
+    );
+    await client.query(
+      `INSERT INTO config_history (config_id, nguoi_dung_id, old_value, new_value, action, ip, request_id) VALUES ($1,$2,$3,$4,'update',$5,$6)`,
+      [oldRow.id, req.user.id, JSON.stringify(oldRow.value), newValStr, req.ip || null, req.requestId || null]
+    );
+    return { category, key, old_value: oldRow.value, new_value: newValue };
+  }
+
+  /** Category → required edit permission (mirrors migration 006 permission codes). */
+  const CATEGORY_PERMISSIONS = {
+    general: 'config.edit.general',
+    security: 'config.edit.security',
+    workflow: 'config.edit.workflow',
+    infra: 'config.edit.infra',
+    appearance: 'config.edit.appearance',
+    auth: 'config.edit.auth',
+    upload: 'config.edit.upload',
+    notification: 'config.edit.notification',
+    smtp: 'config.edit.notification',   // SMTP channel belongs to the notification group
+    features: 'config.edit.infra',      // feature flags are infrastructure switches
+    audit: 'config.edit.infra',
+    ui: 'config.edit.appearance',
+    cookie: 'config.edit.security',
+    pool: 'config.edit.infra',
+    cleanup: 'config.edit.infra',
+    sse: 'config.edit.infra',
+    bell: 'config.edit.appearance',
+    pagination: 'config.edit.general',
+    rate_limit: 'config.edit.security',
+    version: 'config.edit.general',
+  };
+
+  /** Resolve required permission for a config category; null when unknown. */
+  function permissionForCategory(category) {
+    return Object.prototype.hasOwnProperty.call(CATEGORY_PERMISSIONS, category)
+      ? CATEGORY_PERMISSIONS[category]
+      : null;
+  }
+
+  // ═══════════════════════════════════════════════
+  // WAVE 1 — BULK / IMPORT / TEST-SMTP / PURGE-NOW
+  // NOTE: these fixed paths have ONE segment after /config so they never collide
+  // with the parameterized /:category/:key routes below.
+  // ═══════════════════════════════════════════════
+
+  const MAX_BULK_ITEMS = 50;
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  /**
+   * Validate one bulk item (shape + category permission). Returns an error
+   * message string, or null when the item is usable.
+   */
+  function validateBulkItem(item, user) {
+    if (!item || typeof item !== 'object') return 'Item không hợp lệ';
+    const { category, key } = item;
+    if (!category || !key) return 'Thiếu category hoặc key';
+    if (item.value === undefined || item.value === null) return 'Thiếu trường value';
+    const permCode = permissionForCategory(category);
+    if (!permCode) return `Danh mục không hợp lệ: ${category}`;
+    if (!user.permissions.includes(permCode)) return `Bạn không có quyền cập nhật danh mục ${category}`;
+    return null;
+  }
+
+  // ─── PUT /api/v1/config/bulk ───
+  // Atomic multi-update: one invalid item rolls back the WHOLE batch (400 with index).
+  router.put(
+    '/api/v1/config/bulk',
+    authenticate,
+    async (req, res, next) => {
+      if (!requirePool(pool, res)) return;
+      try {
+        const { items } = req.body || {};
+        if (!Array.isArray(items) || !items.length) {
+          return res.status(400).json({ error: 'Danh sách cấu hình không hợp lệ' });
+        }
+        if (items.length > MAX_BULK_ITEMS) {
+          return res.status(400).json({ error: `Tối đa ${MAX_BULK_ITEMS} item mỗi lần gọi` });
+        }
+
+        // Fail fast BEFORE opening the transaction: shape, category, permission.
+        for (let i = 0; i < items.length; i++) {
+          const err = validateBulkItem(items[i], req.user);
+          if (err) {
+            return res.status(400).json({ error: err, index: i, item: { category: items[i]?.category, key: items[i]?.key } });
+          }
+        }
+
+        const client = await pool.connect();
+        try {
+          await client.query('BEGIN');
+          const applied = [];
+          for (let i = 0; i < items.length; i++) {
+            const { category, key, value } = items[i];
+            try {
+              const r = await setOneInTx(client, { category, key, value }, req);
+              applied.push(r);
+            } catch (e) {
+              await client.query('ROLLBACK');
+              const status = e.code === 'CONFIG_READONLY' ? 400 : e.code === 'CONFIG_NOT_FOUND' ? 404 : 400;
+              return res.status(status).json({
+                error: e.message,
+                index: i,
+                item: { category, key },
+                rolled_back: applied.length,
+              });
+            }
+          }
+          await client.query('COMMIT');
+
+          // Notify other instances about every changed key (payload is safe metadata).
+          for (const r of applied) {
+            const notifyPayload = JSON.stringify({ category: r.category, key: r.key, scope: 'global', scopeId: GLOBAL_SCOPE_UUID }).slice(0, 7900);
+            await pool.query(`SELECT pg_notify('config_changed', $1)`, [notifyPayload]).catch(() => {});
+          }
+
+          // Per-item audit trail (non-critical — mirrors ConfigService.set behaviour).
+          for (const r of applied) {
+            try {
+              await audit(pool, req, 'config.update', 'system_config', null, { category: r.category, key: r.key, scope: 'global', bulk: true });
+            } catch (_) { /* ignore */ }
+          }
+
+          res.json({ updated: applied.length, items: applied.map(r => ({ category: r.category, key: r.key, value: r.new_value })) });
+        } catch (e) {
+          await client.query('ROLLBACK').catch(() => {});
+          throw e;
+        } finally {
+          client.release();
+        }
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  // ─── POST /api/v1/config/test-smtp ───
+  // Sends one probe email using DB smtp.* settings + layer-A secrets from env.
+  router.post(
+    '/api/v1/config/test-smtp',
+    authenticate,
+    authorize('config.edit.notification'),
+    async (req, res, next) => {
+      if (!requirePool(pool, res)) return;
+      try {
+        const { to } = req.body || {};
+        if (!to || typeof to !== 'string' || !EMAIL_REGEX.test(to.trim())) {
+          return res.status(400).json({ error: 'Địa chỉ nhận email thử nghiệm không hợp lệ' });
+        }
+
+        // Channel master switch lives in DB (migration 007).
+        const cfgRow = await pool.query(
+          `SELECT key, value FROM system_config WHERE scope='global' AND scope_id=$1::uuid AND category='smtp'`,
+          [GLOBAL_SCOPE_UUID]
+        );
+        const smtp = {};
+        for (const row of cfgRow.rows) smtp[row.key] = row.value;
+
+        if (smtp.enabled !== true) {
+          return res.status(400).json({ error: 'Kênh email đang tắt' });
+        }
+
+        const host = smtp.host || process.env.SMTP_HOST;
+        if (!host) {
+          return res.status(400).json({ error: 'Chưa cấu hình máy chủ SMTP (smtp.host)' });
+        }
+        const port = Number(smtp.port) || Number(process.env.SMTP_PORT) || 587;
+
+        const nodemailer = require('nodemailer');
+        const transporter = nodemailer.createTransport({
+          host,
+          port,
+          secure: port === 465,
+          auth: process.env.SMTP_USER
+            ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+            : undefined,
+        });
+
+        const from = smtp.from_address || process.env.SMTP_FROM || `QLTTXD <no-reply@${host}>`;
+        try {
+          const info = await transporter.sendMail({
+            from,
+            to: to.trim(),
+            subject: 'QLTTXD — Email thử nghiệm cấu hình SMTP',
+            text: 'Đây là email thử nghiệm từ Settings Center. Nếu bạn nhận được email này, cấu hình SMTP đang hoạt động.',
+          });
+          try {
+            await audit(pool, req, 'config.test_smtp', 'system_config', null, { host, port, to: to.trim() });
+          } catch (_) { /* non-critical */ }
+          return res.json({ ok: true, messageId: info && info.messageId });
+        } catch (mailErr) {
+          // Redact anything resembling credentials before responding.
+          const raw = String(mailErr && mailErr.message || 'Lỗi không xác định');
+          const detail = process.env.SMTP_PASS ? raw.split(process.env.SMTP_PASS).join('[REDACTED]') : raw;
+          return res.status(502).json({ error: 'Gửi email thử nghiệm thất bại', detail });
+        } finally {
+          transporter.close();
+        }
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  // ─── POST /api/v1/audit/purge-now ───
+  // Manual one-shot audit purge, gated by feature flag features.manual_audit_purge.
+  router.post(
+    '/api/v1/audit/purge-now',
+    authenticate,
+    authorize('config.edit.infra'),
+    async (req, res, next) => {
+      if (!requirePool(pool, res)) return;
+      try {
+        const flag = await pool.query(
+          `SELECT value FROM system_config WHERE scope='global' AND scope_id=$1::uuid AND category='features' AND key='manual_audit_purge'`,
+          [GLOBAL_SCOPE_UUID]
+        );
+        if (!flag.rows.length || flag.rows[0].value !== true) {
+          return res.status(403).json({ error: 'Tính năng chưa được bật' });
+        }
+        if (!auditRetention) {
+          return res.status(503).json({ error: 'Job dọn audit log chưa sẵn sàng' });
+        }
+        const result = await auditRetention.runOnce();
+        try {
+          await audit(pool, req, 'audit.purge_now', 'audit_log', null, { deleted: result.count });
+        } catch (_) { /* non-critical */ }
+        res.json({ ok: true, deleted: result.count, file: result.file, skipped: !!result.skipped });
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+
 
   // ═══════════════════════════════════════════════
   // WORKFLOW CONFIG ROUTES — MUST come BEFORE /:category/:key
@@ -442,6 +735,9 @@ module.exports = function configRoutes({ pool, authenticate, authorize }) {
   );
 
   // ─── POST /api/v1/config/import ───
+  // Wave 1: ?dryRun=true → diff preview, NO DB write.
+  //         ?dryRun=false → transactional write of valid items, skip invalid ones.
+  // Legacy behaviour (no dryRun param) is preserved: per-item best-effort import.
   router.post(
     '/api/v1/config/import',
     authenticate,
@@ -449,58 +745,171 @@ module.exports = function configRoutes({ pool, authenticate, authorize }) {
     async (req, res, next) => {
       if (!requirePool(pool, res)) return;
       try {
-        const { items, dry_run } = req.body || {};
+        const { items } = req.body || {};
+        const dryRunRaw = req.query.dry_run !== undefined
+          ? req.query.dry_run
+          : (req.body || {}).dry_run;
+        const hasDryRun = dryRunRaw !== undefined;
+        // String 'false' must be treated as false — hence the explicit comparison chain.
+        const dryRun = dryRunRaw === true || dryRunRaw === 'true' || dryRunRaw === '1';
         if (!Array.isArray(items) || !items.length) {
           return res.status(400).json({ error: 'Danh sách cấu hình không hợp lệ' });
         }
-
-        const results = [];
-        for (const item of items) {
-          try {
-            const { category, key, value, scope, scope_id } = item;
-            if (!category || !key) {
-              results.push({ category, key, status: 'skipped', reason: 'thiếu category hoặc key' });
-              continue;
-            }
-            const s = scope || 'global';
-            const sid = scope_id || GLOBAL_SCOPE_UUID;
-
-            const exists = await pool.query(
-              `SELECT id FROM system_config WHERE scope=$1 AND scope_id=$2::uuid AND category=$3 AND key=$4`,
-              [s, sid, category, key]
-            );
-
-            if (exists.rows.length) {
-              const valJsonb = typeof item.value === 'object' ? item.value : JSON.parse(String(item.value || 'null'));
-              await pool.query(`UPDATE system_config SET value=$2::jsonb, updated_at=now() WHERE id=$1`, [exists.rows[0].id, JSON.stringify(valJsonb)]);
-              results.push({ category, key, status: 'updated' });
-            } else {
-              const valJsonb = typeof item.value === 'object' ? item.value : JSON.parse(String(item.value || 'null'));
-              await pool.query(
-                `INSERT INTO system_config (scope, scope_id, category, key, value, value_type, description) VALUES ($1,$2::uuid,$3,$4,$5::jsonb,'json',COALESCE($6,''))`,
-                [s, sid, category, key, JSON.stringify(valJsonb), item.description || '']
-              );
-              results.push({ category, key, status: 'created' });
-            }
-          } catch (e) {
-            results.push({ category: item.category, key: item.key, status: 'error', reason: e.message });
-          }
+        if (items.length > MAX_BULK_ITEMS) {
+          return res.status(400).json({ error: `Tối đa ${MAX_BULK_ITEMS} item mỗi lần gọi` });
         }
 
-        res.json({
-          data: {
-            imported: results.filter(r => r.status !== 'skipped').length,
-            skipped: results.filter(r => r.status === 'skipped').length,
-            errors: results.filter(r => r.status === 'error').length,
-            results,
-          },
-          dry_run: !!dry_run,
-        });
+        if (hasDryRun) {
+          return await handleDryRunAwareImport(req, res, items, dryRun);
+        }
+        return await handleLegacyImport(req, res, items);
       } catch (error) {
         next(error);
       }
     }
   );
+
+  /**
+   * Wave 1 import — dryRun-aware.
+   * dryRun=true: read-only diff against current DB values.
+   * dryRun=false: transactional write; invalid items are skipped and reported.
+   */
+  async function handleDryRunAwareImport(req, res, items, dryRun) {
+    const wouldUpdate = [];
+    const invalid = [];
+    const unchanged = [];
+    const validItems = [];
+
+    // Pass 1 — classify every item without writing anything.
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const { category, key, value } = item || {};
+      if (!category || !key) {
+        invalid.push({ category, key, error: 'thiếu category hoặc key', index: i });
+        continue;
+      }
+      const parsed = parseConfigValue(value);
+      if (!parsed.ok) {
+        invalid.push({ category, key, error: parsed.error, index: i });
+        continue;
+      }
+      const exists = await pool.query(
+        `SELECT id, value FROM system_config WHERE scope='global' AND scope_id=$1::uuid AND category=$2 AND key=$3`,
+        [GLOBAL_SCOPE_UUID, category, key]
+      );
+      if (!exists.rows.length) {
+        invalid.push({ category, key, error: `Không tìm thấy cấu hình ${category}/${key}`, index: i });
+        continue;
+      }
+      const oldJsonb = JSON.stringify(exists.rows[0].value);
+      const newJsonb = JSON.stringify(parsed.value);
+      if (oldJsonb === newJsonb) {
+        unchanged.push({ category, key });
+      } else {
+        wouldUpdate.push({
+          category,
+          key,
+          old_value: exists.rows[0].value,
+          new_value: parsed.value,
+        });
+      }
+      validItems.push({ category, key, value: item.value });
+    }
+
+    if (dryRun) {
+      return res.json({
+        data: { would_update: wouldUpdate, invalid, unchanged },
+        dry_run: true,
+      });
+    }
+
+    // dryRun=false — apply only valid items inside ONE transaction.
+    const applied = [];
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      for (const vi of validItems) {
+        try {
+          const r = await setOneInTx(client, vi, req);
+          applied.push(r);
+        } catch (e) {
+          await client.query('ROLLBACK');
+          throw e;
+        }
+      }
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK').catch(() => {});
+      client.release();
+      throw e;
+    }
+    client.release();
+
+    for (const r of applied) {
+      try {
+        await audit(pool, req, 'config.update', 'system_config', null, { category: r.category, key: r.key, scope: 'global', source: 'import' });
+      } catch (_) { /* non-critical */ }
+    }
+
+    return res.json({
+      data: {
+        imported: applied.length,
+        skipped: invalid.length,
+        unchanged: unchanged.length,
+        results: [
+          ...applied.map(r => ({ category: r.category, key: r.key, status: 'updated' })),
+          ...invalid.map(v => ({ category: v.category, key: v.key, status: 'skipped', reason: v.error })),
+        ],
+      },
+      dry_run: false,
+    });
+  }
+
+  /** Legacy import (no dryRun param) — preserved verbatim from pre-Wave-1 contract. */
+  async function handleLegacyImport(req, res, items) {
+    const results = [];
+    for (const item of items) {
+      try {
+        const { category, key, value, scope, scope_id } = item;
+        if (!category || !key) {
+          results.push({ category, key, status: 'skipped', reason: 'thiếu category hoặc key' });
+          continue;
+        }
+        const s = scope || 'global';
+        const sid = scope_id || GLOBAL_SCOPE_UUID;
+
+        const exists = await pool.query(
+          `SELECT id FROM system_config WHERE scope=$1 AND scope_id=$2::uuid AND category=$3 AND key=$4`,
+          [s, sid, category, key]
+        );
+
+        if (exists.rows.length) {
+          const valJsonb = typeof item.value === 'object' ? item.value : JSON.parse(String(item.value || 'null'));
+          await pool.query(`UPDATE system_config SET value=$2::jsonb, updated_at=now() WHERE id=$1`, [exists.rows[0].id, JSON.stringify(valJsonb)]);
+          results.push({ category, key, status: 'updated' });
+        } else {
+          const valJsonb = typeof item.value === 'object' ? item.value : JSON.parse(String(item.value || 'null'));
+          await pool.query(
+            `INSERT INTO system_config (scope, scope_id, category, key, value, value_type, description) VALUES ($1,$2::uuid,$3,$4,$5::jsonb,'json',COALESCE($6,''))`,
+            [s, sid, category, key, JSON.stringify(valJsonb), item.description || '']
+          );
+          results.push({ category, key, status: 'created' });
+        }
+      } catch (e) {
+        results.push({ category: item.category, key: item.key, status: 'error', reason: e.message });
+      }
+    }
+
+    return res.json({
+      data: {
+        imported: results.filter(r => r.status !== 'skipped').length,
+        skipped: results.filter(r => r.status === 'skipped').length,
+        errors: results.filter(r => r.status === 'error').length,
+        results,
+      },
+      dry_run: !!req.body?.dry_run,
+    });
+  }
 
   // ─── GET /api/v1/config/schema ───
   router.get(

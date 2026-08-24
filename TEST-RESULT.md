@@ -84,3 +84,55 @@ tests 70 | pass 70 | fail 0 | duration 5982ms
 - `seed_contains_known_point` verify-db check fails (pre-existing, seed geometry issue)
 - Boundary seed data is synthetic rectangular demo fixtures, not legal administrative boundaries
 - Migration requires `schema_migrations` table (from migration 001) to exist first
+
+# WAVE 1 — Settings Center: Migration 007 + bulk/import/test-smtp/purge-now API + bỏ env override (HC-03) (2026-08-24)
+
+## Migration 007 (sql/migrations/007_settings_wave1.up.sql / .down.sql)
+
+- Đã chạy UP trên DB thật (psql qua socket /tmp). Kết quả verify:
+  - system_config category IN ('smtp','features') → smtp=4, features=3 (7 key mới)
+  - config_schema.schema_version INT NOT NULL DEFAULT 1 đã tồn tại
+  - security.hsts_max_age → is_readonly=true (HC-04: HSTS do Caddy phát hành độc quyền)
+- Down migration: DROP COLUMN schema_version, DELETE smtp.*/features.*, mở khóa hsts_max_age.
+- Đồng bộ app/db/init/03-config-tables.sql (ON CONFLICT DO NOTHING) cho deployment Docker mới.
+
+## Endpoint mới (routes/config.js — KHÔNG đổi contract endpoint cũ)
+
+| Method | Path | Auth | Permission | Ghi chú |
+| ------ | ---- | ---- | ---------- | ------- |
+| PUT    | /api/v1/config/bulk | Bearer | theo permission map từng category | max 50 items, transaction all-or-nothing, rollback → 400 kèm vị trí item lỗi |
+| POST   | /api/v1/config/import?dryRun=true\|false | Bearer | admin.config | dryRun=true không ghi DB, trả diff would_update/invalid/unchanged; dryRun=false ghi item hợp lệ, bỏ qua invalid |
+| POST   | /api/v1/config/test-smtp | Bearer | config.edit.notification | nodemailer; enabled=false → 400 "Kênh email đang tắt"; lỗi mail → 502, SMTP_PASS được redact khỏi detail |
+| POST   | /api/v1/audit/purge-now | Bearer | config.edit.infra | gate feature flag features.manual_audit_purge; flag false → 403; gọi AuditRetention.runOnce() (single-flight) |
+
+## HC-03 — bỏ env override (ưu tiên DB → default)
+
+Bỏ hẳn nhánh env cho 5 mục: upload.max_mb, audit.retention_days, audit.batch_size,
+rate_limit.forgot_max, request.timeout_ms. Giữ nguyên env lớp A (PG*, JWT_SECRET,
+SMTP_*, CORS_ORIGIN, UPLOAD_DIR, PORT, HOST). .env.example đã cập nhật comment giải thích.
+
+## Files changed
+
+- sql/migrations/007_settings_wave1.up.sql, 007_settings_wave1.down.sql (mới)
+- app/db/init/03-config-tables.sql (đồng bộ seed)
+- app/backend/routes/config.js (+4 endpoint, helper setOneInTx dùng chung)
+- app/backend/jobs/audit-retention.js (runOnce(), đọc cấu hình từ DB)
+- app/backend/server.js, utils/upload.js, routes/auth.js (bỏ env override)
+- app/backend/.env.example
+- app/backend/test/config-wave1.test.js (17 test mới)
+
+## Lệnh test và kết quả
+
+```
+node --test --test-concurrency=1   # backend: 289 pass / 0 fail (gồm 17 test Wave 1)
+npx vitest run                     # frontend: 73/73 PASS (13 files)
+npm run build                      # SUCCESS (built in 2.42s)
+```
+
+Wave 1 test breakdown: bulk PUT (updated=3, rollback sai category, 404 rollback, readonly 400, quá 50 items 400, 401/403), import dryRun true/false + history, test-smtp (400 khi tắt, validate to), purge-now (403 flag off, an toàn trên DB thật), migration verify (7 key, hsts readonly, schema_version).
+
+## Known Risks
+
+- test-smtp chưa test được happy path thật (cần SMTP server ngoài); chỉ verify 400 khi kênh tắt + redact logic bằng đọc code.
+- purge-now với flag=true chạy trên DB thật là hành động phá dữ liệu — chỉ test nhánh deleted=0.
+- Các run trước (555–557) bị protocol violation khi report; công việc được verify lại toàn bộ trong run này.

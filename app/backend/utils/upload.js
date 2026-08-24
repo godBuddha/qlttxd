@@ -9,12 +9,9 @@ const DEFAULT_UPLOAD_MB = 10;
 const uploadDirectory = path.resolve(process.env.UPLOAD_DIR || './uploads');
 fs.mkdirSync(uploadDirectory, { recursive: true });
 
-/** Compute effective MAX_UPLOAD_MB env → configService → fallback */
+/** Compute effective max MB: configService → fallback (HC-03: no env override) */
 function resolveMaxUploadMb(configService) {
-  // Env override has priority (per task requirement: KEEP process.env override)
-  const envVal = Number(process.env.MAX_UPLOAD_MB);
-  if (!Number.isNaN(envVal)) return envVal;
-  // Then configService
+  // ConfigService (Settings Center DB value, sync cache lookup)
   if (configService && typeof configService.getSync === 'function') {
     const csVal = configService.getSync('upload', 'max_mb', DEFAULT_UPLOAD_MB);
     const parsed = Number(csVal);

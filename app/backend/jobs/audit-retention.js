@@ -15,8 +15,9 @@ const DEFAULT_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 giờ
 /**
  * AuditRetention — archive cũ audit_log ra file nén rồi xóa khỏi DB.
  *
- * Chạy tự động mỗi 24h và một lần lúc khởi động server.
- * Env: AUDIT_RETENTION_DAYS (mặc định 7300 = 20 năm).
+ * Chạy tự động mỗi 24h và một lần lúc khởi động server; chạy thủ công qua
+ * POST /audit/purge-now (feature flag features.manual_audit_purge).
+ * Cấu hình: audit.retention_days / batch_size qua Settings Center (DB) — HC-03.
  *
  * Nguyên tắc:
  *  - Atomic: chỉ xóa sau khi archive ghi xog thành công.
@@ -62,11 +63,9 @@ class AuditRetention {
     }
     this._intervalMs = intervalMs;
     // Resolve batch size: explicit param → configService → fallback
+    // (HC-03: no process.env override — managed via Settings Center DB config)
     let batchSize = DEFAULT_BATCH_SIZE;
-    const rawBatchSize = Number(process.env.AUDIT_BATCH_SIZE);
-    if (!Number.isNaN(rawBatchSize)) {
-      batchSize = rawBatchSize;
-    } else if (configService && typeof configService.getSync === 'function') {
+    if (configService && typeof configService.getSync === 'function') {
       const csVal = configService.getSync('audit', 'batch_size', DEFAULT_BATCH_SIZE);
       batchSize = Number(csVal) || DEFAULT_BATCH_SIZE;
     }
@@ -108,6 +107,19 @@ class AuditRetention {
       });
     }, this._intervalMs);
     this._timer.unref(); // không giữ process sống khi tắt server
+  }
+
+  /**
+   * Chạy một lần thủ công (POST /audit/purge-now) — KHÔNG đụng timer định kỳ.
+   * Trả về số bản ghi đã dọn và file archive; skipped=true nếu đang có lần chạy khác.
+   */
+  async runOnce() {
+    await this.cleanup();
+    if (this._isRunning) {
+      // cleanup() returned early because another run holds the single-flight guard
+      return { count: 0, file: '', skipped: true };
+    }
+    return { count: this._lastSuccessCount, file: this._lastSuccessFile, skipped: false };
   }
 
   /** Dừng timer (dùng khi test hoặc graceful shutdown) */

@@ -74,11 +74,11 @@ module.exports.buildApp = function buildApp({ pool, configService }) {
   new ResetTokenCleanup({ pool, configService });
   new UserTokensCleanup({ pool, configService });
 
-  // CONFIG-T4a: AUDIT_RETENTION_DAYS with env override + configService
+  // Wave 1 (HC-03): retention days come from Settings Center DB only
   const auditRetention = new AuditRetention({
     pool,
     configService,
-    retentionDays: Number(process.env.AUDIT_RETENTION_DAYS) || cfg.getSync('audit', 'retention_days', 7300),
+    retentionDays: Number(cfg.getSync('audit', 'retention_days', 7300)),
   });
 
   const { ConfigService } = require('./lib/config-service');
@@ -204,6 +204,7 @@ module.exports.buildApp = function buildApp({ pool, configService }) {
     authenticate: authenticateWithBlocklist,
     authorize,
     configService,
+    auditRetention,
   };
 
   // Write rate limiter for state-changing methods
@@ -216,8 +217,8 @@ module.exports.buildApp = function buildApp({ pool, configService }) {
   const userLimiter = makeUserLimiter(configService);
   app.use(userLimiter);
 
-  // M-13: timeout toàn cục cho mọi request
-  app.use(requestTimeout(Number(process.env.REQUEST_TIMEOUT_MS) || reqTimeoutMs));
+  // M-13: timeout toàn cục cho mọi request (HC-03: config only, no env override)
+  app.use(requestTimeout(Number(reqTimeoutMs)));
 
   // Register route modules
   app.use(authRoutes(deps));
