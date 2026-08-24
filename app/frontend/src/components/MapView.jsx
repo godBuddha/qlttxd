@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { HOME } from '../lib/constants.js';
+import { useConfig } from '../lib/ConfigContext.jsx';
 
 export function MapView({
   point,
@@ -15,10 +15,12 @@ export function MapView({
   const map = useRef(null);
   const layers = useRef(L.layerGroup());
   const polyLayers = useRef(L.layerGroup());
+  const { homeCenter } = useConfig();
   useEffect(() => {
     if (map.current || !node.current) return undefined;
+    // HC-02: center mặc định đọc từ config (ui.home_lat / ui.home_lng), fallback HOME
     map.current = L.map(node.current).setView(
-      point ? [point.lat, point.lng] : HOME,
+      point ? [point.lat, point.lng] : homeCenter(),
       point ? 16 : 12
     );
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {

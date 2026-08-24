@@ -266,7 +266,8 @@ if (require.main === module) {
   // CONFIG-T4a: forced shutdown timer + audit retention days từ config
   const forcedShutdownMs = configService.getSync('security', 'forced_shutdown_ms', 10000);
 
-  const port = Number(process.env.PORT || 3000);
+  // Default must match docker-compose/Caddy upstream (3001)
+  const port = Number(process.env.PORT || 3001);
   const host = process.env.HOST || '0.0.0.0';
   const server = app.listen(port, host, () =>
     console.log(`QLTTXD API đang nghe tại http://${host}:${port}`)

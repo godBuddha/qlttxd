@@ -7,6 +7,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const { secret, requirePool, audit, invalidateUserTokens } = require('../utils/helpers');
+const { ttlToSeconds } = require('../utils/ttl');
 const { sanitizeString } = require('../utils/sanitize');
 
 const startTime = Date.now();
@@ -172,8 +173,9 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
         const rtDecoded = jwt.decode(refreshToken);
         await pool
           .query(
-            "INSERT INTO refresh_tokens (user_id, jti, expires_at) VALUES ($1, $2, now() + interval '7 days')",
-            [user.id, rtDecoded.jti]
+            // HC-01: đồng bộ expires_at với JWT refresh TTL (make_interval parameterized)
+            'INSERT INTO refresh_tokens (user_id, jti, expires_at) VALUES ($1, $2, now() + make_interval(secs => $3))',
+            [user.id, rtDecoded.jti, ttlToSeconds(cfg.getSync('auth', 'jwt_refresh_ttl', '7d'))]
           )
           .catch(() => {});
         // Set HttpOnly cookie for refresh token
@@ -257,8 +259,9 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
       const rtDecoded = jwt.decode(refreshToken);
       await pool
         .query(
-          "INSERT INTO refresh_tokens (user_id, jti, expires_at) VALUES ($1, $2, now() + interval '7 days')",
-          [user.id, rtDecoded.jti]
+          // HC-01: đồng bộ expires_at với JWT refresh TTL (make_interval parameterized)
+          'INSERT INTO refresh_tokens (user_id, jti, expires_at) VALUES ($1, $2, now() + make_interval(secs => $3))',
+          [user.id, rtDecoded.jti, ttlToSeconds(cfg.getSync('auth', 'jwt_refresh_ttl', '7d'))]
         )
         .catch(() => {});
       // Set HttpOnly cookie for refresh token
@@ -351,8 +354,9 @@ module.exports = function authRoutes({ pool, tokenBlocklist, authenticate, autho
       const newRtDecoded = jwt.decode(newRefreshToken);
       await pool
         .query(
-          "INSERT INTO refresh_tokens (user_id, jti, expires_at) VALUES ($1, $2, now() + interval '7 days')",
-          [user.id, newRtDecoded.jti]
+          // HC-01: đồng bộ expires_at với JWT refresh TTL (make_interval parameterized)
+          'INSERT INTO refresh_tokens (user_id, jti, expires_at) VALUES ($1, $2, now() + make_interval(secs => $3))',
+          [user.id, newRtDecoded.jti, ttlToSeconds(cfg.getSync('auth', 'jwt_refresh_ttl', '7d'))]
         )
         .catch(() => {});
       // Set HttpOnly cookie for new refresh token

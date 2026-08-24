@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
-import { HOME, STATE_LABELS } from '../lib/constants.js';
+import { useConfig } from '../lib/ConfigContext.jsx';
+import { STATE_LABELS } from '../lib/constants.js';
 import { errorText } from '../lib/api.js';
 import { Loading } from '../components/Loading.jsx';
 
@@ -22,6 +23,7 @@ const MARKER_COLORS = {
 };
 
 export function BanDoPage({ api, notify }) {
+  const { homeCenter } = useConfig();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const mapNode = useRef(null);
@@ -37,7 +39,8 @@ export function BanDoPage({ api, notify }) {
 
   useEffect(() => {
     if (!mapNode.current || mapRef.current) return;
-    mapRef.current = L.map(mapNode.current).setView(HOME, 12);
+    // HC-02: center bản đồ đọc từ config (ui.home_lat / ui.home_lng), fallback HOME
+    mapRef.current = L.map(mapNode.current).setView(homeCenter(), 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
     }).addTo(mapRef.current);

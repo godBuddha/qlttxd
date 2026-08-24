@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { request } from './api.js';
 import {
+  HOME,
   STATES,
   STATE_LABELS as STATIC_STATE_LABELS,
   TRANSITIONS as STATIC_TRANSITIONS,
@@ -42,7 +43,7 @@ export function ConfigProvider({ children }) {
     let cancelled = false;
     const loadConfigs = async () => {
       try {
-        const categories = ['system', 'workflow', 'appearance', 'notification', 'security'];
+        const categories = ['system', 'workflow', 'appearance', 'notification', 'security', 'ui'];
         const results = {};
         const promises = categories.map((cat) =>
           request(`/api/v1/config?category=${encodeURIComponent(cat)}`)
@@ -155,12 +156,29 @@ export function ConfigProvider({ children }) {
   }, [rawConfigs]);
 
   /**
+   * HC-02: Map center từ config (ui.home_lat / ui.home_lng).
+   * Fallback về HOME trong constants.js khi chưa load hoặc giá trị không phải số.
+   * Lưu ý: phải kiểm tra null/undefined trước Number() vì Number(null)===0.
+   * Trả về mảng [lat, lng] dùng cho Leaflet setView / center.
+   */
+  const homeCenter = useCallback(() => {
+    if (loading) return [...HOME];
+    const latRaw = getConfig('ui', 'home_lat');
+    const lngRaw = getConfig('ui', 'home_lng');
+    if (latRaw == null || lngRaw == null) return [...HOME];
+    const lat = Number(latRaw);
+    const lng = Number(lngRaw);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return [...HOME];
+    return [lat, lng];
+  }, [loading, getConfig]);
+
+  /**
    * Reload all config data (for manual refresh).
    */
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const categories = ['system', 'workflow', 'appearance', 'notification', 'security'];
+      const categories = ['system', 'workflow', 'appearance', 'notification', 'security', 'ui'];
       const results = {};
       for (const cat of categories) {
         try {
@@ -183,6 +201,7 @@ export function ConfigProvider({ children }) {
     error,
     getConfig,
     getConfigValue: (category, key, fallback) => getConfig(category, key, fallback),
+    homeCenter,
     configsMap,
     getStateByKey: (key) => (rawConfigs.system || []).find((i) => i.key === key),
     getAllConfigs: () => rawConfigs,

@@ -103,8 +103,8 @@ module.exports = function thongBaoRoutes({ pool, authenticate, tokenBlocklist, c
              FROM thong_bao
             WHERE nguoi_nhan_id=$1 AND kenh='portal' AND created_at > $2
             ORDER BY created_at ASC
-            LIMIT cfg.getSync('sse', 'poll_limit', 50)`,
-          [user.id, cursor]
+            LIMIT $3`,
+          [user.id, cursor, Math.min(Math.max(Number(cfg.getSync('sse', 'poll_limit', 50)) || 50, 1), 1000)]
         );
         for (const row of r.rows) {
           res.write(`data: ${JSON.stringify(row)}\n\n`);

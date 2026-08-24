@@ -1,150 +1,156 @@
-# TEST-RESULT.md — CONFIG-T7 Regression Report
+# TEST-RESULT.md — WAVE0 (HC-01 + HC-02 + HC-07) Regression Report
 
-**Date:** 2026-08-09  
-**Task:** t_31fa3c4f — CONFIG-T7: Tests + regression + verification cho Settings Center  
+**Date:** 2026-08-24
+**Task:** t_9d798529 — WAVE0: Fix HC-01 TTL drift + HC-02 Map center + HC-07 port default
+**Roadmap:** docs/settings-center/06-roadmap.md — Wave 0 (3 bug cấu hình P0/P2)
 
 ---
 
 ## Summary
 
-- Backend config-service.test.js: **37/37 PASS** (bugfix applied)
-- Frontend vitest: **70/70 PASS** (12 test files)
-- E2E smoke: **ALL 14 tests PASS** ✅
-- Overall regression: **95 OK / 3 FAIL** (pre-existing, NOT regressions)
-- CHANGELOG.md updated ✅
-- README.md updated ✅
-- Screenshots: 6 SVG placeholders generated (browser unavailable in container)
+| Hạng mục | Kết quả |
+| --- | --- |
+| HC-01 TTL drift (P0, Risk 9/10) | ✅ FIXED — 3 INSERT dùng `make_interval(secs => $3)` parameterized, đọc `cfg('auth','jwt_refresh_ttl','7d')` |
+| HC-02 Map center hardcode (P0, Risk 7/10) | ✅ FIXED — `homeCenter()` selector + consumer MapView/BanDoPage; provider nạp thêm category `ui` |
+| HC-07 Default port lệch (P2) | ✅ FIXED — `PORT || 3001` khớp docker-compose/Caddy |
+| Backend suite (`node --test --test-concurrency=1`) | ✅ **254/254 PASS** (0 fail, gồm 8 test mới) |
+| Frontend vitest (`npx vitest run`) | ✅ **73/73 PASS** (13 files, gồm 3 test homeCenter mới) |
+| Frontend build (`npm run build`) | ✅ SUCCESS (built in 2.77s) |
+
+Không có fail mới so với baseline. 3 known-flaky đã ghi nhận trước đó
+(2 forgot-password isolation + 1 input-validation duplicate TEST-KP) không xuất hiện trong run này.
+
+---
+
+## Files changed
+
+### Mới tạo
+- `app/backend/utils/ttl.js` — helper `ttlToSeconds(ttl)`: parse `'45s'|'30m'|'12h'|'7d'` → số giây integer; regex `/^([0-9]+)([smhd])$/`, s=1/m=60/h=3600/d=86400; sai format → throw Error rõ ràng.
+- `app/backend/test/ttl.test.js` — 5 unit test: từng đơn vị, biên giới (0s/1d/365d), số nguyên, 15 case sai định dạng throw, message lỗi.
+- `app/backend/test/ttl-drift.test.js` — 3 regression test (chi tiết bên dưới).
+- `app/frontend/src/lib/homeCenter.test.jsx` — 3 unit test cho `homeCenter()`.
+
+### Sửa đổi
+- `app/backend/routes/auth.js` — import `ttlToSeconds`; thay 3 câu SQL (setup-admin ~L175, login ~L260, refresh ~L354):
+  - TRƯỚC: `INSERT INTO refresh_tokens (user_id, jti, expires_at) VALUES ($1, $2, now() + interval '7 days')`
+  - SAU: `INSERT INTO refresh_tokens (user_id, jti, expires_at) VALUES ($1, $2, now() + make_interval(secs => $3))`
+  - Tham số `$3 = ttlToSeconds(cfg.getSync('auth', 'jwt_refresh_ttl', '7d'))` — **parameterized**, không string interpolation. `cfg` đã có sẵn scope trong `authRoutes`.
+- `app/backend/server.js` — `const port = Number(process.env.PORT || 3001);` + comment `// Default must match docker-compose/Caddy upstream (3001)` (khớp `app/docker-compose.yml:28 PORT: 3001`, `app/Caddyfile reverse_proxy backend:3001`).
+- `app/frontend/src/lib/ConfigContext.jsx`:
+  - Thêm selector `homeCenter()`: đọc `getConfig('ui','home_lat')` / `getConfig('ui','home_lng')`; chưa load (`loading=true`) hoặc null/undefined hoặc NaN → fallback `[...HOME]`; trả `[lat, lng]`. Kiểm tra `== null` **trước** `Number()` vì `Number(null) === 0` (bug thật bị test bắt được ở lần chạy đầu).
+  - Nạp thêm category `'ui'` vào danh sách categories của cả mount-load và `reload()` (trước đây chỉ có system/workflow/appearance/notification/security → DB seed `ui.*` không bao giờ được đọc).
+  - Export `homeCenter` qua context value.
+- `app/frontend/src/components/MapView.jsx` — thay `HOME` bằng `useConfig().homeCenter()` khi setView mặc định (dùng chung bởi CitizenPage, CaseList, AdminLocationsPage).
+- `app/frontend/src/pages/BanDoPage.jsx` — thay `L.map(...).setView(HOME, 12)` bằng `setView(homeCenter(), 12)`.
+- `app/frontend/src/lib/constants.js` — **KHÔNG đổi**: giữ export `HOME` làm fallback (backward compatible với tests cũ).
+- `app/backend/routes/thong-bao.js` — fix phụ phát hiện khi verify: SQL SSE poll có `LIMIT cfg.getSync(...)` nhúng trực tiếp JS vào query → Postgres lỗi `schema "cfg" does not exist` mỗi 5s, làm SSE stream không bao giờ push được notification (chính là known-fail #97 cũ). Đổi sang parameterized `LIMIT $3`.
+
+---
+
+## Acceptance criteria (từ task)
+
+```
+1. grep -n "interval '7 days'" app/backend/routes/auth.js   → 0 kết quả ✅
+2. grep HOME app/frontend/src/{pages,components}/           → chỉ còn comment HC-02 +
+                                                              fallback trong constants.js/ConfigContext;
+                                                              BanDoPage + MapView dùng useConfig().homeCenter() ✅
+3. grep -n "PORT || 3000" app/backend/server.js             → 0 kết quả ✅
+4. Unit test TTL helper (5/5) + homeCenter (3/3)            → PASS ✅
+5. Full backend 254/254 + frontend 73/73 + build OK         → PASS ✅
+```
 
 ---
 
 ## Backend Tests
 
-### config-service.test.js: 37/37 PASS
+### Unit — ttlToSeconds (test/ttl.test.js): 5/5 PASS
 
 ```
-node --test app/backend/test/config-service.test.js --test-concurrency=1
-# pass 37
-# fail 0
+node --test test/ttl.test.js
+# pass 5 / fail 0
 ```
 
-Bug fixed during testing:
-- **CRITICAL:** `PUT /api/v1/config/:category/:key` was returning 500 due to raw JS value `'10m'` being cast as `$2::jsonb`. Fixed by using `$2::text::jsonb` with pre-encoded JSON string.
-- File changed: `app/backend/routes/config.js` line 307-309
-
-### Full Regression Suite: 95 OK / 3 FAIL (pre-existing)
+### Regression — TTL drift (test/ttl-drift.test.js): 3/3 PASS
 
 ```
-node --test app/backend/test/*.js --test-concurrency=1
-Total: 98 tests | 95 pass | 3 fail
+node --test --test-concurrency=1 test/ttl-drift.test.js
+# pass 3 / fail 0
 ```
 
-#### Known Pre-existing Failures (NOT caused by CONFIG-T7):
+1. **Login → expires_at ≈ now + TTL mặc định:** sau POST /api/v1/auth/login,
+   `EXTRACT(EPOCH FROM (expires_at - now()))` của row refresh_tokens mới nhất nằm trong
+   604800 ± 5s; cookie Max-Age cũng = 604800.
+2. **TTL mock khác (1h):** set `CONFIG_GLOBAL_AUTH_JWT_REFRESH_TTL='"1h"'` (đường dẫn env
+   sync-fallback của ConfigService.getSync — cùng cơ chế khi admin đổi giá trị qua Settings),
+   khởi động app mới → expires_at ≈ 3600 ± 5s. **Đây là case chứng minh hết drift:**
+   trước fix row vẫn là 604800s trong khi JWT chỉ sống 3600s.
+3. **Refresh flow (rotate):** login → dùng cookie refresh gọi /api/v1/auth/refresh →
+   row mới cũng bám TTL cấu hình (±5s).
 
-1. **GET quan-huyen leader → 403** (admin-locations.test.js #3)  
-   Returns 401 instead of 403. Leader role lacks permission on admin-locations route. Pre-existing RBAC issue.
+### Full suite: 254/254 PASS
 
-2. **user với role citizen giờ có quyền case.view** (admin-roles.test.js #28)  
-   Returns 500 — FK constraint violation (`audit_log_nguoi_dung_id_fkey`) when inserting audit log. Pre-existing FK bug.
+```
+cd app/backend && node --test --test-concurrency=1 test/*.test.js
+# tests 254
+# pass  254
+# fail  0
+```
 
-3. **SSE stream pushes new notification** (email-notification.test.js #97)  
-   SSE polling queries non-existent schema `cfg` (should be `config`). Timeout after 30s. Pre-existing SSE schema bug.
+Ghi chú môi trường: PostgreSQL test chạy user-space qua `/workspace/ssd/toolchain/scripts/pg-start.sh`;
+DB test thiếu seed `03-config-tables.sql` nên đã apply lại file init đó (idempotent, ON CONFLICT DO NOTHING)
+để có đủ 53+ rows system_config gồm `ui.home_lat/home_lng` và `auth.jwt_refresh_ttl` — KHÔNG đổi nội dung seed.
 
-None of these files were modified in CONFIG-T7 changes. Verified via `git diff --name-only`: only `app/backend/routes/config.js`, `CHANGELOG.md`, `README.md` changed.
+### Fix phụ trong quá trình verify (routes/thong-bao.js)
+
+Suite đầy đủ ban đầu dính fail #97 `GET /api/v1/thong-bao/stream — SSE pushes new notification`
+(known-fail từ CONFIG-T7). Root cause thật: câu poll SQL viết
+`LIMIT cfg.getSync('sse', 'poll_limit', 50)` — một biểu thức JS bị nhúng thẳng vào SQL string,
+Postgres parse thành `schema "cfg"` → poll lỗi mỗi tick (`schema "cfg" does not exist`),
+notification không bao giờ được push. Đã sửa thành `LIMIT $3` parameterized với clamp
+`[1, 1000]`. Sau fix: email-notification.test.js 9/9 PASS, full suite 254/254.
+Đây là sửa lỗi an toàn (parameterization + validation theo đúng chuẩn skill), không đổi API contract.
 
 ---
 
 ## Frontend Tests
 
-### Vitest: 70/70 PASS
+### Vitest: 73/73 PASS (13 files)
 
 ```
 cd app/frontend && npx vitest run
-Test Files  12 passed
-Tests       70 passed
-Duration    7.02s
+Test Files  13 passed (13)
+Tests       73 passed (73)
 ```
 
-All test files passed:
-- api.test.js (19)
-- constants.test.js (8)
-- Login.test.jsx (5)
-- Tabs.test.jsx (7)
-- Dialog.test.jsx (5)
-- CaseDetail.test.jsx (7)
-- EvidenceGallery.test.jsx (4)
-- CitizenPage.test.jsx (4)
-- Loading.test.jsx (2)
-- Status.test.jsx (4)
-- BellNotification.test.jsx (3)
-- CaseList.test.jsx (2)
+Mới — src/lib/homeCenter.test.jsx (3/3):
+1. config `ui.home_lat=10.5, ui.home_lng=106.7` → `[10.5, 106.7]`
+2. config chưa load / rỗng → fallback `[21.0285, 105.8542]` (= HOME)
+3. giá trị không hợp lệ (`'abc'` / null) → fallback HOME
 
----
+### Build: SUCCESS
 
-## E2E Smoke Tests: ALL PASSED
-
-Commands executed:
-```bash
-cd app/backend && node smoke-settings.js
+```
+npm run build
+✓ built in 2.77s
 ```
 
-Results (14/14):
-1. ✅ Login as admin (token obtained, 23 permissions)
-2. ✅ GET /config overview — 14 categories returned
-3. ✅ GET /config?category=auth — 5 entries
-4. ✅ GET /config/auth/jwt_access_ttl — value: 10m
-5. ✅ PUT /config/auth/jwt_access_ttl (update) — status 200, new value: 1h
-6. ✅ GET /config/history — 20 history entries
-7. ✅ GET /config/workflow/states — 15 states
-8. ✅ GET /config/workflow/transitions — 26 transitions
-9. ✅ GET /config/workflow/role-permissions — 32 roles
-10. ✅ GET /config/export — 54 items
-11. ✅ No token → 401
-12. ✅ Bad token → 401
-13. ✅ GET /validation-rules — 10 rules
-14. ✅ GET /notification-channels — 3 channels
-15. ✅ GET /allowed-mime-types — 4 types
-
 ---
 
-## Services Used During Testing
+## Security & contract review
 
-| Service          | Port | Status |
-|------------------|------|--------|
-| PostgreSQL 16    | 5432 | ✅ Running (Unix socket /tmp) |
-| QLTTXD Backend   | 3000 | ✅ Running |
-| QLTTXD Frontend  | 4173 | ✅ Running (Vite preview) |
+- `$3` là số nguyên từ helper (throw sớm nếu TTL config sai format) → không có đường SQL injection.
+- Không đổi API contract, không đổi schema/seed, không đổi format response.
+- Backward compatible: `HOME` vẫn export; `getSync` fallback `'7d'` giữ nguyên hành vi mặc định.
+- Không log secret/JWT/token; test không in token ra output.
 
----
+## Known risks / ghi nhận
 
-## Screenshots
-
-Due to missing system libraries (`libglib-2.0.so.0`, `libnss3.so`, `libX11.so.6` etc.) in the CI container, real browser screenshots could not be captured via Playwright. Generated 6 SVG structural placeholders documenting page layouts:
-
-- `app/frontend/src/admin/__screenshots__/settings-overview.svg` (4030 bytes)
-- `app/frontend/src/admin/__screenshots__/settings-auth.svg` (3738 bytes)
-- `app/frontend/src/admin/__screenshots__/settings-upload.svg` (3672 bytes)
-- `app/frontend/src/admin/__screenshots__/settings-rate-limit.svg` (3715 bytes)
-- `app/frontend/src/admin/__screenshots__/settings-workflow-states.svg` (3702 bytes)
-- `app/frontend/src/admin/__screenshots__/settings-role-permissions.svg` (3690 bytes)
-
-**Action needed for full screenshots:** Install system deps (`apt-get install libgtk-3-0 libnss3 libx11-xcb1 xvfb`) or run on desktop environment.
-
----
-
-## Documentation Updated
-
-- `CHANGELOG.md` — Added v0.3.3 section with Enterprise Settings Center features
-- `README.md` — Updated version to v0.3.3, added Settings Center demo section with screenshot placeholders and feature list
-
----
-
-## Known Risks
-
-1. **Pre-existing bugs not addressed by this task:**
-   - Leader role missing admin-locations permission (F1)
-   - FK constraint violation in audit_log insert (F2)
-   - SSE stream polling wrong schema name (F3)
-   
-2. **No real browser screenshots** — container lacks GUI libraries
-
-3. **Database state shared across test files** — some tests may interfere with each other if run in different orders
+1. `getSync` chỉ đọc cache/env — nếu admin đổi TTL khi server đang chạy mà instance không nhận
+   NOTIFY reload thì request kế tiếp vẫn dùng giá trị cache cũ cho tới khi reload (hành vi hiện có
+   của kiến trúc config, không phải drift giữa JWT và DB nữa vì cả hai đều đọc cùng một nguồn tại
+   cùng thời điểm ký/insert).
+2. Cookie `max_age_ms` (cookie.max_age_ms = 604800000) là config riêng; nếu admin đổi
+   jwt_refresh_ttl xuống thấp hơn cookie max-age thì cookie còn tồn nhưng refresh sẽ bị từ chối
+   do expires_at ngắn hơn — đề xuất Wave sau đồng bộ cookie max-age từ TTL (ngoài phạm vi task này).
+3. Test TTL-drift #2 mô phỏng thay đổi config qua env sync-fallback của ConfigService (cùng code path
+   getSync như khi Settings Center cập nhật giá trị); không test đường LISTEN/NOTIFY runtime.
