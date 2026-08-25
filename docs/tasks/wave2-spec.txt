@@ -1,0 +1,110 @@
+Trien khai Wave 2 cua Settings Center roadmap (docs/settings-center/04-settings-center-design.md muc 4.2 va 06-roadmap.md Wave 2 — doc truoc khi lam).
+
+MUC TIEU: Xay dung "Settings Shell v2" — khung giao diện cai dat moi tu sinh tu "manifest" (ban khai bao cau hinh). Them module moi = them file khai báo, KHONG sua code khung.
+
+NEN TANG: Wave 0+1 da xong. DB co san category auth/rate-limit/upload/smtp/features... API co PUT /config/bulk, GET /config?category=X, GET /config/history. Frontend React 19 + Vite, ConfigProvider o src/lib/ConfigContext.jsx, request() o src/lib/api.js. Flag features.settings_center_v2 da co trong DB (mặc định false).
+
+=== NHIEM VU 1 — Thu muc manifest + 12 file khai bao ===
+
+Tao thu muc app/frontend/src/admin/settings-manifests/ chua cac file JSON:
+
+1. auth.json — nhom "security", ten "Xác thực & Phiên", icon "key-round", permission sua "config.edit.auth":
+   - jwt_access_ttl: kieu duration (don vi phut/gio/ngay), nho nhat 1 phut, lon nhat 1 gio, ghi chu "Khuyến nghị ≤ 15 phút. Áp dụng cho token cấp phát mới."
+   - jwt_refresh_ttl: duration, 1 ngay den 90 ngay
+   - sse_token_ttl: duration, 30 giay den 10 phut
+   - bcrypt_rounds: so, 10 den 14, ghi chu "Chỉ áp dụng khi tạo mật khẩu mới"
+   - reset_token_expiry_ms: so (ms), 5 phut den 60 phut
+   - cookie.max_age_ms, cookie.same_site (lựa chọn: lax/strict/none)
+
+2. rate-limit.json — nhom "security", "Giới hạn tốc độ", icon "gauge", permission "config.edit.security": global_window_ms (duration), global_max, write_max, user_max, auth_max, forgot_max (so)
+
+3. upload.json — nhom "security", "Tải lên", icon "upload": upload.max_mb (1-100), body_limit_json/body_limit_url (lua chọn kich thuoc)
+
+4. security.json — nhom "security", "Bảo mật hệ thống": request_timeout_ms, cors_max_age, forced_shutdown_ms (so). Ghi chu rieng cho hsts_max_age neu xuat hien: "Do Caddy quản lý" (chi doc).
+
+5. smtp.json — nhom "notification", "Email (SMTP)": smtp.enabled (bat/tat), host, port, from_address. Ghi chu tai host/port: "Thông tin đăng nhập SMTP nằm trong .env, không hiển thị tại đây"
+
+6. notification.json — nhom "notification", "Thời gian nền": worker_batch_size, worker_poll_interval_ms, sse heartbeat_ms/poll_ms/poll_limit
+
+7. ui.json — nhom "workspace", "Giao diện & Bản đồ": home_lat, home_lng (so thuc), language (lua chọn vi/en), theme (chi light — disabled "Sắp có")
+
+8. pagination.json — nhom "system", "Phân trang": users_default/max, ban_do_default/max, notifications_default/max
+
+9. cleanup.json — nhom "system", "Dọn dẹp tự động": 5 key cleanup.* (duration/so)
+
+10. audit.json — nhom "system", "Nhật ký & Lưu trữ": audit.retention_days (canh bao neu < 365), batch_size, interval_ms
+
+11. pool.json — nhom "system", "Hiệu năng kết nối": pool.max/idle_timeout_ms/connect_timeout_ms, ghi chu "Đổi max cần khởi động lại máy chủ để áp dụng đầy đủ"
+
+12. features.json — nhom "advanced", "Cờ tính năng": settings_center_v2, manual_audit_purge, import_dry_run (bat/tat), permission "admin.config"
+
+CAU TRUC MOT FILE MANIFEST (dung chung):
+{ "id": "auth", "group": "security", "title": "...", "icon": "...", "editPermission": "...",
+  "order": <so de sap thu tu>,
+  "fields": [ { "key": "<category.key giong he thong>", "label": "Ten hien thi tieng Viet", "type": "duration|number|boolean|enum|string", "min":..., "max":..., "unit":..., "options":[...], "help": "...", "readonly": false } ] }
+
+=== NHIEM VU 2 — Bo doc manifest + form tu sinh ===
+
+1. src/admin/settings-manifests/index.js — import tat ca JSON, export mang SETTINGS_MANIFESTS da sort theo group roi order, va helper getManifest(id), getGroups() (nhom duy nha theo thu tu dinh nghia GROUP_ORDER = ["overview","workspace","security","workflow","notification","system","advanced"]).
+
+2. src/admin/settings/GeneratedForm.jsx — component sinh form tu manifest:
+   - Props: { manifest }
+   - Tai du lieu: GET /api/v1/config?category=<phan dau cua key truoc dau cham> (vi key dang "auth.jwt_access_ttl" → category "auth"). Neu key co nhieu category thi goi nhieu va gop.
+   - Input theo type: number → input type=number; boolean → toggle switch; enum → select; duration → input so + lua chọn don vi (phut/gio/ngay) luu thanh chuoi "15m"/"2h"/"7d"; string → input text
+   - Secret field (key chua "secret"/"password"/"token"): hien thi "***" + nut hien (chi hien gia tri neu API tra ve that)
+   - Trang thai: loading (khung xam), error (thong bao + nut thu lai)
+   - Nut "Lưu thay đổi": chi bat khi co thay doi; goi PUT /config/bulk voi cac item da doi; thanh cong → thong bao xanh + reload; that bai → thong bao do giu nguyen du lieu
+   - Moi field co label gan input, aria-describedby cho help text, aria-live="polite" cho thong bao loi
+   - Keyboard: Ctrl/Cmd+S = Luu; Esc = bo cac thay doi chua luu (ve gia tri goc)
+
+3. src/admin/settings/HistoryDrawer.jsx — drawer ben phai xem lich su 1 field:
+   - Goi GET /api/v1/config/history?category=X&key=Y (kiem tra endpoint — neu chi ho tro category thi loc theo key o FE)
+   - Hien danh sach: thoi gian, nguoi dung, gia tri cu → moi (dang chu ngan gon), nut "Hoàn tác về bản này" (goi POST /config/rollback/:historyId da co) co hop xac nhan
+   - Mo bang nut icon lich su canh moi field; dong bang Esc; focus trap dung pattern Dialog hien co (src/components/Dialog.jsx neu co)
+
+4. src/admin/settings/SettingsSearch.jsx — tim kiem Ctrl/Cmd+K:
+   - Hop thoai overlay (dung .modal-overlay/.modal style hien co), input tim kiem
+   - Du lieu index: moi field cua moi manifest (title + label + help)
+   - Enter/click ket qua → dieu huong den trang do va scroll+highlight field (them vong sang qua class .field-highlight trong 2 giay)
+   - Phim mui len/xuong chon, Enter mo; Esc dong; nut "Esc" hien tren giao dien
+
+=== NHIEM VU 3 — Shell v2 + dieu huong ===
+
+1. src/admin/settings/SettingsShellV2.jsx — bo khung moi:
+   - Layout 2 cot: sidebar trai (dung .settings-sidebar hien co) + noi dung
+   - Sidebar render TU MANIFESTS: nhom (co tieu de nhom .nav-group) → trang con; trang active theo route hien tai
+   - Header moi trang: breadcrumb "Cai dat / <Nhom> / <Trang>" (link ve /admin/settings)
+   - Tren cung: nut tim kiem (hien "Tìm… Ctrl+K") mo SettingsSearch
+   - Route noi bo: /admin/settings/v2/<manifestId> (vd /admin/settings/v2/auth). Dung getPageFromPath/getPath trong main.jsx them mapping 'admin-settings-v2' + 'admin-settings-v2-<id>'.
+   - Trang tong quan /admin/settings/v2: the cac nhom (dung .settings-card hien co) + the "Tong quan he thong" (doc /health + dem so key) + the thay doi gan day (GET /config/history lay 8 ban ghi moi nhat)
+   - Kiem tra quyen: dung useAuth() — neu user khong co editPermission cua manifest thi an nut Luu (view-only); khong co config.view thi khong hien trang
+
+2. Gan co che bat/tat qua flag: trong main.jsx hoac SettingsCenter.jsx hien tai — neu user la admin va co quyen, them nut/chuyen "Dùng giao diện Cài đặt mới (thử nghiệm)" o dau trang /admin/settings hien tai; bat → dieu huong /admin/settings/v2. Co the doc features.settings_center_v2 tu ConfigProvider de mac dinh an/hien nut nay (neu flag true thi hien nut; van cho phep quay lai giao diện cu).
+   - KHONG xoa giao diện cu trong wave nay.
+
+=== NHIEM VU 4 — CSS + A11Y + test ===
+
+1. styles.css bo sung: .field-highlight (vong sang fade), .toggle-switch (da co tu lan truoc — kiem tra lai), .history-drawer (drawer phai fixed, rong 420px, mobile full-width), .search-result kbd style. Dung bien mau hien co (--primary-color, --border-color...). Khong them thu vien ngoai.
+
+2. A11Y: toan bo nut/input co nhan; drawer + search co focus trap va tra focus ve nut mo khi dong; mau tuong phan dat tieu chuan (dung token hien co); prefers-reduced-motion da duoc styles.css xu ly toan cuc — khong them animation phuc tap.
+
+3. Tests (vitest, tao file moi src/admin/settings/__tests__/):
+   - GeneratedForm: render dung so truong theo manifest auth.json; sua 1 truong → nut Luu bat; click Luu goi PUT bulk dung payload; loi API → thong bao loi
+   - HistoryDrawer: mock API tra 2 ban ghi → render 2 dong; nut Hoàn tác goi rollback endpoint
+   - Manifest registry: 12 manifest load du, khong trung id, moi field deu co label
+   - SettingsSearch: goi "jwt" → it nhat 1 ket qua jwt_access_ttl
+   Toan bo suite cu PHAI van PASS (73/73) + build SUCCESS.
+
+=== RANG BUOC ===
+- KHONG sua backend trong wave nay (API da du). Neu gap endpoint thieu bat buoc (vd history theo key) thi ghi nho trong report, dung cach loc FE.
+- KHONG xoa/sua giao diện Settings Center cu — song song, chuyen qua flag.
+- KHONG them thu vien ngoai (icons dung lucide-react da co).
+- Tieng Viet toan bo nhan giao dien. Code comment tieng Anh ngan gon nhu hien co.
+- KHONG tu block; report files changed + cach chay thu + ket qua test.
+
+CHAP NHAN:
+1. Thu muc settings-manifests co 12 file JSON + index.js
+2. /admin/settings/v2 chay duoc: sidebar tu sinh, vao tung trang thay form tu sinh co du lieu that tu DB, sua + Luu than cong (kiem tra DB doi)
+3. Ctrl+K tim kiem duoc; HistoryDrawer xem lich su + hoàn tác duoc
+4. vitest 73/73 cu + test moi PASS; build OK
+5. Giao diện cu van chay binh thuong; nut chuyen doi moi/cu hoat dong

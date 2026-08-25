@@ -1,0 +1,51 @@
+{
+  "id": "cleanup",
+  "group": "system",
+  "title": "Dọn dẹp tự động",
+  "icon": "eraser",
+  "editPermission": "config.edit.infra",
+  "order": 51,
+  "fields": [
+    {
+      "key": "cleanup.token_blocklist_interval_ms",
+      "label": "Chu kỳ dọn danh sách token thu hồi (ms)",
+      "type": "number",
+      "min": 60000,
+      "max": 86400000,
+      "unit": "ms"
+    },
+    {
+      "key": "cleanup.token_blocklist_ttl_ms",
+      "label": "Thời gian giữ token thu hồi (ms)",
+      "type": "number",
+      "min": 3600000,
+      "max": 604800000,
+      "unit": "ms",
+      "help": "Token bị thu hồi được giữ tối đa khoảng này rồi mới xóa."
+    },
+    {
+      "key": "cleanup.reset_token_interval_ms",
+      "label": "Chu kỳ dọn token đặt lại mật khẩu (ms)",
+      "type": "number",
+      "min": 300000,
+      "max": 86400000,
+      "unit": "ms"
+    },
+    {
+      "key": "cleanup.user_tokens_interval_ms",
+      "label": "Chu kỳ dọn token hết hạn người dùng (ms)",
+      "type": "number",
+      "min": 300000,
+      "max": 86400000,
+      "unit": "ms"
+    },
+    {
+      "key": "cleanup.user_tokens_max_age_days",
+      "label": "Tuổi tối đa của token người dùng (ngày)",
+      "type": "number",
+      "min": 1,
+      "max": 365,
+      "unit": "ngày"
+    }
+  ]
+}

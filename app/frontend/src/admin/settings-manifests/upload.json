@@ -1,0 +1,33 @@
+{
+  "id": "upload",
+  "group": "security",
+  "title": "Tải lên",
+  "icon": "upload",
+  "editPermission": "config.edit.upload",
+  "order": 22,
+  "fields": [
+    {
+      "key": "upload.max_mb",
+      "label": "Dung lượng tối đa (MB)",
+      "type": "number",
+      "min": 1,
+      "max": 100,
+      "unit": "MB",
+      "help": "Kích thước tệp đính kèm tối đa cho mỗi lần tải lên."
+    },
+    {
+      "key": "upload.body_limit_json",
+      "label": "Giới hạn thân JSON",
+      "type": "enum",
+      "options": ["100kb", "500kb", "1mb", "2mb", "5mb"],
+      "help": "Kích thước tối đa của phần thân yêu cầu JSON."
+    },
+    {
+      "key": "upload.body_limit_url",
+      "label": "Giới hạn biểu mẫu URL-encoded",
+      "type": "enum",
+      "options": ["10kb", "50kb", "100kb", "500kb"],
+      "help": "Kích thước tối đa của dữ liệu biểu mẫu URL-encoded."
+    }
+  ]
+}

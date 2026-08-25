@@ -1,0 +1,43 @@
+{
+  "id": "security",
+  "group": "security",
+  "title": "Bảo mật hệ thống",
+  "icon": "shield",
+  "editPermission": "config.edit.security",
+  "order": 23,
+  "fields": [
+    {
+      "key": "security.request_timeout_ms",
+      "label": "Thời hạn chờ yêu cầu (ms)",
+      "type": "number",
+      "min": 5000,
+      "max": 300000,
+      "unit": "ms",
+      "help": "Mọi yêu cầu vượt quá thời gian này bị ngắt."
+    },
+    {
+      "key": "security.cors_max_age",
+      "label": "Thời gian cache CORS (giây)",
+      "type": "number",
+      "min": 300,
+      "max": 86400,
+      "unit": "s",
+      "help": "Trình duyệt cache kết quả kiểm tra CORS trong khoảng này."
+    },
+    {
+      "key": "security.forced_shutdown_ms",
+      "label": "Thời hạn tắt máy chủ cưỡng bức (ms)",
+      "type": "number",
+      "min": 1000,
+      "max": 60000,
+      "unit": "ms"
+    },
+    {
+      "key": "security.hsts_max_age",
+      "label": "HSTS max-age (giây)",
+      "type": "number",
+      "readonly": true,
+      "help": "Do Caddy quản lý."
+    }
+  ]
+}

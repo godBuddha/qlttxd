@@ -1,0 +1,34 @@
+{
+  "id": "pool",
+  "group": "system",
+  "title": "Hiệu năng kết nối",
+  "icon": "database",
+  "editPermission": "config.edit.infra",
+  "order": 53,
+  "fields": [
+    {
+      "key": "pool.max",
+      "label": "Số kết nối tối đa",
+      "type": "number",
+      "min": 1,
+      "max": 500,
+      "help": "Đổi max cần khởi động lại máy chủ để áp dụng đầy đủ"
+    },
+    {
+      "key": "pool.idle_timeout_ms",
+      "label": "Thời gian giữ kết nối rỗi (ms)",
+      "type": "number",
+      "min": 1000,
+      "max": 600000,
+      "unit": "ms"
+    },
+    {
+      "key": "pool.connect_timeout_ms",
+      "label": "Thời hạn chờ kết nối (ms)",
+      "type": "number",
+      "min": 1000,
+      "max": 60000,
+      "unit": "ms"
+    }
+  ]
+}

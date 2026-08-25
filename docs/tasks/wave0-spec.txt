@@ -1,0 +1,60 @@
+Trien khai Wave 0 cua Settings Center roadmap (docs/settings-center/06-roadmap.md) — fix 3 bug cau hinh P0.
+
+CONTEXT: Toan bo phan tich nam trong docs/settings-center/ (doc file 03-hardcode-report.md de hieu nguyen nhan). ConfigService da co san trong app/backend/lib/config-service.js, da wire vao buildApp. Cach doc config: configService.getSync('auth','jwt_refresh_ttl','7d') hoac qua cfg.getSync trong routes.
+
+=== NHIEM VU 1 — HC-01 (P0, Risk 9/10): TTL drift giua JWT va refresh_tokens row ===
+
+Van de: routes/auth.js co 3 cho INSERT INTO refresh_tokens voi SQL hardcode "now() + interval '7 days'" (dong ~175, ~260, ~354), trong khi JWT refresh token duoc ky voi expiresIn = cfg.getSync('auth','jwt_refresh_ttl','7d'). Khi admin doi jwt_refresh_ttl qua Settings, JWT va expires_at trong DB LECH NHAU → refresh token bi tu choi som/muon bat thuong, hoac ton tai qua han chinh sach.
+
+CACH FIX:
+1. Tao helper parse TTL string → so ngay, dat o dung cho (vd utils/helpers.js hoac tao utils/ttl.js):
+   - Input: chuoi nhu '7d', '12h', '30m', '45s' (dung dinh dang ma jsonwebtoken chap nhan)
+   - Output: so GIAY (integer)
+   - Xu ly: regex /^([0-9]+)([smhd])$/ ; s=1, m=60, h=3600, d=86400. Khong khop → throw Error ro rang.
+   - Viet unit test cho helper (hop le, bien gioi, sai format).
+
+2. Thay 3 cau SQL INSERT:
+   TRUOC: INSERT INTO refresh_tokens (user_id, jti, expires_at) VALUES ($1, $2, now() + interval '7 days')
+   SAU:  INSERT INTO refresh_tokens (user_id, jti, expires_at) VALUES ($1, $2, now() + make_interval(secs => $3))
+   - Truyen tham so thu 3 = so giay tu helper, doc tu cfg.getSync('auth','jwt_refresh_ttl','7d') (trong authRoutes da co cfg — kiem tra lai scope bien; neu chua co thi them).
+   - KHONG dung string interpolation cho gia tri so — bat buoc parameterized $3.
+
+3. Test hồi quy (them vao test co lien quan hoac test moi):
+   - Login → query refresh_tokens.expires_at → so sanh khoang cach with now() ≈ TTL seconds (cho phep lech ±5s do mat tg request).
+   - Case TTL mac dinh '7d'.
+   - Neu co the mock config TTL khac (vd '1h') thi verify tiep; khong thi ghi nho trong report.
+
+=== NHIEM VU 2 — HC-02 (P0, Risk 7/10): Map center hardcode, DB khong consumer ===
+
+Van de: app/frontend/src/lib/constants.js export HOME = [21.0285, 105.8542]; DB da seed ui.home_lat / ui.home_lng (category 'ui') nhung khong ai doc → sua trong Settings khong tac dung.
+
+CACH FIX:
+1. src/lib/ConfigContext.jsx: bo sung selector homeCenter() tra ve [lat, lng]:
+   - Doc getConfig('ui','home_lat') va getConfig('ui','home_lng')
+   - Parse Number(); neu khong phai so hop le (NaN) HOAC chua load → fallback ve HOME trong constants.js
+   - Tra ve mang [Number(lat), Number(lng)]
+2. Tim tat ca noi dang dung HOME trong src/ (grep -rn "HOME" src/) — toi thieu la CitizenPage.jsx va BanDoPage.jsx (cac cho set center Leaflet nhu map.setView(HOME,...) hay center={HOME}).
+   - Doi sang dung useConfig().homeCenter()
+   - Giu export HOME trong constants.js lam fallback (KHONG xoa) — tests cu co the dung.
+3. Neu trang chua mount ConfigProvider thi kiem tra main.jsx da wrap chua (da wrap tu T5) — chi can import useConfig.
+4. Test frontend: them unit test cho homeCenter(): khi config co ui.home_lat=10.5, ui.home_lng=106.7 → tra [10.5,106.7]; khi chua load → tra [21.0285,105.8542].
+
+=== NHIEM VU 3 — HC-07 (P2): Dong bo default port ===
+
+Van de: server.js dong cuoi: const port = Number(process.env.PORT || 3000); nhung docker-compose/Caddy/nginx deu tro 3001. Chay local thieu env → listen 3000, proxy den 3001 → den.
+
+FIX: doi thanh process.env.PORT || 3001 (1 dong). Ghi comment: // Default must match docker-compose/Caddy upstream (3001)
+
+=== RANG BUOC CHUNG ===
+- KHONG sua logic khac ngoai muc tren. KHONG doi API contract. KHONG sua migration DB.
+- Moi thay doi giu backward compatible.
+- Backend: node --test --test-concurrency=1 — khong duoc co fail MOI (các fail flaky da biet: 2 forgot-password isolation + 1 input-validation duplicate TEST-KP la known-flaky, ghi nho trong report).
+- Frontend: npx vitest run — ALL PASS; npm run build — SUCCESS.
+- KHONG tu block. Report ket qua + files changed + evidence.
+
+ACCEPTANCE:
+1. grep -n "interval '7 days'" app/backend/routes/auth.js → 0 ket qua
+2. grep -rn "HOME" app/frontend/src/pages/ → chi con fallback trong constants/ConfigContext, cac page map dung useConfig
+3. grep -n "PORT || 3000" app/backend/server.js → 0 ket qua
+4. Unit test TTL helper + homeCenter PASS
+5. Full backend + frontend suite theo rang buoc tren

@@ -691,13 +691,28 @@ module.exports = function configRoutes({ pool, authenticate, authorize, auditRet
           }
           const hist = h.rows[0];
 
-          // new_value is stored as TEXT JSON (e.g. "\"10m\"", "12"). Cast it back to jsonb safely.
-          await client.query(`UPDATE system_config SET value=$2::text::jsonb, updated_at=now() WHERE id=$1`, [hist.config_id, hist.new_value]);
+          // node-postgres parses jsonb columns to JS values, so hist.new_value
+          // is already e.g. '17m' / 12 — stringify before the text::jsonb cast.
+          // Lock + read the current row first so the rollback entry records a
+          // truthful old→new pair instead of the already-restored value.
+          const prev = await client.query(
+            `SELECT value FROM system_config WHERE id=$1 FOR UPDATE`,
+            [hist.config_id]
+          );
+          await client.query(
+            `UPDATE system_config SET value=$2::text::jsonb, updated_at=now() WHERE id=$1`,
+            [hist.config_id, JSON.stringify(hist.new_value)]
+          );
 
           // Log rollback as a new history entry
           await client.query(
-            `INSERT INTO config_history (config_id, nguoi_dung_id, old_value, new_value, action, ip, request_id) VALUES ($1,$2,(SELECT value FROM system_config WHERE id=$1),$2,'rollback',$3,$4)`,
-            [hist.config_id, req.user.id, req.ip || null, req.requestId || null]
+            `INSERT INTO config_history (config_id, nguoi_dung_id, old_value, new_value, action, ip, request_id) VALUES ($1,$2,$3::text::jsonb,$4::text::jsonb,'rollback',$5,$6)`,
+            // FIX(WAVE2-HOTFIX): $2 previously served as both uuid and jsonb ->
+            // "inconsistent types" 500 on every rollback; later the UPDATE cast
+            // raw strings ('17m') as json -> "invalid input syntax for type
+            // json" 500. Both writes now follow the house convention:
+            // JSON.stringify(value) + ::text::jsonb.
+            [hist.config_id, req.user.id, JSON.stringify(prev.rows[0]?.value ?? null), JSON.stringify(hist.new_value), req.ip || null, req.requestId || null]
           );
 
           await client.query('COMMIT');

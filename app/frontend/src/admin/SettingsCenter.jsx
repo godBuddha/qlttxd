@@ -1,3 +1,5 @@
+import { useConfig } from '../lib/ConfigContext.jsx';
+
 const CATEGORIES = [
   { key: 'auth', label: 'Xác thực', icon: '🔑', desc: 'JWT, cookie, mật khẩu' },
   { key: 'upload', label: 'Tải lên', icon: '📎', desc: 'Kích thước, định dạng tệp' },
@@ -12,6 +14,24 @@ const CATEGORIES = [
   { key: 'workflow-transitions', label: 'Chuyển trạng thái', icon: '🔀', desc: 'Quy tắc chuyển đổi' },
   { key: 'role-permissions', label: 'Quyền theo vai trò', icon: '👥', desc: 'Phân quyền RBAC' },
 ];
+
+/**
+ * Wave 2 opt-in banner: switches to the manifest-driven settings shell.
+ * Always visible to users with config.view so the new UI stays reachable
+ * even when the features.settings_center_v2 flag is still false.
+ */
+export function SettingsV2Banner({ navigate, flagOn }) {
+  return (
+    <div className="settings-v2-banner" role="status">
+      <span>
+        Đang thử nghiệm giao diện Cài đặt mới{flagOn ? '' : ' (chưa bật mặc định)'}.
+      </span>
+      <button type="button" onClick={() => navigate('admin-settings-v2')}>
+        Dùng giao diện Cài đặt mới (thử nghiệm)
+      </button>
+    </div>
+  );
+}
 
 // Sidebar navigation item — calls navigate instead of pushState
 function NavLink({ cat, navigate, children }) {
@@ -54,6 +74,10 @@ function CategoryCard({ cat, navigate }) {
 }
 
 export function SettingsCenter({ _api, _notify, navigate }) {
+  // features.settings_center_v2 drives the banner copy; the switch stays
+  // reachable either way so users can always go back to the classic UI.
+  const { getConfig } = useConfig();
+  const flagOn = Boolean(getConfig('features', 'settings_center_v2', false));
   return (
     <>
       <div className="page-title">
@@ -62,6 +86,7 @@ export function SettingsCenter({ _api, _notify, navigate }) {
           <h2>Cài đặt hệ thống</h2>
         </div>
       </div>
+      <SettingsV2Banner navigate={navigate} flagOn={flagOn} />
       <div className="settings-layout">
         {/* Sidebar */}
         <aside className="settings-sidebar">

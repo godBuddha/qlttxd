@@ -1,0 +1,28 @@
+{
+  "id": "features",
+  "group": "advanced",
+  "title": "Cờ tính năng",
+  "icon": "toggle-left",
+  "editPermission": "config.edit.infra",
+  "order": 60,
+  "fields": [
+    {
+      "key": "features.settings_center_v2",
+      "label": "Giao diện Cài đặt mới (v2)",
+      "type": "boolean",
+      "help": "Bật để dùng shell Cài đặt thế hệ mới. Giao diện cũ vẫn còn."
+    },
+    {
+      "key": "features.manual_audit_purge",
+      "label": "Cho phép dọn nhật ký thủ công",
+      "type": "boolean",
+      "help": "Hiện nút dọn ngay trên trang nhật ký (POST /audit/purge-now)."
+    },
+    {
+      "key": "features.import_dry_run",
+      "label": "Import ở chế độ chạy thử",
+      "type": "boolean",
+      "help": "Mặc định chỉ so sánh khác biệt, không ghi khi import cấu hình."
+    }
+  ]
+}

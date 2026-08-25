@@ -1,0 +1,36 @@
+{
+  "id": "smtp",
+  "group": "notification",
+  "title": "Email (SMTP)",
+  "icon": "mail",
+  "editPermission": "config.edit.notification",
+  "order": 40,
+  "fields": [
+    {
+      "key": "smtp.enabled",
+      "label": "Bật kênh email",
+      "type": "boolean",
+      "help": "Khi tắt, mọi gửi mail bị bỏ qua."
+    },
+    {
+      "key": "smtp.host",
+      "label": "Máy chủ SMTP",
+      "type": "string",
+      "help": "Thông tin đăng nhập SMTP nằm trong .env, không hiển thị tại đây"
+    },
+    {
+      "key": "smtp.port",
+      "label": "Cổng SMTP",
+      "type": "number",
+      "min": 1,
+      "max": 65535,
+      "help": "Thông tin đăng nhập SMTP nằm trong .env, không hiển thị tại đây"
+    },
+    {
+      "key": "smtp.from_address",
+      "label": "Địa chỉ người gửi",
+      "type": "string",
+      "help": "Dùng trong trường From của email hệ thống."
+    }
+  ]
+}

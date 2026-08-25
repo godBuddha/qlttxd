@@ -86,6 +86,9 @@ const SettingsWorkflowTransitions = lazy(() =>
 const SettingsRolePermissions = lazy(() =>
   import('./admin/SettingsRolePermissions.jsx').then((m) => ({ default: m.SettingsRolePermissions }))
 );
+const SettingsShellV2 = lazy(() =>
+  import('./admin/settings/SettingsShellV2.jsx').then((m) => ({ default: m.SettingsShellV2 }))
+);
 
 // Icon library for accessible, font-independent navigation icons
 import {
@@ -105,6 +108,9 @@ import {
 } from 'lucide-react';
 
 function getPath(page, id) {
+  // Settings v2 pages: 'admin-settings-v2-<manifestId>' → /admin/settings/v2/<id>.
+  const v2Dynamic = /^admin-settings-v2-(.+)$/.exec(page);
+  if (v2Dynamic) return `/admin/settings/v2/${v2Dynamic[1]}`;
   const paths = {
     home: '/',
     dashboard: '/dashboard',
@@ -129,6 +135,7 @@ function getPath(page, id) {
     'admin-settings-workflow-states': '/admin/settings/workflow-states',
     'admin-settings-workflow-transitions': '/admin/settings/workflow-transitions',
     'admin-settings-role-permissions': '/admin/settings/role-permissions',
+    'admin-settings-v2': '/admin/settings/v2',
     report: '/report',
     profile: '/profile',
     'officer-reports': '/officer-reports',
@@ -141,6 +148,14 @@ function getPageFromPath(path) {
   if (path === '/' || path === '') return { page: 'home', id: null };
   const caseMatch = path.match(/^\/cases\/([^/]+)/);
   if (caseMatch) return { page: 'case', id: decodeURIComponent(caseMatch[1]) };
+  // Settings v2 shell: /admin/settings/v2 and /admin/settings/v2/<manifestId>.
+  const v2Match = path.match(/^\/admin\/settings\/v2(?:\/([a-z0-9-]+))?$/);
+  if (v2Match) {
+    return {
+      page: v2Match[1] ? `admin-settings-v2-${v2Match[1]}` : 'admin-settings-v2',
+      id: v2Match[1] || null,
+    };
+  }
   const map = {
     '/dashboard': 'dashboard',
     '/cases': 'cases',
@@ -594,6 +609,21 @@ function App() {
               </Suspense>
             </ErrorBoundary>
           )}
+          {route.page === 'admin-settings-v2' && (
+            <ErrorBoundary>
+              <Suspense fallback={<Loading />}>
+                <SettingsShellV2 navigate={nav} pageId={null} />
+              </Suspense>
+            </ErrorBoundary>
+          )}
+          {typeof route.page === 'string' &&
+            route.page.startsWith('admin-settings-v2-') && (
+              <ErrorBoundary>
+                <Suspense fallback={<Loading />}>
+                  <SettingsShellV2 navigate={nav} pageId={route.page} />
+                </Suspense>
+              </ErrorBoundary>
+            )}
           {[
             'home',
             'dashboard',

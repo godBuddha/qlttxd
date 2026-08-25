@@ -1,0 +1,52 @@
+{
+  "id": "notification",
+  "group": "notification",
+  "title": "Thời gian nền",
+  "icon": "bell-ring",
+  "editPermission": "config.edit.notification",
+  "order": 41,
+  "fields": [
+    {
+      "key": "notification.worker_batch_size",
+      "label": "Số thông báo mỗi lượt xử lý",
+      "type": "number",
+      "min": 1,
+      "max": 200
+    },
+    {
+      "key": "notification.worker_poll_interval_ms",
+      "label": "Chu kỳ quét hàng đợi (ms)",
+      "type": "number",
+      "min": 1000,
+      "max": 600000,
+      "unit": "ms"
+    },
+    {
+      "key": "sse.heartbeat_ms",
+      "label": "Khoảng nghỉ nhịp SSE (ms)",
+      "type": "number",
+      "min": 5000,
+      "max": 300000,
+      "unit": "ms",
+      "categoryPermission": "config.edit.infra",
+      "help": "Máy chủ gửi tín hiệu giữ kết nối theo chu kỳ này."
+    },
+    {
+      "key": "sse.poll_ms",
+      "label": "Chu kỳ quét dữ liệu SSE (ms)",
+      "type": "number",
+      "min": 1000,
+      "max": 60000,
+      "unit": "ms",
+      "categoryPermission": "config.edit.infra"
+    },
+    {
+      "key": "sse.poll_limit",
+      "label": "Giới hạn bản ghi mỗi lần quét SSE",
+      "type": "number",
+      "min": 1,
+      "max": 1000,
+      "categoryPermission": "config.edit.infra"
+    }
+  ]
+}

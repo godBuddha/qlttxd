@@ -1,0 +1,36 @@
+{
+  "id": "audit",
+  "group": "system",
+  "title": "Nhật ký & Lưu trữ",
+  "icon": "scroll-text",
+  "editPermission": "config.edit.infra",
+  "order": 52,
+  "fields": [
+    {
+      "key": "audit.retention_days",
+      "label": "Thời gian lưu nhật ký (ngày)",
+      "type": "number",
+      "min": 30,
+      "max": 36500,
+      "unit": "ngày",
+      "warnBelow": 365,
+      "warnMessage": "Lưu dưới 1 năm có thể không đáp ứng quy định lưu trữ hồ sơ.",
+      "help": "Số ngày giữ nhật ký kiểm toán trước khi dọn."
+    },
+    {
+      "key": "audit.batch_size",
+      "label": "Số bản ghi mỗi lượt dọn",
+      "type": "number",
+      "min": 10,
+      "max": 10000
+    },
+    {
+      "key": "audit.interval_ms",
+      "label": "Chu kỳ chạy dọn nhật ký (ms)",
+      "type": "number",
+      "min": 3600000,
+      "max": 604800000,
+      "unit": "ms"
+    }
+  ]
+}

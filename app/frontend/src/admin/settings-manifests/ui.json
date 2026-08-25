@@ -1,0 +1,43 @@
+{
+  "id": "ui",
+  "group": "workspace",
+  "title": "Giao diện & Bản đồ",
+  "icon": "palette",
+  "editPermission": "config.edit.appearance",
+  "order": 10,
+  "fields": [
+    {
+      "key": "ui.home_lat",
+      "label": "Vĩ độ trung tâm bản đồ",
+      "type": "number",
+      "min": -90,
+      "max": 90,
+      "step": 0.0001,
+      "help": "Vị trí bản đồ mở lần đầu (ví dụ Hà Nội: 21.0285)."
+    },
+    {
+      "key": "ui.home_lng",
+      "label": "Kinh độ trung tâm bản đồ",
+      "type": "number",
+      "min": -180,
+      "max": 180,
+      "step": 0.0001,
+      "help": "Vị trí bản đồ mở lần đầu (ví dụ Hà Nội: 105.8542)."
+    },
+    {
+      "key": "ui.language",
+      "label": "Ngôn ngữ",
+      "type": "enum",
+      "options": ["vi", "en"],
+      "help": "Ngôn ngữ giao diện hệ thống."
+    },
+    {
+      "key": "ui.theme",
+      "label": "Chủ đề",
+      "type": "enum",
+      "options": ["light"],
+      "readonly": true,
+      "help": "Sắp có"
+    }
+  ]
+}

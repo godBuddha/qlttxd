@@ -1,0 +1,100 @@
+Trien khai Wave 1 cua Settings Center roadmap (docs/settings-center/06-roadmap.md — doc file do truoc khi lam).
+
+NEN TANG: Wave 0 da xong (commit f386126). ConfigService o app/backend/lib/config-service.js, Config API o routes/config.js (17 endpoints), migration cu o sql/migrations/ (005, 006). DB dang chay: source /workspace/ssd/toolchain/scripts/env.sh; PGHOST=/tmp PGPORT=5432 PGDATABASE=qlttxd PGUSER=postgres.
+
+=== NHIEM VU 1 — Migration 007 ===
+
+Tao 2 file:
+- sql/migrations/007_settings_wave1.up.sql
+- sql/migrations/007_settings_wave1.down.sql
+
+Up migration lam cac viec (tat ca idempotent, ON CONFLICT DO NOTHING):
+
+1. Category smtp (4 key, category='smtp', scope='global', scope_id='00000000-0000-4000-a000-000000000000'::uuid):
+   - enabled = false (boolean) — mo ta: Bat kenh email
+   - host = "" (string)
+   - port = 587 (integer)
+   - from_address = "" (string)
+   LUU Y: SMTP_USER/SMTP_PASS van o .env (lop A - secret). KHONG dua secret vao DB. Ghi description ro rang cho moi key.
+
+2. Category features (flag co che):
+   - settings_center_v2 = false (boolean) — flag bao ve shell v2 tu Wave 2
+   - manual_audit_purge = false (boolean) — cho phep chua d purge ngay tren UI
+   - import_dry_run = true (boolean)
+
+3. Danh dau readonly:
+   UPDATE system_config SET is_readonly=true WHERE category='security' AND key='hsts_max_age';
+   (ly do: HSTS do Caddy phat hanh doc quyen — HC-04; them comment giai thich trong file SQL)
+
+4. Them cot version cho config_schema:
+   ALTER TABLE config_schema ADD COLUMN IF NOT EXISTS schema_version INT NOT NULL DEFAULT 1;
+   Cap nhat config_schema: set schema_version=1 cho toan bo row hien tai (neu co).
+
+Down migration: DROP COLUMN schema_version (neu ton tai); DELETE smtp.*, features.* keys; UPDATE security.hsts_max_age SET is_readonly=false.
+
+Chay migration len DB that de verify (psql qua socket), kiem tra SELECT dem so key moi.
+
+Dong thoi dong bo app/db/init/03-config-tables.sql: them phan tuong ung (smtp + features + readonly + cot version) vao cuoi file voi ON CONFLICT DO NOTHING de deployment Docker moi cung co du du lieu.
+
+=== NHIEM VU 2 — Backend API moi (them, khong sua endpoint cu) ===
+
+Trong routes/config.js:
+
+1. PUT /config/bulk (permission: tuy body — kiem tra tung category voi permission map da co trong file):
+   Body: { items: [{category, key, value}, ...] } (toi da 50 items/lan goi)
+   Xu ly: dung transaction (client.query BEGIN/COMMIT); voi moi item goi logic set giong endpoint PUT le (co the refactor chung thanh helper noi bo); neu 1 item loi → ROLLBACK toan bo, tra 400 kem vi tri item loi.
+   Response: { updated: n, items: [...] }
+   Ghi config_history + audit cho tung item nhu binh thuong.
+
+2. POST /config/import?dryRun=true|false (permission: admin.config):
+   Body giong bulk nhung chap nhan format export hien tai (mang [{id?, category, key, value, is_secret?}]).
+   dryRun=true: KHONG ghi DB. Tra ve diff: { would_update: [...{category,key,old_value,new_value}], invalid: [...{category,key,error}], unchanged: [...] }. old_value lay tu DB hien tai.
+   dryRun=false: ghi nhung item hop le trong transaction, bo qua item invalid (tra kem danh sach bi bo qua).
+
+3. POST /config/test-smtp (permission: config.edit.notification):
+   Doc SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS tu process.env + smtp.* tu DB.
+   Neu smtp.enabled=false → tra 400 "Kênh email đang tắt".
+   Dung nodemailer (KIEM TRA package.json backend da co chua — PHASE3B-03 tung lam email worker; neu co roi thi dung lai; neu khong thi npm install nodemailer).
+   Gui thu test den dia chi trong body { to: "..." }; validate to bang regex email.
+   Thanh cong: { ok: true, messageId }; Loi: 502 { error: "...", detail } — KHONG leak password vao message/stack response.
+
+4. Endpoint manual purge (permission: config.edit.infra):
+   POST /audit/purge-now — kiem tra feature flag audit.manual_purge... SUA LAI CHO DUNG: dung key 'features.manual_audit_purge' da tao o migration; neu flag false → 403 "Tính năng chưa được bật". Neu true → goi ham chay mot lan cua AuditRetention (jobs/audit-retention.js — xem API class hien co, neu chua co method runOnce() thi them method public goi cung logic job nhung khong dat timer).
+
+=== NHIEM VU 3 — HC-03: Bo env override che DB config ===
+
+Sua 5 cho de uu tien dung nhat: DB → default (bo nhanh env):
+1. utils/upload.js: bo "Number(process.env.MAX_UPLOAD_MB) || ..." → chi con cfg/configService getSync('upload','max_mb',10). Neu upload.js chua co configService thi truyen qua tham so nhu pattern cleanup modules (constructor opts).
+2. server.js: AUDIT_RETENTION_DAYS bo Number(process.env...)|| → chi cfg.getSync('audit','retention_days',7300)
+3. jobs/audit-retention.js: tuong tu voi retention_days va batch_size (AUDIT_BATCH_SIZE)
+4. routes/auth.js forgot limiter: RATE_LIMIT_MAX → chi cfg.getSync('rate_limit','forgot_max',200)
+5. server.js REQUEST_TIMEOUT_MS (neu con nhanh env) → bo, chi giu config.
+
+Luu y giu nguyen: process.env cho lop A (PG*, JWT_SECRET, SMTP_*, CORS_ORIGIN, UPLOAD_DIR, PORT, HOST...). Chi bo override voi 5 muc tren.
+Cap nhat app/backend/.env.example: xoa MAX_UPLOAD_MB, AUDIT_* neu con; them comment giai thich cac bien nay gio quan ly qua Settings Center.
+
+=== TESTS ===
+
+Backend (them test moi vao test/config-service.test.js hoac tao test/config-wave1.test.js):
+- bulk PUT: 3 items hop le → updated=3; 1 item sai category → 400 rollback (kiem tra khong item nao duoc ghi)
+- import dryRun=true: khong doi DB, tra diff dung
+- import dryRun=false: ghi item hop le, bo qua invalid
+- test-smtp: smtp.enabled=false → 400
+- purge-now: flag off → 403; (khong test case co flag on voi DB that de tranh xoa du lieu — mock hoac skip)
+- Migration verify: SELECT count(*) FROM system_config WHERE category IN ('smtp','features') >= 6
+
+Chay full suite: node --test --test-concurrency=1 — khong duoc co fail MOI (known-flaky cu neu co thi ghi nho).
+Frontend KHONG doi trong wave nay (khong can sua FE). Van chay npx vitest run dam bao khong pha (73/73) va npm run build SUCCESS.
+
+=== RANG BUOC ===
+- KHONG sua shell/frontend. KHONG doi contract endpoint cu.
+- Moi endpoint moi phai co auth middleware + permission check dung nhu da liet ke.
+- Parameterized queries 100%, khong string-interpolate gia tri.
+- Khong log SMTP_PASS/JWT_SECRET vao bat ky log/response nao.
+- KHONG tu block. Report files changed + evidence + ket qua test.
+
+ACCEPTANCE:
+1. sql/migrations/007_settings_wave1.{up,down}.sql ton tai; up da chay OK tren DB that
+2. curl (hoac supertest) PUT /config/bulk hoat dong; dryRun khong doi DB
+3. grep -n "MAX_UPLOAD_MB\|AUDIT_RETENTION_DAYS\|RATE_LIMIT_MAX" app/backend/utils/upload.js app/backend/server.js app/backend/routes/auth.js app/backend/jobs/audit-retention.js → 0 ket qua (ngoai comment)
+4. Full backend suite PASS (known-flaky cu ghi nho), frontend 73/73, build OK

@@ -189,6 +189,57 @@ test('PUT /config/bulk — quá 50 items → 400', async () => {
   assert.equal(result.response.status, 400);
 });
 
+// ═══════════════════════════════════════════════
+// POST /config/rollback/:historyId (WAVE2 regression)
+// Regression: jsonb columns arrive from pg as JS values; casting the raw
+// string ('17m') as ::text::jsonb threw "invalid input syntax for type json"
+// → 500 on every string-valued rollback.
+// ═══════════════════════════════════════════════
+
+test('POST /config/rollback — string value → 200, restores old value, history truthful', async () => {
+  const before = await dbValue('ui', 'language'); // seeded string, e.g. "vi"
+
+  // 1. Change it via bulk so a history entry exists
+  const put = await json('/api/v1/config/bulk', {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({ items: [{ category: 'ui', key: 'language', value: 'en' }] }),
+  });
+  assert.equal(put.response.status, 200);
+  assert.equal(await dbValue('ui', 'language'), 'en');
+
+  // 2. Find the newest history entry for ui.language
+  const hist = await pool.query(
+    `SELECT ch.id, ch.old_value, ch.new_value FROM config_history ch
+     JOIN system_config sc ON sc.id=ch.config_id
+     WHERE sc.category='ui' AND sc.key='language' AND ch.action='update'
+     ORDER BY ch.thoi_gian DESC LIMIT 1`
+  );
+  assert.equal(hist.rows.length, 1);
+  const historyId = hist.rows[0].id;
+
+  // 3. Rollback to that entry (pre-fix this returned 500)
+  const rb = await json(`/api/v1/config/rollback/${historyId}`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  assert.equal(rb.response.status, 200);
+  assert.equal(rb.body.data.rolled_back, true);
+  assert.equal(await dbValue('ui', 'language'), before);
+
+  // 4. The rollback entry itself records old='en' new=<before>
+  const rbHist = await pool.query(
+    `SELECT ch.old_value, ch.new_value FROM config_history ch
+     JOIN system_config sc ON sc.id=ch.config_id
+     WHERE sc.category='ui' AND sc.key='language' AND ch.action='rollback'
+     ORDER BY ch.thoi_gian DESC LIMIT 1`
+  );
+  assert.equal(rbHist.rows.length, 1);
+  assert.deepEqual(rbHist.rows[0].old_value, 'en');
+  assert.deepEqual(rbHist.rows[0].new_value, before);
+});
+
+
 test('PUT /config/bulk — không token → 401; thiếu quyền → 403', async () => {
   const noToken = await fetch(`${base}/api/v1/config/bulk`, {
     method: 'PUT',

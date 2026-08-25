@@ -1,0 +1,52 @@
+{
+  "id": "pagination",
+  "group": "system",
+  "title": "Phân trang",
+  "icon": "list-ordered",
+  "editPermission": "config.edit.general",
+  "order": 50,
+  "fields": [
+    {
+      "key": "pagination.users_default",
+      "label": "Số dòng mỗi trang — Người dùng (mặc định)",
+      "type": "number",
+      "min": 1,
+      "max": 200
+    },
+    {
+      "key": "pagination.users_max",
+      "label": "Số dòng mỗi trang — Người dùng (tối đa)",
+      "type": "number",
+      "min": 1,
+      "max": 1000
+    },
+    {
+      "key": "pagination.ban_do_default",
+      "label": "Số điểm mỗi trang — Bản đồ (mặc định)",
+      "type": "number",
+      "min": 1,
+      "max": 5000
+    },
+    {
+      "key": "pagination.ban_do_max",
+      "label": "Số điểm mỗi trang — Bản đồ (tối đa)",
+      "type": "number",
+      "min": 1,
+      "max": 20000
+    },
+    {
+      "key": "pagination.notifications_default",
+      "label": "Số thông báo mỗi trang (mặc định)",
+      "type": "number",
+      "min": 1,
+      "max": 200
+    },
+    {
+      "key": "pagination.notifications_max",
+      "label": "Số thông báo mỗi trang (tối đa)",
+      "type": "number",
+      "min": 1,
+      "max": 1000
+    }
+  ]
+}
