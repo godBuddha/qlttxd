@@ -5,7 +5,7 @@ import './styles.css';
 import { request, can } from './lib/api.js';
 import { settingsV2RedirectPath } from './lib/routeGuard.js';
 import { AuthProvider, useAuth } from './lib/AuthContext.jsx';
-import { ConfigProvider, useConfig } from './lib/ConfigContext.jsx';
+import { ConfigProvider } from './lib/ConfigContext.jsx';
 
 import { Notice } from './components/Notice.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
@@ -48,45 +48,6 @@ const AdminLocationsPage = lazy(() =>
 const AdminCatalogPage = lazy(() =>
   import('./admin/AdminCatalogPage.jsx').then((m) => ({ default: m.AdminCatalogPage }))
 );
-const SettingsCenter = lazy(() =>
-  import('./admin/SettingsCenter.jsx').then((m) => ({ default: m.SettingsCenter }))
-);
-const SettingsAuth = lazy(() =>
-  import('./admin/SettingsAuth.jsx').then((m) => ({ default: m.SettingsAuth }))
-);
-const SettingsUpload = lazy(() =>
-  import('./admin/SettingsUpload.jsx').then((m) => ({ default: m.SettingsUpload }))
-);
-const SettingsRateLimit = lazy(() =>
-  import('./admin/SettingsRateLimit.jsx').then((m) => ({ default: m.SettingsRateLimit }))
-);
-const SettingsSecurity = lazy(() =>
-  import('./admin/SettingsSecurity.jsx').then((m) => ({ default: m.SettingsSecurity }))
-);
-const SettingsUI = lazy(() =>
-  import('./admin/SettingsUI.jsx').then((m) => ({ default: m.SettingsUI }))
-);
-const SettingsAudit = lazy(() =>
-  import('./admin/SettingsAudit.jsx').then((m) => ({ default: m.SettingsAudit }))
-);
-const SettingsNotification = lazy(() =>
-  import('./admin/SettingsNotification.jsx').then((m) => ({ default: m.SettingsNotification }))
-);
-const SettingsExport = lazy(() =>
-  import('./admin/SettingsExport.jsx').then((m) => ({ default: m.SettingsExport }))
-);
-const SettingsValidation = lazy(() =>
-  import('./admin/SettingsValidation.jsx').then((m) => ({ default: m.SettingsValidation }))
-);
-const SettingsWorkflowStates = lazy(() =>
-  import('./admin/SettingsWorkflowStates.jsx').then((m) => ({ default: m.SettingsWorkflowStates }))
-);
-const SettingsWorkflowTransitions = lazy(() =>
-  import('./admin/SettingsWorkflowTransitions.jsx').then((m) => ({ default: m.SettingsWorkflowTransitions }))
-);
-const SettingsRolePermissions = lazy(() =>
-  import('./admin/SettingsRolePermissions.jsx').then((m) => ({ default: m.SettingsRolePermissions }))
-);
 const SettingsShellV2 = lazy(() =>
   import('./admin/settings/SettingsShellV2.jsx').then((m) => ({ default: m.SettingsShellV2 }))
 );
@@ -123,19 +84,6 @@ function getPath(page, id) {
     'admin-audit': '/admin/audit-log',
     'admin-locations': '/admin/locations',
     'admin-catalog': '/admin/catalog',
-    'admin-settings': '/admin/settings',
-    'admin-settings-auth': '/admin/settings/auth',
-    'admin-settings-upload': '/admin/settings/upload',
-    'admin-settings-rate-limit': '/admin/settings/rate-limit',
-    'admin-settings-security': '/admin/settings/security',
-    'admin-settings-ui': '/admin/settings/ui',
-    'admin-settings-audit': '/admin/settings/audit',
-    'admin-settings-notification': '/admin/settings/notification',
-    'admin-settings-export': '/admin/settings/export',
-    'admin-settings-validation': '/admin/settings/validation',
-    'admin-settings-workflow-states': '/admin/settings/workflow-states',
-    'admin-settings-workflow-transitions': '/admin/settings/workflow-transitions',
-    'admin-settings-role-permissions': '/admin/settings/role-permissions',
     'admin-settings-v2': '/admin/settings/v2',
     report: '/report',
     profile: '/profile',
@@ -166,19 +114,7 @@ function getPageFromPath(path) {
     '/admin/audit-log': 'admin-audit',
     '/admin/locations': 'admin-locations',
     '/admin/catalog': 'admin-catalog',
-    '/admin/settings': 'admin-settings',
-    '/admin/settings/auth': 'admin-settings-auth',
-    '/admin/settings/upload': 'admin-settings-upload',
-    '/admin/settings/rate-limit': 'admin-settings-rate-limit',
-    '/admin/settings/security': 'admin-settings-security',
-    '/admin/settings/ui': 'admin-settings-ui',
-    '/admin/settings/audit': 'admin-settings-audit',
-    '/admin/settings/notification': 'admin-settings-notification',
-    '/admin/settings/export': 'admin-settings-export',
-    '/admin/settings/validation': 'admin-settings-validation',
-    '/admin/settings/workflow-states': 'admin-settings-workflow-states',
-    '/admin/settings/workflow-transitions': 'admin-settings-workflow-transitions',
-    '/admin/settings/role-permissions': 'admin-settings-role-permissions',
+
     '/report': 'report',
     '/profile': 'profile',
     '/officer-reports': 'officer-reports',
@@ -189,7 +125,6 @@ function getPageFromPath(path) {
 
 function App() {
   const { user, login, logout } = useAuth();
-  const { getConfig } = useConfig();
   const [route, setRoute] = useState(() => getPageFromPath(window.location.pathname));
   const [notice, setNotice] = useState(null);
   const [needsSetup, setNeedsSetup] = useState(null);
@@ -206,11 +141,10 @@ function App() {
     setRoute({ page, id });
   };
 
-  // Wave 3: khi flag features.settings_center_v2 = true, mọi route
-  // /admin/settings* (giao diện cũ) đi thẳng vào Settings Shell v2.
-  // Flag false → giữ nguyên giao diện cũ. Không xóa file cũ, chỉ đổi điều hướng.
+  // Wave 4: mọi route /admin/settings* luôn đi vào Settings Shell v2 —
+  // giao diện cũ đã bị xóa, không còn UI để quay lại. Redirect là vô điều kiện.
   const settingsV2On =
-    String(getConfig('features', 'settings_center_v2', false)) === 'true';
+    true;
   useEffect(() => {
     if (settingsV2On) {
       const target = settingsV2RedirectPath(window.location.pathname);
@@ -535,97 +469,6 @@ function App() {
             </ErrorBoundary>
           )}
           {route.page === 'profile' && <ProfilePage api={api} user={user} notify={notify} />}
-          {route.page === 'admin-settings' && (
-            <ErrorBoundary>
-              <Suspense fallback={<Loading />}>
-                <SettingsCenter api={api} notify={notify} navigate={nav} />
-              </Suspense>
-            </ErrorBoundary>
-          )}
-          {route.page === 'admin-settings-auth' && (
-            <ErrorBoundary>
-              <Suspense fallback={<Loading />}>
-                <SettingsAuth api={api} notify={notify} navigate={nav} />
-              </Suspense>
-            </ErrorBoundary>
-          )}
-          {route.page === 'admin-settings-upload' && (
-            <ErrorBoundary>
-              <Suspense fallback={<Loading />}>
-                <SettingsUpload api={api} notify={notify} navigate={nav} />
-              </Suspense>
-            </ErrorBoundary>
-          )}
-          {route.page === 'admin-settings-rate-limit' && (
-            <ErrorBoundary>
-              <Suspense fallback={<Loading />}>
-                <SettingsRateLimit api={api} notify={notify} navigate={nav} />
-              </Suspense>
-            </ErrorBoundary>
-          )}
-          {route.page === 'admin-settings-security' && (
-            <ErrorBoundary>
-              <Suspense fallback={<Loading />}>
-                <SettingsSecurity api={api} notify={notify} navigate={nav} />
-              </Suspense>
-            </ErrorBoundary>
-          )}
-          {route.page === 'admin-settings-ui' && (
-            <ErrorBoundary>
-              <Suspense fallback={<Loading />}>
-                <SettingsUI api={api} notify={notify} navigate={nav} />
-              </Suspense>
-            </ErrorBoundary>
-          )}
-          {route.page === 'admin-settings-audit' && (
-            <ErrorBoundary>
-              <Suspense fallback={<Loading />}>
-                <SettingsAudit api={api} notify={notify} navigate={nav} />
-              </Suspense>
-            </ErrorBoundary>
-          )}
-          {route.page === 'admin-settings-notification' && (
-            <ErrorBoundary>
-              <Suspense fallback={<Loading />}>
-                <SettingsNotification api={api} notify={notify} navigate={nav} />
-              </Suspense>
-            </ErrorBoundary>
-          )}
-          {route.page === 'admin-settings-export' && (
-            <ErrorBoundary>
-              <Suspense fallback={<Loading />}>
-                <SettingsExport api={api} notify={notify} navigate={nav} />
-              </Suspense>
-            </ErrorBoundary>
-          )}
-          {route.page === 'admin-settings-validation' && (
-            <ErrorBoundary>
-              <Suspense fallback={<Loading />}>
-                <SettingsValidation api={api} notify={notify} navigate={nav} />
-              </Suspense>
-            </ErrorBoundary>
-          )}
-          {route.page === 'admin-settings-workflow-states' && (
-            <ErrorBoundary>
-              <Suspense fallback={<Loading />}>
-                <SettingsWorkflowStates api={api} notify={notify} navigate={nav} />
-              </Suspense>
-            </ErrorBoundary>
-          )}
-          {route.page === 'admin-settings-workflow-transitions' && (
-            <ErrorBoundary>
-              <Suspense fallback={<Loading />}>
-                <SettingsWorkflowTransitions api={api} notify={notify} navigate={nav} />
-              </Suspense>
-            </ErrorBoundary>
-          )}
-          {route.page === 'admin-settings-role-permissions' && (
-            <ErrorBoundary>
-              <Suspense fallback={<Loading />}>
-                <SettingsRolePermissions api={api} notify={notify} navigate={nav} />
-              </Suspense>
-            </ErrorBoundary>
-          )}
           {route.page === 'admin-settings-v2' && (
             <ErrorBoundary>
               <Suspense fallback={<Loading />}>

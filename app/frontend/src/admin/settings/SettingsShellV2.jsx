@@ -173,13 +173,7 @@ export function SettingsShellV2({ navigate, pageId }) {
           <span>Tìm…</span>
           <kbd>Ctrl+K</kbd>
         </button>
-        <button
-          type="button"
-          className="text-button"
-          onClick={() => navigate('admin-settings')}
-        >
-          ← Quay lại giao diện Cài đặt cũ
-        </button>
+
       </div>
 
       <div className="settings-layout">
@@ -220,13 +214,7 @@ export function SettingsShellV2({ navigate, pageId }) {
               </div>
             ))}
           </nav>
-          <button
-            type="button"
-            className="text-button sidebar-back-old"
-            onClick={() => navigate('admin-settings')}
-          >
-            Quay lại giao diện cũ
-          </button>
+
         </aside>
 
         <main className="settings-main">

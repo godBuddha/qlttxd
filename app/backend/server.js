@@ -100,7 +100,6 @@ module.exports.buildApp = function buildApp({ pool, configService }) {
   const corsMaxAgeSec = cfg.getSync('security', 'cors_max_age', 86400);
   const jsonLimit = cfg.getSync('upload', 'body_limit_json', '1mb');
   const urlLimit = cfg.getSync('upload', 'body_limit_url', '10kb');
-  const hstsMaxAge = cfg.getSync('security', 'hsts_max_age', 31536000);
 
   app.use((req, res, next) => {
     const origin = req.headers.origin;
@@ -193,7 +192,8 @@ module.exports.buildApp = function buildApp({ pool, configService }) {
       },
       crossOriginResourcePolicy: false,
       crossOriginOpenerPolicy: false,
-      hsts: { maxAge: hstsMaxAge, includeSubDomains: true },
+      // HSTS is issued exclusively by Caddy at the edge (see Caddyfile)
+      hsts: false,
     })
   );
 

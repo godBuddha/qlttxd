@@ -1,0 +1,58 @@
+Trien khai Wave 4 (cuoi cung) cua Settings Center roadmap — docs/settings-center/06-roadmap.md muc Wave 4. Doc ca file 03-hardcode-report.md de hieu bối cảnh HC-04/HC-06.
+
+NEN TANG: Wave 0-3 da xong. Shell v2 la giao dien chinh khi bat co features.settings_center_v2. Backend helmet o server.js, Caddyfile o thu muc goc repo.
+
+=== NHIEM VU 1 — HC-04: HSTS mot nguon duy nhat ===
+
+Hien trang: Caddyfile hardcode Strict-Transport-Security max-age=31536000; DB key security.hsts_max_age da danh dau is_readonly=true tu Wave 1; backend helmet co the van set HSTS rieng → trung lap header.
+
+Viec lam:
+1. app/backend/server.js: trong cau hinh helmet, bo/huy header Strict-Transport-Security (helmet.hsts(false) hoac bo khoi khoi tao). Ghi comment: // HSTS is issued exclusively by Caddy at the edge (see Caddyfile)
+2. Neu co test kiem tra HSTS tu backend thi cap nhat test do.
+3. Caddyfile: doi gia tri max-age thanh placeholder doc tu bien moi truong: {$HSTS_MAX_AGE:-31536000} (Caddy ho tro env placeholder). Cap nhat docker-compose.yml truyen HSTS_MAX_AGE vao container Caddy neu co phan environment; neu khong thi chi dung mac dinh.
+4. Kiem tra: grep -rn "Strict-Transport-Security" app/backend/ → khong con code set header (chi con comment).
+
+=== NHIEM VU 2 — HC-06: Version build-time, bo fallback '0.3.2' ===
+
+Hien trang: routes/auth.js (x3 cho) va utils/health.js fallback npm_package_version || '0.3.2'.
+
+Viec lam:
+1. Tao app/backend/lib/version.js:
+   - Doc version TU MOT NOI duy nhat: require('../../package.json').version (kiem tra duong dan that — package.json backend o app/backend/package.json)
+   - Export const APP_VERSION = <doc tu package.json> || 'dev'
+2. Thay 4 fallback '0.3.2' bang import APP_VERSION tu lib/version.js.
+3. Kiem tra khong con chuoi '0.3.2' hardcode trong app/backend/src (grep -rn "0.3.2" app/backend --include="*.js" | grep -v node_modules | grep -v test) — cho phep con lai trong package.json va CHANGELOG.md.
+4. Test health endpoint tra ve dung version hien tai cua package.json.
+
+=== NHIEM VU 3 — Checklist them trang thai workflow ===
+
+Tao docs/workflow-state-checklist.md (tieng Viet):
+- Muc dich: khi them/chinh sua trang thai ho so phai sua dong bo 3 noi
+- Checklist: (1) migration SQL moi (enum + seed workflow_states), (2) app/backend/utils/constants.js (STATES + STATE_LABELS + TRANSITIONS), (3) app/frontend/src/lib/constants.js (fallback), (4) kiem tra ma tran role_state_permissions co gan quyen cho trang thai moi, (5) chay full test
+- Lien ket den docs/settings-center/03-hardcode-report.md muc HC-05
+
+=== NHIEM VU 4 — Xoa shell cu ===
+
+1. Xoa file app/frontend/src/admin/SettingsCenter.jsx VA toan bo trang con cu chi dung cho shell cu (SettingsAuth, SettingsUpload, SettingsRateLimit, SettingsSecurity, SettingsNotification, SettingsUI, SettingsExport, SettingsAudit, SettingsValidation... — KIEM TRA tung file: neu shell v2 dang import dung thi GIU LAI; chi xoa nhung file KHONG con ai tham chieu).
+   - Dung grep de tim tham chieu truoc khi xoa: vi du grep -rn "SettingsAuth" app/frontend/src/
+2. main.jsx: bo route den shell cu; /admin/settings* luon di vao shell v2 (bo nhanh dieu huong co dieu kien — gio khong con UI cu de quay lai). Bo nut "Quay lại giao diện cũ" trong SettingsShellV2.jsx (neu con).
+3. Flag features.settings_center_v2: giu nguyen trong DB (khong xoa key) nhung khong con dung de chuyen huong; them comment o routeGuard.js giai thich flag nay giu de tuong thich nguoc, se nghi suat sau 1 phien ban.
+4. Chay: grep -rn "SettingsCenter" app/frontend/src/ → khong con tham chieu toi file da xoa.
+5. Xoa .hermes/ khoi repo neu bi commit nham (them vao .gitignore: .hermes/) — kiem tra .gitignore hien tai.
+
+=== TESTS ===
+1. Frontend: npx vitest run — tat ca PASS (107+); npm run build SUCCESS
+2. Backend: full suite node --test --test-concurrency=1 — 290/290 khong fail moi (cap nhat test HSTS neu co)
+3. Route guard test cap nhat theo hanh vi moi (luon vao shell v2)
+
+=== RANG BUOC ===
+- Khong sua logic nghiep vu. Khong dong DB migration moi.
+- Moi xoa file phai xac minh khong con tham chieu bang grep truoc.
+- Bao cao files changed (ke ca danh sach file DA XOA).
+
+CHAP NHAN:
+1. grep "Strict-Transport-Security" app/backend → 0 (ngoai comment)
+2. grep "'0.3.2'" app/backend --include="*.js" (khong tinh node_modules/test/package.json) → 0
+3. grep -rn "from.*SettingsCenter" app/frontend/src → 0; cac file shell cu da xoa sach
+4. docs/workflow-state-checklist.md ton tai
+5. vitest all pass + build OK + backend suite pass

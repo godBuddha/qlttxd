@@ -6,11 +6,12 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { APP_VERSION } = require('../lib/version');
 
 const startTime = Date.now();
 
 function currentVersion() {
-  return process.env.npm_package_version || '0.3.2';
+  return APP_VERSION;
 }
 
 function uptimeSeconds() {

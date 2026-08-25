@@ -60,7 +60,8 @@ test('helmet headers có trong response', async () => {
   assert.ok(r.headers.get('x-content-type-options'), 'x-content-type-options header missing');
   assert.ok(r.headers.get('x-frame-options'), 'x-frame-options header missing');
   assert.ok(r.headers.get('referrer-policy'), 'referrer-policy header missing');
-  assert.ok(r.headers.get('strict-transport-security'), 'strict-transport-security header missing');
+  // HSTS is issued exclusively by Caddy at the edge (see Caddyfile) — backend must NOT set it
+  assert.ok(!r.headers.get('strict-transport-security'), 'strict-transport-security must not be set by backend');
   assert.ok(r.headers.get('content-security-policy'), 'content-security-policy header missing');
 });
 

@@ -36,3 +36,6 @@ app/*/e2e/
 # Editor
 .vscode/
 .idea/
+
+# Hermes agent state
+.hermes/
