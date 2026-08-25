@@ -1,0 +1,88 @@
+Trien khai Wave 3 cua Settings Center roadmap (docs/settings-center/06-roadmap.md — doc truoc khi lam).
+
+NEN TANG: Wave 0-2 da xong (commit moi nhat tren master). Shell v2 o src/admin/settings/SettingsShellV2.jsx voi manifest registry (src/admin/settings-manifests/), GeneratedForm, HistoryDrawer, SettingsSearch. Route /admin/settings/v2/<id>. Giao dien cu van song song. Flag features.settings_center_v2 co trong DB.
+
+MUC TIEU WAVE 3: Chuyen cac trang custom (workflow matrix, MIME, import/export, overview, per-user) vao shell v2; chuyen 12 trang cu sang dung shell v2; sau do tat giao dien cu (an di, chua xoa file).
+
+=== NHIEM VU 1 — Custom pages trong shell v2 ===
+
+Tao trong src/admin/settings/pages/:
+
+1. WorkflowStatesPage.jsx — trang trang thai workflow:
+   - Doc GET /api/v1/workflow/states
+   - Bang: code, ten hien thi, is_terminal (co "Kết thúc" neu true), thu tu
+   - Cho phep sua TEN HIEN THI (label) inline neu co quyen config.edit.workflow → PUT /workflow/states/:code { label } — KIEM TRA backend co endpoint nay khong; neu khong co thi hien view-only va ghi nho trong report
+   - Empty state: "Chưa có trạng thái nào"
+
+2. WorkflowTransitionsPage.jsx — ma tran chuyen trang thai:
+   - GET /api/v1/workflow/transitions
+   - Bang tu dong (from_state) x cot (to_state); o hop le click bat/tat; hang terminal to xam
+   - Luu: PUT /api/v1/workflow/transitions/:id cho tung doi (hoac gom batch neu endpoint cho)
+   - Hop xac nhan truoc khi luu: "Đổi này ảnh hưởng hồ sơ đang mở"
+   - O khong ton tai: disabled + tooltip
+
+3. RolePermissionsPage.jsx — ma tran vai tro x trang thai:
+   - GET /api/v1/workflow/role-permissions
+   - Grid checkbox role x 15 states; cot sticky ben trai
+   - Luu bulk: PUT /api/v1/workflow/role-permissions (endpoint da co)
+   - Optimistic update + rollback khi loi
+
+4. MimeTypesPage.jsx — nhom security:
+   - GET /api/v1/config?category=allowed_mime_types HOAC endpoint rieng GET /api/v1/config/mime-types (kiem tra routes/config.js da co GET allowed-mime-types — dung dung endpoint do)
+   - Bang: mime_type, extension, is_active (toggle), magic_bytes_required
+   - Toggle is_active → PUT cap nhat
+   - Nut "Thêm" DISABLED voi tooltip: "Loại tệp mới cần cập nhật bộ kiểm tra dữ liệu thật — liên hệ đội phát triển"
+   - Empty state: canh bao do "Không có loại tệp nào được phép — hệ thống sẽ từ chối mọi tệp tải lên"
+
+5. ImportExportPage.jsx — nhom system:
+   - Export: nut tai JSON (GET /api/v1/config/export) — luon mask secret
+   - Import: upload file JSON → goi POST /api/v1/config/import?dryRun=true → Hien bang diff (them/sua/giu nguyen + danh sach loi validation) → nut "Xác nhận nhập" moi goi dryRun=false
+   - Lich su toan cuc: GET /config/history — bang loc theo category/nguoi dung/thoi gian + nut hoan tac
+
+6. OverviewPage.jsx — trang tong quan cua shell v2 (nang cap trang tong quan hien co):
+   - The tinh trang: /health (status, db, uptime, version), so key config theo tung category
+   - Danh sach 8 thay doi gan nhat tu /config/history (nguoi, luc nao, muc nao)
+   - Card nhanh den cac nhom
+
+7. PerUserPage.jsx — nhom workspace, route v2/preferences:
+   - Luu scope=user qua PUT /api/v1/config/:category/:key voi header/body chi dinh scope user (KIEM TRA API co ho tro scope khong; neu khong thi luu localStorage cho theme + ghi nho trong report rang scope user se lam sau)
+   - Ngon ngu (vi/en), giao dien (chi light — disabled)
+
+Dang ky cac page nay vao manifest/shell: them entry trong settings-manifests/index.js hoac route map cua SettingsShellV2 sao cho sidebar hien dung nhu cac trang con cua nhong "workflow", "security", "system".
+
+=== NHIEM VU 2 — Chuyen 12 trang form cu sang shell v2 ===
+
+- Cac trang cu SettingsAuth.jsx, SettingsUpload.jsx... hien tai van giu nguyen logic lay du lieu; NHUNG dieu huong trong shell v2 phai mo duoc noi dung tuong ung:
+  Cach lam: trong SettingsShellV2, khi manifestId khong phai custom page (o tren) thi render <GeneratedForm manifest={getManifest(id)} />. Da lam tu Wave 2 — viec con lai la DAM BAO 12 manifest du du lieu that va khong con trang nao bi thieu.
+- Kiem tra tung manifest id khop voi route: auth, rate-limit, upload, security, smtp, notification, ui, pagination, cleanup, audit, pool, features.
+
+=== NHIEM VU 3 — Tat giao dien cu ===
+
+- Trong main.jsx: khi flag features.settings_center_v2 = true (doc qua ConfigProvider) thi route /admin/settings* dieu huon thang vao SettingsShellV2 (khong con qua SettingsCenter cu).
+- Neu flag false → van giao dien cu (han vi an toan).
+- KHONG xoa file SettingsCenter.jsx hay cac page cu — chi an route.
+- Cap nhat nut chuyen doi o Wave 2 thanh nút "Quay lại giao diện cũ" trong shell v2 (dat o menu sidebar cuoi).
+
+=== TESTS ===
+
+Frontend vitest (them vao __tests__):
+- WorkflowTransitionsPage: mock API tra 2 transitions → render dung o bat/tat; click goi PUT
+- RolePermissionsPage: mock matrix → checkbox toggle → PUT payload dung
+- MimeTypesPage: empty → canh bao do; co du lieu → toggle goi PUT
+- ImportExportPage: dryRun=true khong goi dryRun=false cho toi khi user xac nhan
+- Route guard: flag on → /admin/settings vao shell v2; off → giao dien cu
+Suite cu 93/93 phai van PASS. Build SUCCESS.
+
+Backend: KHONG sua logic (neu can endpoint states label update thi bo qua, ghi report). Van chay lai full suite dam bao 290/290.
+
+=== RANG BUOC ===
+- Dung design token hien co (--primary-color...), khong them thu vien.
+- Tieng Viet toan bo nhan. A11Y: label, focus ring, aria-live cho thong bao, Esc dong hop thoai.
+- KHONG xoa file giao dien cu.
+- KHONG tu block. Report files changed + endpoints da dung/thieu + ket qua test.
+
+CHAP NHAN:
+1. 5-7 custom pages moi trong shell v2 hoat dong voi du lieu that
+2. Sidebar shell v2 hien ca custom pages + 12 manifest pages
+3. Flag bat → mac dinh vao shell v2; tat → giao dien cu
+4. vitest ≥93/93 + test moi PASS; build OK; backend 290/290

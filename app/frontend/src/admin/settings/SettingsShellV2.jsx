@@ -9,6 +9,14 @@ import {
 } from '../settings-manifests/index.js';
 import { GeneratedForm } from './GeneratedForm.jsx';
 import { SettingsSearch } from './SettingsSearch.jsx';
+import { WorkflowStatesPage } from './pages/WorkflowStatesPage.jsx';
+import { WorkflowTransitionsPage } from './pages/WorkflowTransitionsPage.jsx';
+import { RolePermissionsPage } from './pages/RolePermissionsPage.jsx';
+import { MimeTypesPage } from './pages/MimeTypesPage.jsx';
+import { ImportExportPage } from './pages/ImportExportPage.jsx';
+import { OverviewPage } from './pages/OverviewPage.jsx';
+import { PerUserPage } from './pages/PerUserPage.jsx';
+// OverviewPage (trang tổng quan shell v2) được nâng cấp riêng trong pages/OverviewPage.jsx.
 import {
   KeyRound,
   Gauge,
@@ -41,6 +49,27 @@ const ICONS = {
   'toggle-left': ToggleLeft,
 };
 
+/**
+ * Custom pages (Wave 3) — non-manifest pages rendered inside the shell v2.
+ * Each entry: id (route segment under /admin/settings/v2/), group for the
+ * sidebar, Vietnamese label, icon name and the component to render.
+ */
+export const CUSTOM_PAGES = [
+  { id: 'workflow-states', group: 'workflow', label: 'Trạng thái hồ sơ', icon: 'list-ordered', component: WorkflowStatesPage },
+  { id: 'workflow-transitions', group: 'workflow', label: 'Chuyển trạng thái', icon: 'git-branch', component: WorkflowTransitionsPage },
+  { id: 'role-permissions', group: 'workflow', label: 'Quyền theo vai trò', icon: 'key-round', component: RolePermissionsPage },
+  { id: 'mime-types', group: 'security', label: 'Loại tệp cho phép', icon: 'shield', component: MimeTypesPage },
+  { id: 'import-export', group: 'system', label: 'Nhập / xuất cấu hình', icon: 'scroll-text', component: ImportExportPage },
+  { id: 'preferences', group: 'workspace', label: 'Tùy chọn cá nhân', icon: 'palette', component: PerUserPage },
+];
+
+const CUSTOM_BY_ID = new Map(CUSTOM_PAGES.map((p) => [p.id, p]));
+
+/** Find a custom page by id, or null. */
+function getCustomPage(id) {
+  return CUSTOM_BY_ID.get(id) || null;
+}
+
 function ManifestIcon({ name, size = 16 }) {
   const Cmp = ICONS[name] || ToggleLeft;
   return <Cmp size={size} aria-hidden="true" />;
@@ -55,6 +84,7 @@ export function SettingsShellV2({ navigate, pageId }) {
   const { user } = useAuth();
   const activeId = pageId ? String(pageId).replace(/^admin-settings-v2-/, '') : null;
   const activeManifest = activeId ? getManifest(activeId) : null;
+  const activeCustom = activeId ? getCustomPage(activeId) : null;
   const [searchOpen, setSearchOpen] = useState(false);
   const [highlightKey, setHighlightKey] = useState(null);
 
@@ -73,6 +103,18 @@ export function SettingsShellV2({ navigate, pageId }) {
   // View permission gate: config.view is required for any settings page.
   const hasView = can(user, 'config.view');
   const groups = useMemo(getGroups, []);
+
+  // Sidebar entries for custom pages, grouped after the manifest groups.
+  const customGroups = useMemo(() => {
+    const order = ['workspace', 'security', 'workflow', 'system'];
+    return order
+      .map((group) => ({
+        group,
+        label: GROUP_LABELS[group] || group,
+        pages: CUSTOM_PAGES.filter((p) => p.group === group),
+      }))
+      .filter((g) => g.pages.length > 0);
+  }, []);
 
   /** Search result → navigate + scroll & highlight the field. */
   const handleSearchNavigate = useCallback(
@@ -163,7 +205,28 @@ export function SettingsShellV2({ navigate, pageId }) {
                 ))}
               </div>
             ))}
+            {customGroups.map(({ group, label, pages }) => (
+              <div key={`custom-${group}`}>
+                <div className="nav-group">{label}</div>
+                {pages.map((p) => (
+                  <SidebarLink
+                    key={p.id}
+                    label={p.label}
+                    icon={<ManifestIcon name={p.icon} />}
+                    active={activeCustom?.id === p.id}
+                    onClick={() => navigate(`admin-settings-v2-${p.id}`)}
+                  />
+                ))}
+              </div>
+            ))}
           </nav>
+          <button
+            type="button"
+            className="text-button sidebar-back-old"
+            onClick={() => navigate('admin-settings')}
+          >
+            Quay lại giao diện cũ
+          </button>
         </aside>
 
         <main className="settings-main">
@@ -174,6 +237,8 @@ export function SettingsShellV2({ navigate, pageId }) {
               user={user}
               navigate={navigate}
             />
+          ) : activeCustom ? (
+            <CustomPage page={activeCustom} navigate={navigate} />
           ) : (
             <OverviewPage navigate={navigate} />
           )}
@@ -229,8 +294,35 @@ function ManifestPage({ manifest, user, navigate }) {
   );
 }
 
+/** One custom page → breadcrumb + its component. */
+function CustomPage({ page, navigate }) {
+  const Cmp = page.component;
+  const groupLabel = GROUP_LABELS[page.group] || page.group;
+  return (
+    <>
+      <div className="page-title">
+        <div>
+          <nav aria-label="Breadcrumb" className="breadcrumb">
+            <button type="button" className="text-button" onClick={() => navigate('admin-settings-v2')}>
+              Cài đặt
+            </button>
+            <span aria-hidden="true"> / </span>
+            <span>{groupLabel}</span>
+            <span aria-hidden="true"> / </span>
+            <strong>{page.label}</strong>
+          </nav>
+          <h2>{page.label}</h2>
+        </div>
+      </div>
+      <section className="panel generated-panel">
+        <Cmp />
+      </section>
+    </>
+  );
+}
+
 /** Overview: group cards + system health + recent changes. */
-function OverviewPage({ navigate }) {
+function OverviewPageLocal({ navigate }) {
   return (
     <>
       <div className="page-title">

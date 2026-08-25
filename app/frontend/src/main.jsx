@@ -3,8 +3,9 @@ import { createRoot } from 'react-dom/client';
 import './styles.css';
 
 import { request, can } from './lib/api.js';
+import { settingsV2RedirectPath } from './lib/routeGuard.js';
 import { AuthProvider, useAuth } from './lib/AuthContext.jsx';
-import { ConfigProvider } from './lib/ConfigContext.jsx';
+import { ConfigProvider, useConfig } from './lib/ConfigContext.jsx';
 
 import { Notice } from './components/Notice.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
@@ -188,6 +189,7 @@ function getPageFromPath(path) {
 
 function App() {
   const { user, login, logout } = useAuth();
+  const { getConfig } = useConfig();
   const [route, setRoute] = useState(() => getPageFromPath(window.location.pathname));
   const [notice, setNotice] = useState(null);
   const [needsSetup, setNeedsSetup] = useState(null);
@@ -203,6 +205,21 @@ function App() {
     }
     setRoute({ page, id });
   };
+
+  // Wave 3: khi flag features.settings_center_v2 = true, mọi route
+  // /admin/settings* (giao diện cũ) đi thẳng vào Settings Shell v2.
+  // Flag false → giữ nguyên giao diện cũ. Không xóa file cũ, chỉ đổi điều hướng.
+  const settingsV2On =
+    String(getConfig('features', 'settings_center_v2', false)) === 'true';
+  useEffect(() => {
+    if (settingsV2On) {
+      const target = settingsV2RedirectPath(window.location.pathname);
+      if (target) {
+        window.history.replaceState({}, '', target);
+        setRoute(getPageFromPath(target));
+      }
+    }
+  }, [settingsV2On, route.page]);
 
   // Browser Back/Forward: restore route from the current pathname
   useEffect(() => {
