@@ -1,20 +1,25 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Loading } from '../../../components/Loading.jsx';
-import { request, errorText } from '../../../lib/api.js';
+import { request, can, errorText } from '../../../lib/api.js';
+import { useAuth } from '../../../lib/AuthContext.jsx';
 
 /**
  * WorkflowStatesPage — custom page của Settings Shell v2 (nhóm "workflow").
  * Đọc GET /api/v1/config/workflow/states và hiển thị bảng trạng thái.
- * Backend hiện KHÔNG có endpoint PUT /workflow/states/:code để đổi label,
- * nên trang chạy ở chế độ chỉ xem (view-only).
+ * Người có quyền config.edit.workflow có thể sửa tên hiển thị (label) inline
+ * qua PUT /api/v1/config/workflow/states/:code (body { ten_hien_thi }).
  */
 export function WorkflowStatesPage() {
   const { user } = useAuth();
   const [states, setStates] = useState(null);
   const [error, setError] = useState(null);
+  const [notice, setNotice] = useState(null);
+  const [editingCode, setEditingCode] = useState(null);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef(null);
 
-  // Backend chưa hỗ trợ PUT /workflow/states/:code → luôn view-only.
-  const canEdit = false;
+  const canEdit = can(user, 'config.edit.workflow');
 
   useEffect(() => {
     let cancelled = false;
@@ -30,7 +35,49 @@ export function WorkflowStatesPage() {
     };
   }, []);
 
-  if (error) {
+  useEffect(() => {
+    if (editingCode && inputRef.current) inputRef.current.focus();
+  }, [editingCode]);
+
+  function startEdit(state) {
+    setError(null);
+    setNotice(null);
+    setEditingCode(state.code);
+    setDraft(state.label);
+  }
+
+  function cancelEdit() {
+    setEditingCode(null);
+    setDraft('');
+  }
+
+  async function saveEdit(code) {
+    const tenHienThi = draft.trim();
+    if (!tenHienThi || saving) return;
+    const prevStates = states;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await request(`/api/v1/config/workflow/states/${encodeURIComponent(code)}`, {
+        method: 'PUT',
+        body: JSON.stringify({ ten_hien_thi: tenHienThi }),
+      });
+      const updated = res?.data;
+      setStates((list) =>
+        list.map((s) => (s.code === code ? { ...s, label: updated?.label ?? tenHienThi } : s))
+      );
+      setNotice(`Đã đổi tên hiển thị của ${code} thành "${updated?.label ?? tenHienThi}".`);
+      cancelEdit();
+    } catch (e) {
+      setStates(prevStates);
+      setError(errorText(e));
+      cancelEdit();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (error && states === null) {
     return (
       <div className="notice error" role="alert">
         <span>Lỗi tải danh sách trạng thái: {error}</span>
@@ -45,6 +92,20 @@ export function WorkflowStatesPage() {
         Danh sách các trạng thái workflow của hồ sơ
         {canEdit ? ' — nhấp vào tên hiển thị để sửa.' : ' (chỉ xem).'}
       </p>
+
+      <div aria-live="polite">
+        {notice ? (
+          <div className="notice" role="status">
+            <span>{notice}</span>
+          </div>
+        ) : null}
+        {error ? (
+          <div className="notice error" role="alert">
+            <span>{error}</span>
+          </div>
+        ) : null}
+      </div>
+
       <section className="panel" aria-labelledby="wf-states-h">
         <h3 id="wf-states-h">Trạng thái workflow</h3>
         {states.length === 0 ? (
@@ -66,9 +127,40 @@ export function WorkflowStatesPage() {
                     <td>
                       <code className="state-code primary">{s.code}</code>
                     </td>
-                    <td>{canEdit ? (
-                      /* Khi backend có PUT /workflow/states/:code sẽ bật sửa inline tại đây */
-                      <button type="button" className="text-button" aria-label={`Sửa tên hiển thị của ${s.label}`}>
+                    <td>{editingCode === s.code ? (
+                      <form
+                        className="inline-form"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          saveEdit(s.code);
+                        }}
+                      >
+                        <input
+                          ref={inputRef}
+                          type="text"
+                          value={draft}
+                          maxLength={200}
+                          disabled={saving}
+                          onChange={(e) => setDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Escape') cancelEdit();
+                          }}
+                          aria-label={`Tên hiển thị mới cho ${s.code}`}
+                        />
+                        <button type="submit" disabled={!draft.trim() || saving}>
+                          Lưu
+                        </button>
+                        <button type="button" onClick={cancelEdit} disabled={saving}>
+                          Hủy
+                        </button>
+                      </form>
+                    ) : canEdit ? (
+                      <button
+                        type="button"
+                        className="text-button"
+                        onClick={() => startEdit(s)}
+                        aria-label={`Sửa tên hiển thị của ${s.label}`}
+                      >
                         {s.label}
                       </button>
                     ) : (

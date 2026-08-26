@@ -335,6 +335,35 @@ module.exports = function configRoutes({ pool, authenticate, authorize, auditRet
     }
   );
 
+  // ─── PUT /api/v1/config/workflow/states/:code — đổi tên hiển thị (label) ───
+  router.put(
+    '/api/v1/config/workflow/states/:code',
+    authenticate,
+    authorize('config.edit.workflow'),
+    async (req, res, next) => {
+      if (!requirePool(pool, res)) return;
+      try {
+        const { ten_hien_thi } = req.body || {};
+        if (typeof ten_hien_thi !== 'string' || !ten_hien_thi.trim()) {
+          return res.status(400).json({ error: 'Tên hiển thị không được để trống' });
+        }
+        const label = ten_hien_thi.trim();
+        if (label.length > 200) {
+          return res.status(400).json({ error: 'Tên hiển thị quá dài (tối đa 200 ký tự)' });
+        }
+        const r = await pool.query(
+          `UPDATE workflow_states SET label=$1 WHERE code=$2 RETURNING id, code, label, is_terminal, sort_order`,
+          [label, req.params.code]
+        );
+        if (!r.rows.length) return res.status(404).json({ error: 'Không tìm thấy trạng thái' });
+        await audit(pool, req, 'system_config_update', 'workflow_states', r.rows[0].id, { code: r.rows[0].code, label });
+        res.json({ data: r.rows[0] });
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
   // ─── GET /api/v1/config/workflow/transitions ───
   router.get(
     '/api/v1/config/workflow/transitions',
@@ -990,6 +1019,35 @@ module.exports = function configRoutes({ pool, authenticate, authorize, auditRet
       try {
         const r = await pool.query(`SELECT id, mime_type, extension, is_active, magic_bytes_required FROM allowed_mime_types WHERE is_active=true ORDER BY mime_type`);
         res.json({ data: r.rows });
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  // ─── PUT /api/v1/config/security/mime-types/:id — bật/tắt loại tệp ───
+  router.put(
+    '/api/v1/config/security/mime-types/:id',
+    authenticate,
+    authorize('config.edit.security'),
+    async (req, res, next) => {
+      if (!requirePool(pool, res)) return;
+      try {
+        const mimeId = req.params.id;
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(mimeId)) {
+          return res.status(400).json({ error: 'ID không hợp lệ' });
+        }
+        const { is_active } = req.body || {};
+        if (typeof is_active !== 'boolean') {
+          return res.status(400).json({ error: 'is_active phải là boolean' });
+        }
+        const r = await pool.query(
+          `UPDATE allowed_mime_types SET is_active=$1 WHERE id=$2 RETURNING id, mime_type, extension, is_active, magic_bytes_required`,
+          [is_active, mimeId]
+        );
+        if (!r.rows.length) return res.status(404).json({ error: 'Không tìm thấy loại tệp' });
+        await audit(pool, req, 'system_config_update', 'allowed_mime_types', mimeId, { mime_type: r.rows[0].mime_type, is_active });
+        res.json({ data: r.rows[0] });
       } catch (error) {
         next(error);
       }
