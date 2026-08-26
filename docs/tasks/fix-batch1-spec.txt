@@ -1,0 +1,44 @@
+Nhiệm vụ: FIX-BATCH-1 — Sửa 4 lỗi đã xác minh từ audit runtime + API (GĐ5, ưu tiên P1 trước).
+
+Đây là task SỬA CODE. Mỗi fix phải: sửa đúng phạm vi, thêm/cập nhật test, tự chạy kiểm chứng, báo files changed + evidence.
+
+## FIX 1 — DEF-006 (P1): Bản đồ Leaflet lệch hợp đồng onPick
+
+- Hiện tượng: MapView.jsx:32 gọi onPick({ lat, lng }) (1 object) nhưng CitizenPage.jsx:52 định nghĩa setPointCoords(lat, lng) (2 tham số) → click bản đồ đặt "[object Object]" vào ô tọa độ.
+- Cách sửa đề xuất: chuẩn hóa về hợp đồng OBJECT ở MapView (onPick({lat,lng})) và sửa CitizenPage nhận object — vì kiểm tra các chỗ dùng MapView khác (grep toàn repo onPick=) để chọn phía ít ảnh hưởng nhất; nếu mọi caller khác đều dùng object thì chỉ sửa CitizenPage.
+- Acceptance:
+  a. Click bản đồ ở trang công dân đặt đúng tọa độ vào ô lat/lng
+  b. Test FE mới: mock leaflet click event → assert state tọa độ đúng
+  c. npx vitest run toàn bộ PASS
+- Evidence: screenshot trang công dân sau click bản đồ (dùng Playwright, source toolchain/scripts/playwright-env.sh)
+
+## FIX 2 — DEF-009 (P1): RBAC — case_handler được chuyển da_dong từ trạng thái tùy ý
+
+- Hiện tượng: role_state_permissions DB cho case_handler có 13/15 trạng thái (gần như mọi trạng thái), rộng hơn ma trận fallback trong utils/workflow-rules.js → handler đóng hồ sơ bỏ qua khắc phục/duyệt (200 thay vì bị chặn).
+- Yêu cầu nghiệp vụ (docs/03-dac-ta-nghiep-vu.md là nguồn sự thật): case_handler KHÔNG được tự đóng hồ sơ bỏ qua quy trình; da_dong chỉ đạt qua chuỗi khắc phục/duyệt hoặc do leader/admin quyết định.
+- Việc cần làm:
+  a. ĐỌC docs/03-dac-ta-nghiep-vu.md + utils/workflow-rules.js fallback để chốt ma trận CHUẨN cho từng vai trò (ghi rõ bảng ma trận chốt vào báo cáo)
+  b. Tạo migration 008_rbac_state_matrix_fix (up+down): điều chỉnh role_state_permissions theo ma trận chốt (DELETE các dòng thừa cho case_handler; giữ nguyên admin full). Cẩn thận: migration phải idempotent-safe khi chạy lại trên DB mới từ seed
+  c. Kiểm tra seed.sql có ghi ma trận sai không — nếu có thì sửa seed luôn để DB mới không tái diễn
+  d. Test BE regression mới: case_handler thử PATCH /ho-so/:id/trang-thai → da_dong từ trạng thái không hợp lệ → phải 403/400; leader vẫn làm được hành động thuộc quyền
+  e. Chạy FULL backend suite — tất cả PASS (nếu test cũ encode hành vi SAI thì cập nhật test cũ và ghi rõ lý do trong báo cáo)
+- Acceptance: migration chạy sạch trên DB thật dev; full suite pass; bảng ma trận chốt ghi trong report
+
+## FIX 3 — DEF-010 (P2): ConfigContext gọi sai path workflow
+
+- app/frontend/src/lib/ConfigContext.jsx:70,78 đổi /api/v1/workflow/states|transitions → /api/v1/config/workflow/states|transitions
+- Dọn lib/config.js nếu xác minh là module chết (grep import — không ai dùng thì xóa file + xóa test của nó nếu có; nếu còn người dùng thì sửa path luôn trong đó)
+- Acceptance: mở app không còn request failed /workflow/*; vitest PASS
+
+## FIX 4 — DEF-007 (P3): Khối "404 Không tìm thấy trang" thừa dưới trang chi tiết hồ sơ
+
+- Tìm route fallback FE (App.jsx/router config) — nguyên nhân khả năng: route con /cases/:id match không kín khiến fallback render kèm. Sửa để route chi tiết render độc lập.
+- Acceptance: trang chi tiết không còn khối 404 thừa (screenshot before/after); test route guard vẫn PASS
+
+## RÀNG BUỘC CHUNG
+
+- KHÔNG refactoring ngoài phạm vi 4 fix trên
+- Migration mới đánh số kế tiếp (008), up + down đầy đủ
+- Chạy: backend full suite (node --test --test-concurrency=1 với env như runbook), frontend vitest + build
+- Commit KHÔNG cần — orchestrator sẽ review rồi commit
+- Báo cáo cuối: từng fix — root cause, files changed, test thêm/sửa, kết quả chạy, rủi ro còn lại
