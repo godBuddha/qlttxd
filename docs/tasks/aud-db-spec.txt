@@ -1,0 +1,44 @@
+Nhiệm vụ: AUD-DB-INTEGRITY — Kiểm tra toàn vẹn cơ sở dữ liệu (GĐ3b, ORCH-04 Đợt B mục 3-4).
+
+KHÔNG sửa dữ liệu. CHỈ chạy truy vấn ĐỌC (SELECT). Xuất báo cáo docs/orchestration/AUD-DB-INTEGRITY-report.md
+
+## MÔI TRƯỜNG
+
+PostgreSQL socket /tmp:5432, DB qlttxd, user postgres.
+Dùng node + pg (cd app/backend rồi node -e hoặc script .mjs — module 'pg' có trong app/backend/node_modules).
+
+## CÁC KIỂM TRA (mỗi mục ghi truy vấn + kết quả số liệu)
+
+1. ORPHAN RECORDS:
+   a. ho_so không có bao_cao_vi_pham cha (bao_cao_id IS NULL hoặc trỏ id không tồn tại)
+   b. tep_dinh_kem trỏ ho_so_id không tồn tại
+   c. tep_dinh_kem có duong_dan nhưng file vật lý KHÔNG tồn tại trong thư mục uploads/ (liệt kê path từ DB, check fs.existsSync) — và ngược lại file uploads/ không được tham chiếu (chỉ đếm, không xóa)
+   d. audit_log trỏ record_id/table không còn tồn tại (đếm theo table_name nhóm)
+   e. thong_bao trỏ user_id/ho_so_id đã xóa
+   f. role_state_permissions: state_code nào KHÔNG nằm trong 15 trạng thái chuẩn (so với utils/constants.js STATES), vai trò nào thiếu quyền cho trạng thái nào so với ma trận fallback ROLE_PERMISSIONS
+
+2. SCHEMA vs MIGRATION CHAIN:
+   - Tạo DB tạm sạch qlttxd_audit_tmp, chạy toàn bộ sql/migrations/*.up.sql theo thứ tự (dùng scripts/migrate.js nếu hỗ trợ target DB riêng, hoặc psql -f tuần tự)
+   - pg_dump --schema-only DB thật vs DB tạm → diff
+   - Ghi khác biệt nếu có (nghiêm trọng: bảng/cột/index/constraint lệch)
+
+3. CONSTRAINTS & INDEXES:
+   a. Bảng lớn nghiệp vụ (ho_so, bao_cao_vi_pham, tep_dinh_kem, audit_log, users): liệt kê FK, unique constraint, index hiện có
+   b. Cột thường query WHERE/JOIN mà chưa có index (so với các query chính trong routes/services — grep WHERE/JOIN patterns)
+   c. Kiểm tra NOT NULL/default hợp lý cho cột quan trọng (created_at, updated_at, trạng thái)
+
+4. SEED DATA CONSISTENCY:
+   - Chạy lại logic seed trên DB tạm (sql/seed.sql nếu có) → đối chiếu RBAC permissions count vs DB thật (27 permissions chuẩn)
+
+## QUY TẮC AN TOÀN
+
+- TUYỆT ĐỐI chỉ SELECT/pg_dump trên DB thật; mọi thao tác ghi chỉ trên DB TẠM qlttxd_audit_tmp
+- Xóa DB tạm sau khi xong (DROP DATABASE IF EXISTS trước khi tạo lại là OK vì đó là DB tạm do task này tạo)
+- Không sửa file code/migration
+
+## ĐẦU RA
+
+docs/orchestration/AUD-DB-INTEGRITY-report.md:
+- Bảng kết quả từng kiểm tra 1a-4 với số liệu cụ thể
+- Danh sách DEF đề xuất (nếu phát hiện orphan/lệch schema/thiếu index có ảnh hưởng thực)
+- Đánh giá tổng thể: DB SẠCH / CÓ VẤN ĐỀ (kèm mức độ)
