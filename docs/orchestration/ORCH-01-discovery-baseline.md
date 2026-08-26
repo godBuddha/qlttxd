@@ -31,13 +31,23 @@ Mục tiêu: xác định trạng thái THỰC của dự án trước khi sửa
 4. Rà .env.example vs code thực dùng (biến nào docs có mà code bỏ, biến nào code đọc mà docs thiếu)
 5. Ghi BASELINE REPORT vào file này (phần dưới) — mọi con số lấy từ lần chạy thực
 
-## 4. Baseline Report (điền sau khi chạy)
+## 4. Baseline Report — ĐÃ XÁC MINH 2026-08-26 (orchestrator tự chạy lại, không dựa lời agent)
 
-- [ ] BE suite: __/__
-- [ ] FE vitest: __/__
-- [ ] Build: OK/FAIL
-- [ ] Server boot + health: OK/FAIL
-- [ ] Git sync state: clean/dirty
-- [ ] Env drift: danh sách
+- [x] BE suite: **290/290 PASS** (0 fail)
+- [x] FE vitest: **107/107 PASS** (23 file test)
+- [x] Build: **OK** (vite build thành công, cache qlttxd-mt993ymq trở đi)
+- [x] Server boot + health: **OK** — endpoint là `/health` (KHÔNG phải /api/v1/health); trả `{"status":"ok","db":"connected","uptime":6,"version":"0.3.2"}`
+- [x] Git sync state: sạch trừ file spec task (docs/tasks/*.txt) — đã commit định kỳ
+- [x] Env drift (đo thật): .env.example có 15 biến; code đọc ~59 biến (nhiều biến là noise của thư viện: DOTENV_*, npm_*, SCARF*, ETHEREAL*). Biến NGHIÊP VỤ code đọc nhưng .env.example thiếu:
+  - AUDIT_BATCH_SIZE, AUDIT_RETENTION_DAYS
+  - CONFIG_GLOBAL_AUTH_JWT_REFRESH_TTL (khác với key trong DB config — cần rà có còn dùng không)
+  - FRONTEND_URL, LOG_LEVEL, MAX_UPLOAD_MB, REQUEST_TIMEOUT_MS
+  - PGCONNECT_TIMEOUT, PGSSLMODE, RATE_LIMIT_DISABLED, RATE_LIMIT_MAX
+  - QLTTXD_DEBUG_TOKENS (cờ debug token — cần đánh giá rủi ro nếu bật ở prod)
+  - TEST_ADMIN_PASSWORD
 
-(ORCHESTRATOR tự chạy lệnh và điền — không chấp nhận ghi "theo tài liệu cũ")
+→ Ghi nhận vào sổ lỗi: DEF-004 · P3 · DOCUMENTATION · DISCOVERED · .env.example thiếu ~12 biến nghiệp vụ code đang đọc.
+
+Ghi chú thêm từ xác minh: health trả version "0.3.2" — KHỚP package.json hiện tại (không phải hardcode cũ vì W4 đã chuyển lib/version.js đọc package.json).
+
+Baseline = ĐẠT. Không phát hiện P0/P1 mới ở tầng nền.

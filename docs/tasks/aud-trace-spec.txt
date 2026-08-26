@@ -1,0 +1,39 @@
+Nhiệm vụ: AUD-TRACE — Truy vết yêu cầu (Requirement Traceability) cho QLTTXD.
+
+Bối cảnh: docs/orchestration/ORCH-02-requirement-inventory.md chứa sổ yêu cầu REQ-A01..H03 (đọc file này trước). docs/orchestration/ORCH-03-traceability-defect-register.md mục 1 là nơi ghi kết quả.
+
+KHÔNG sửa code sản phẩm. Chỉ ĐỌC + grep + chạy test có sẵn nếu cần xác minh. Kết quả ghi vào file báo cáo mới: docs/orchestration/AUD-TRACE-report.md
+
+## CÁCH LÀM TỪNG REQ
+
+Với mỗi yêu cầu trong ORCH-02, xác định:
+1. SPEC: tài liệu spec mô tả (grep trong docs/) — tên file
+2. CODE: module/route/component thực hiện (grep code) — đường dẫn
+3. TEST: test nào phủ hành vi đó — tên file test
+4. KẾT LUẬN một trong: PASS (đủ spec+code+test) · GAP(code/test thiếu, ghi mắt xích nào thiếu) · UNTRACEABLE(có code nhưng không req gốc — hiếm)
+
+KHÔNG cần đọc kỹ từng dòng code — chỉ cần đủ bằng chứng tồn tại và khớp vị trí. Với REQ runtime-critical (A01 login, B01 máy trạng thái, D02 IDOR) thì chạy thêm test liên quan để xác nhận còn pass.
+
+## GỢI Ý VỊ TRÍ TRA NHANH (tiết kiệm thời gian)
+
+- Routes BE: app/backend/routes/*.js · Services: app/backend/services/ · Middleware authz: app/backend/middleware/
+- Máy trạng thái: app/backend/utils/constants.js hoặc workflow-rules.js + sql/migrations
+- FE pages: app/frontend/src/admin/, app/frontend/src/pages/ · Constants FE: app/frontend/src/lib/constants.js
+- Tests BE: app/backend/test/*.js (290 test) · Tests FE: app/frontend/src/**/__tests__/
+- RBAC seed: sql/ (27 permissions)
+- Audit log: services/audit*
+- Upload: middleware/upload* + routes attachment
+- Rate limit: utils/rate-limit*, middleware rate-limit
+- Email SMTP: services mailer/notification
+- Export: routes/export hoặc config export
+- Docs spec: docs/specs, docs/architecture, BRIEF.md
+
+## ĐẦU RA
+
+File docs/orchestration/AUD-TRACE-report.md với bảng:
+
+| REQ | Spec | Code | Test | Kết luận | Ghi chú |
+
+Cuối file: thống kê tổng (x PASS / y GAP / z UNTRACEABLE) + danh sách GAP ưu tiên theo thứ tự REQ.
+
+LƯU Ý: đây là audit giấy tờ + grep — KHÔNG phát minh hành vi. Nếu không tìm thấy bằng chứng cho mục nào thì ghi GAP thẳng thắn.

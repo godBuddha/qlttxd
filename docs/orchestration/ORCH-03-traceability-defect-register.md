@@ -22,7 +22,8 @@ Cách audit: với từng REQ, grep code + test + chạy runtime nếu cần. Gh
 
 ### Phát hiện mới (ORCHESTRATOR bổ sung khi audit các đợt)
 
-(điền trong quá trình AUDIT — mỗi phát hiện phải kèm lệnh/bằng chứng cụ thể, không ghi cảm tính)
+- DEF-004 · P3 · DOCUMENTATION · DISCOVERED (2026-08-26) · .env.example thiếu ~12 biến nghiệp vụ code đang đọc (AUDIT_BATCH_SIZE, AUDIT_RETENTION_DAYS, FRONTEND_URL, LOG_LEVEL, MAX_UPLOAD_MB, REQUEST_TIMEOUT_MS, PGCONNECT_TIMEOUT, PGSSLMODE, RATE_LIMIT_DISABLED/MAX, QLTTXD_DEBUG_TOKENS, TEST_ADMIN_PASSWORD...) · evidence: comm giữa grep process.env và .env.example (59 biến code đọc vs 15 biến example) · REQ-G05 · owner: coder · next: spec DOCS-SYNC ở GĐ7
+- DEF-005 · P4 · TECHNICAL-DEBT · DISCOVERED (2026-08-26) · biến CONFIG_GLOBAL_AUTH_JWT_REFRESH_TTL trong code nghi ngờ là di tích cơ chế cũ trước khi chuyển sang DB config · evidence: grep process.env list · REQ-C01 · next: rà chỗ dùng, nếu chết thì dọn ở dead-code batch
 
 ## 3. Sổ tính năng ứng viên (FEATURE-CANDIDATE — KHÔNG tự làm)
 

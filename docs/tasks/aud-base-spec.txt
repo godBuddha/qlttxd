@@ -1,0 +1,28 @@
+Nhiệm vụ: AUD-BASE — thiết lập baseline số thật cho dự án QLTTXD (docs/orchestration/ORCH-01-discovery-baseline.md mục 4).
+
+KHÔNG sửa code sản phẩm. Chỉ chạy kiểm chứng và điền kết quả.
+
+CÁC BƯỚC (làm đúng thứ tự, mỗi bước ghi lại output chính):
+
+1. Backend full suite:
+   cd /workspace/ssd/qlttxd/app/backend
+   bash -c 'source /workspace/ssd/toolchain/scripts/env.sh && PGHOST=/tmp PGPORT=5432 PGDATABASE=qlttxd PGUSER=postgres JWT_SECRET=test-secret-that-is-long-enough-for-jwt-smoke-32chars RATE_LIMIT_DISABLED=true timeout 300 node --test --test-concurrency=1 2>&1 | tail -15'
+   Ghi: tests/pass/fail.
+
+2. Frontend vitest:
+   cd /workspace/ssd/qlttxd/app/frontend && bash -c 'source /workspace/ssd/toolchain/scripts/env.sh && npx vitest run 2>&1 | grep -E "Test Files|Tests "'
+   Ghi: số file + số test pass/fail.
+
+3. Build frontend:
+   cd /workspace/ssd/qlttxd/app/frontend && bash -c 'source /workspace/ssd/toolchain/scripts/env.sh && npm run build 2>&1 | tail -3'
+   Ghi: OK/FAIL.
+
+4. Boot server thật + health:
+   bash -c 'source /workspace/ssd/toolchain/scripts/env.sh && cd /workspace/ssd/qlttxd/app/backend && PGHOST=/tmp PGPORT=5432 PGDATABASE=qlttxd PGUSER=postgres JWT_SECRET=test-secret-that-is-long-enough-for-jwt-smoke-32chars PORT=3999 node server.js & sleep 6; curl -s http://localhost:3999/api/v1/health; kill %1'
+   Ghi: JSON health trả về (status, db, version). Nếu endpoint khác path thì tìm route health thật rồi curl đúng path.
+
+5. Git state: git status --short và git log --oneline -3. Ghi clean/dirty.
+
+6. Env drift: so sánh app/backend/.env.example với các biến process.env.* được đọc trong app/backend (grep -rhoE "process\.env\.[A-Z_]+" app/backend --include="*.js" | sort -u). Liệt kê biến code đọc nhưng .env.example thiếu, và biến .env.example có nhưng code không đọc.
+
+ĐẦU RA: báo cáo đánh số 1-6 với số liệu thật. KHÔNG tự điền file ORCH-01 (orchestrator sẽ đối chiếu và điền). KHÔNG sửa bất kỳ file code nào.
