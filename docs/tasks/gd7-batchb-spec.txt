@@ -1,0 +1,36 @@
+Nhiệm vụ: GĐ7-B — Đồng bộ tài liệu + Kiểm chứng triển khai (task cuối của GĐ7).
+
+## PHẦN 1 — DOCS-SYNC
+
+1. app/backend/.env.example: bổ sung các biến nghiệp vụ code đang đọc mà file còn thiếu (theo DEF-004 trong docs/orchestration/ORCH-03). Tối thiểu:
+   AUDIT_BATCH_SIZE, AUDIT_RETENTION_DAYS, FRONTEND_URL, LOG_LEVEL, MAX_UPLOAD_MB, REQUEST_TIMEOUT_MS, PGCONNECT_TIMEOUT, PGSSLMODE, RATE_LIMIT_DISABLED, RATE_LIMIT_MAX
+   Mỗi biến kèm comment tiếng Việt ngắn giải thích + giá trị mặc định khớp code (grep utils/ để lấy default thật, KHÔNG bịa).
+   Lưu ý: QLTTXD_DEBUG_TOKENS và TEST_ADMIN_PASSWORD là biến chỉ dùng cho test/dev — ghi vào mục riêng "CHỈ DÙNG KHI TEST" với cảnh báo không bật ở production.
+2. README.md + docs liên quan: tìm chỗ ghi health endpoint sai (/api/v1/health) sửa thành /health. Grep toàn docs/: grep -rn "api/v1/health" docs/ README.md
+3. CHANGELOG.md: thêm mục mới nhất (Keep a Changelog format nếu repo đang dùng) tóm tắt chương trình audit remediation: FIX-BATCH-1 (DEF-006 bản đồ, DEF-009 RBAC ma trận + migration 008, DEF-010 path config, DEF-007 404 thừa), FIX-BATCH-2 (PUT workflow states label, PUT mime-types is_active), audit GĐ1-GĐ7.
+4. docs/07-huong-dan-van-hanh.md (hoặc file vận hành tương ứng): thêm chú ý "Migration 001-003 không có file down — rollback baseline schema phải qua backup/restore".
+5. Cập nhật docs/orchestration/ORCH-01-discovery-baseline.md phần Baseline Report với số mới: BE 309/309, FE 112/112 (nếu số FE khác thì lấy số chạy thật lần này).
+
+## PHẦN 2 — DEPLOY-VERIFY
+
+1. Kiểm tra docker có sẵn: which docker || echo NO_DOCKER
+   - Nếu NO_DOCKER: ghi rõ vào report "không thể xác minh docker build trong môi trường hiện tại" + liệt kê các bước cần làm khi có môi trường (docker compose build; curl health sau khi up)
+2. Nếu CÓ docker: docker build image backend theo app/Dockerfile (tìm đúng path) — chỉ build, KHÔNG cần push registry; ghi kết quả + thời gian
+3. Bất kể docker: xác minh static: app/db/init/*.sql khớp chuỗi migration (đã kiểm GĐ3b — chỉ re-check file init mới sửa ở GĐ5: 03-config-tables.sql chứa ma trận case_handler 4 trạng thái như migration 008)
+4. CHẠY LẠI FULL SUITE LẦN CUỐI:
+   - BE: node --test --test-concurrency=1 với env chuẩn runbook → kỳ vọng ≥309 pass
+   - FE: npx vitest run + npm run build → kỳ vọng 112 pass (lấy số thật)
+
+## QUY TẮC
+
+- Chỉnh sửa tài liệu được phép trực tiếp (docs/.env.example/CHANGELOG) — đây không phải code sản phẩm.
+- KHÔNG sửa code BE/FE. Nếu phát hiện bug mới → ghi DEF đề xuất, không tự sửa.
+- Báo cáo docs/orchestration/GD7-B-report.md: checklist từng mục + kết quả suite cuối.
+
+## ACCEPTANCE
+
+1. .env.example có đủ biến thiếu + comment; không biến nào bịa giá trị
+2. Không còn "api/v1/health" sai trong docs chính
+3. CHANGELOG có mục audit remediation
+4. Suite cuối BE+FE PASS với số liệu ghi rõ
+5. Docker: xác minh hoặc ghi rõ không xác minh được + hướng dẫn
