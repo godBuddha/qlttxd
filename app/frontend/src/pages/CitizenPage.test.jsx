@@ -4,7 +4,9 @@ import userEvent from '@testing-library/user-event';
 import { CitizenPage } from './CitizenPage.jsx';
 
 vi.mock('../components/MapView.jsx', () => ({
-  MapView: () => <div data-testid="map-view" />,
+  MapView: ({ onPick }) => (
+    <button data-testid="map-view" onClick={() => onPick && onPick({ lat: 21.02, lng: 105.86 })} />
+  ),
 }));
 
 function makeApi() {
@@ -82,5 +84,14 @@ describe('CitizenPage — non-pointer coordinate entry (A11Y-A5)', () => {
     expect(screen.getByLabelText('Vĩ độ (Lat)')).toHaveValue(21.00123);
     expect(screen.getByLabelText('Kinh độ (Lng)')).toHaveValue(105.87456);
     Object.defineProperty(navigator, 'geolocation', { value: original, configurable: true });
+  });
+});
+
+describe('CitizenPage — DEF-006 map click sets coordinates (object contract)', () => {
+  it('click bản đồ (onPick object) điền đúng tọa độ vào ô lat/lng', async () => {
+    render(<CitizenPage api={makeApi()} notify={vi.fn()} />);
+    await userEvent.click(screen.getByTestId('map-view'));
+    expect(screen.getByLabelText('Vĩ độ (Lat)')).toHaveValue(21.02);
+    expect(screen.getByLabelText('Kinh độ (Lng)')).toHaveValue(105.86);
   });
 });

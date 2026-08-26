@@ -30,6 +30,9 @@ test.before(async () => {
   await pool.query('DELETE FROM bao_cao_vi_pham');
   await pool.query('DELETE FROM user_roles');
   await pool.query('DELETE FROM audit_log');
+  // DEF-009 batch: tep_dinh_kem.nguoi_tai_id has no ON DELETE action — clear
+  // the reference (or rows) before deleting users, else FK 23503.
+  await pool.query('UPDATE tep_dinh_kem SET nguoi_tai_id = NULL');
   try {
     await pool.query('DELETE FROM token_blocklist');
   } catch {

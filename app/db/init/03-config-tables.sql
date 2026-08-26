@@ -274,7 +274,9 @@ ON CONFLICT DO NOTHING;
 INSERT INTO role_state_permissions (role_id, state_code)
 SELECT r.id, s.code FROM roles r, workflow_states s
 WHERE r.code = 'case_handler'
-  AND s.code IN ('cho_tiep_nhan','da_tiep_nhan','cho_xac_minh','dang_xac_minh','cho_bo_sung','cho_lap_bien_ban','da_lap_bien_ban','cho_ra_quyet_dinh','da_ra_quyet_dinh','dang_khac_phuc','da_khac_phuc','da_dong','da_chuyen_co_quan')
+  -- DEF-009: KHÔNG cấp 'da_dong' — hồ sơ chỉ được đóng qua chuỗi khắc phục/duyệt
+  -- hoặc bởi leader/admin (docs/03-dac-ta-nghiep-vu.md UC-06).
+  AND s.code IN ('da_tiep_nhan','dang_khac_phuc','da_khac_phuc','da_lap_bien_ban')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO role_state_permissions (role_id, state_code)

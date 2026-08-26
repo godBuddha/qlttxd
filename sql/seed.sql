@@ -71,7 +71,7 @@ ON CONFLICT DO NOTHING;
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
 WHERE r.code='leader' AND p.code IN
-  ('case.view','case.approve','quyet_dinh.issue','report.statistics','gis.manage')
+  ('case.view','case.approve','case.update','quyet_dinh.issue','report.statistics','gis.manage')
 ON CONFLICT DO NOTHING;
 
 -- Quản trị: toàn bộ quyền

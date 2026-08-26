@@ -89,6 +89,10 @@ module.exports.buildApp = function buildApp({ pool, configService }) {
 
   const authenticateWithBlocklist = makeAuthenticate(tokenBlocklist);
 
+  // DEF-009: nạp ma trận role_state_permissions từ DB vào cache workflow-rules
+  // ngay khi khởi động (nếu DB rỗng thì tự fallback về matrix hardcode).
+  require('./utils/workflow-rules').loadRolePermissions(pool).catch(() => {});
+
   const app = express();
   // Tin cậy proxy để req.ip trả về IP thật qua X-Forwarded-For khi behind proxy (C-03)
   app.set('trust proxy', process.env.TRUST_PROXY || 1);

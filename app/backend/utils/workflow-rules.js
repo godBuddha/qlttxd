@@ -3,8 +3,9 @@
 /**
  * Workflow role rules — which roles are allowed to perform each transition.
  *
- * Matrix (from approved user spec):
- *   case_handler: da_tiep_nhan, dang_khac_phuc, da_khac_phuc, da_dong, da_lap_bien_ban
+ * Matrix (from approved user spec, DEF-009 fix):
+ *   case_handler: da_tiep_nhan, dang_khac_phuc, da_khac_phuc, da_lap_bien_ban
+ *                 (KHÔNG có da_dong — hồ sơ chỉ đóng qua chuỗi khắc phục/duyệt)
  *   verifier:     dang_xac_minh, cho_bo_sung, cho_lap_bien_ban, da_dong
  *   leader:        da_xac_minh(xác nhận → maps to cho_xac_minh), cho_bo_sung,
  *                  cho_lap_bien_ban, da_ra_quyet_dinh, da_dong, da_huy, da_chuyen_co_quan
@@ -20,7 +21,7 @@ const ROLE_PERMISSIONS = Object.freeze({
     'da_tiep_nhan',       // cán bộ nhận hồ sơ
     'dang_khac_phuc',
     'da_khac_phuc',
-    'da_dong',
+    // DEF-009: KHÔNG có da_dong — handler không tự đóng hồ sơ bỏ qua duyệt
     'da_lap_bien_ban',
   ]),
   verifier: new Set([

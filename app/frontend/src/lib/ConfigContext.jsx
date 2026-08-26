@@ -67,7 +67,7 @@ export function ConfigProvider({ children }) {
 
     const loadWorkflow = async () => {
       try {
-        const res = await request('/api/v1/workflow/states');
+        const res = await request('/api/v1/config/workflow/states');
         const states = Array.isArray(res) ? res : (res.data || []);
         if (!cancelled) setWorkflowStates(states);
       } catch {
@@ -75,7 +75,7 @@ export function ConfigProvider({ children }) {
       }
 
       try {
-        const res = await request('/api/v1/workflow/transitions');
+        const res = await request('/api/v1/config/workflow/transitions');
         const raw = Array.isArray(res) ? res : (res.data || []);
         // Convert flat array -> { [from]: [to...] }
         const trans = {};

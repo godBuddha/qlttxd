@@ -488,7 +488,6 @@ function App() {
             'home',
             'dashboard',
             'cases',
-            'case',
             'citizen',
             'officer-reports',
             'ban-do',

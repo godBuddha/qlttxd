@@ -49,9 +49,12 @@ export function CitizenPage({ api, notify }) {
     latStr.trim() && lngStr.trim() && Number.isFinite(latNum) && Number.isFinite(lngNum)
       ? { lat: latNum, lng: lngNum }
       : null;
-  const setPointCoords = (lat, lng) => {
-    setLatStr(String(lat));
-    setLngStr(String(lng));
+  // MapView onPick sends a single { lat, lng } object; geolocation calls use (lat, lng).
+  const setPointCoords = (latOrPoint, lngArg) => {
+    const p =
+      latOrPoint && typeof latOrPoint === 'object' ? latOrPoint : { lat: latOrPoint, lng: lngArg };
+    setLatStr(String(p.lat));
+    setLngStr(String(p.lng));
   };
   const [files, setFiles] = useState([]);
   const [reports, setReports] = useState([]);

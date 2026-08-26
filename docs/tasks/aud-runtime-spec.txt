@@ -1,0 +1,54 @@
+Nhiệm vụ: AUD-RUNTIME-QA — Kiểm chứng chạy thật luồng nghiệp vụ trọng yếu QLTTXD bằng trình duyệt tự động (GĐ2, ORCH-04 Đợt A).
+
+MỤC TIÊU: chứng minh hệ thống CHẠY THẬT từ đầu đến cuối luồng xử lý vi phạm xây dựng. Build pass / test pass KHÔNG đủ.
+
+## CHUẨN BỊ MÔI TRƯỜNG
+
+1. PostgreSQL: bash -c 'source /workspace/ssd/toolchain/scripts/env.sh && pg_ctl -D /workspace/ssd/toolchain/pgdata status || pg_ctl -D /workspace/ssd/toolchain/pgdata -o "-k /tmp" -l /workspace/ssd/toolchain/pgdata/logfile start'
+2. Kiểm tra user trong DB trước: psql -h /tmp -U postgres -d qlttxd -c "SELECT username, role FROM users LIMIT 8;"
+   - Nếu chưa có admin: tạo qua POST /api/v1/auth/setup-admin
+   - Nếu cần user test các vai trò (case_handler, verifier, leader, citizen): kiểm tra có sẵn không; thiếu thì tạo qua API admin (đúng RBAC) — GHI RA BÁO CÁO những gì đã tạo
+3. Server BE: PORT=4100 JWT_SECRET=test-secret-that-is-long-enough-for-jwt-smoke-32chars RATE_LIMIT_DISABLED=true PGHOST=/tmp PGPORT=5432 PGDATABASE=qlttxd PGUSER=postgres node server.js & (chạy nền)
+4. Playwright: source /workspace/ssd/toolchain/scripts/playwright-env.sh TRƯỚC khi chạy script; chromium cache ở ~/.cache/ms-playwright
+5. FE dev server nếu cần giao diện: npm run dev -- --port 5199 (app/frontend) — hoặc dùng build tĩnh + preview. Chọn cách ổn định nhất và ghi rõ.
+
+## KỊCH BẢN E2E LUỒNG LÕI (chụp screenshot TỪNG bước vào docs/orchestration/evidence/)
+
+Tên file evidence: rt-01-login.png, rt-02-tao-ho-so.png, ... đánh số thứ tự.
+
+1. Đăng nhập admin qua UI (không gọi API trực tiếp) — chụp trang tổng quan sau login
+2. Tạo hồ sơ vi phạm mới: form đầy đủ (người vi phạm, địa chỉ, nội dung), tải 1 ảnh lên (tạo ảnh PNG hợp lệ bằng node trước), CHỌN VỊ TRÍ trên bản đồ Leaflet — chụp form điền xong + bản đồ có điểm
+3. Xem danh sách hồ sơ → mở chi tiết hồ sơ vừa tạo — chụp trang chi tiết
+4. Chuyển trạng thái theo máy trạng thái: tiếp nhận → xác minh (thử chuyển SAI trạng thái xem có bị chặn không) — chụp mỗi lần chuyển thành công
+5. Lập biên bản kiểm tra — chụp kết quả
+6. Ra quyết định xử phạt — chụp
+7. Cập nhật khắc phục → hoàn tất hồ sơ — chụp trạng thái cuối
+8. Xem thống kê/báo cáo thấy hồ sơ mới được tính — chụp
+
+## KIỂM TRA RBAC 4 VAI TRÒ (API level, dùng fetch/node script là đủ)
+
+Với mỗi vai trò (case_handler, verifier, leader, citizen — đăng nhập lấy token):
+- Thử thao tác QUẢN TRỊ (tạo user, sửa cấu hình) → phải 403
+- Citizen thử xem hồ sơ người khác → phải bị chặn (403 hoặc rỗng)
+- Leader/handler thử hành động ngoài ma trận trạng thái của mình → phải bị chặn
+Chụp/lưu JSON response làm evidence: rbac-results.json trong thư mục evidence
+
+## KIỂM TRA CHẤT LƯỢNG TRANG
+
+- Browser console: ghi lại mọi error/warning đỏ trong suốt phiên (nếu Playwright hỗ trợ listener console) — kết quả ghi console-report.txt
+- Network failed requests: liệt kê
+
+## QUY TẮC
+
+- Dùng tài khoản test, KHÔNG đụng dữ liệu quan trọng; hồ sơ tạo mới để test
+- Nếu một bước FAIL: chụp màn hình lỗi + ghi nguyên nhân ban đầu, vẫn chạy tiếp các bước sau để có bức tranh toàn cảnh
+- KHÔNG sửa code. Chỉ kiểm chứng + báo cáo.
+- Cuối phiên: tắt server BE đã bật
+
+## ĐẦU RA
+
+docs/orchestration/AUD-RUNTIME-report.md gồm:
+1. Bảng kết quả 8 bước kịch bản lõi: PASS/FAIL + tên file evidence + ghi chú
+2. Kết quả RBAC matrix 4 vai trò
+3. Console/network sạch hay có vấn đề
+4. Danh sách DEF đề xuất (mỗi cái: mức độ nghiêm trọng đề xuất + bằng chứng)

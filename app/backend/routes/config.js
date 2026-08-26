@@ -9,6 +9,7 @@
 module.exports = function configRoutes({ pool, authenticate, authorize, auditRetention }) {
   const express = require('express');
   const { requirePool, audit } = require('../utils/helpers');
+  const { loadRolePermissions } = require('../utils/workflow-rules');
   const router = express.Router();
 
   // Default global-scope UUID used in migration 005 seed data.
@@ -460,6 +461,9 @@ module.exports = function configRoutes({ pool, authenticate, authorize, auditRet
 
           await client.query('COMMIT');
           await audit(client, req, 'workflow.role_perms.update', 'role_state_permissions', null, { count: assignments.length });
+          // Ma trận quyền vừa đổi — làm mới cache workflow-rules để canTransition
+          // dùng dữ liệu mới ngay (DEF-009).
+          loadRolePermissions(pool).catch(() => {});
 
           res.json({ data: { updated: assignments.length } });
         } catch (e) {

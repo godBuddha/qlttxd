@@ -16,14 +16,15 @@ test('admin can transition to any state', () => {
 });
 
 test('case_handler: allowed transitions', () => {
-  const allowed = ['da_tiep_nhan', 'dang_khac_phuc', 'da_khac_phuc', 'da_dong', 'da_lap_bien_ban'];
+  const allowed = ['da_tiep_nhan', 'dang_khac_phuc', 'da_khac_phuc', 'da_lap_bien_ban'];
   for (const state of allowed) {
     assert.equal(canTransition('case_handler', state), true, `case_handler should be able to transition to ${state}`);
   }
 });
 
+// DEF-009: handler không được tự đóng hồ sơ
 test('case_handler: blocked transitions', () => {
-  const blocked = ['dang_xac_minh', 'cho_bo_sung', 'cho_xac_minh', 'da_chuyen_co_quan', 'da_ra_quyet_dinh'];
+  const blocked = ['da_dong', 'dang_xac_minh', 'cho_bo_sung', 'cho_xac_minh', 'da_chuyen_co_quan', 'da_ra_quyet_dinh'];
   for (const state of blocked) {
     assert.equal(canTransition('case_handler', state), false, `case_handler should NOT be able to transition to ${state}`);
   }
