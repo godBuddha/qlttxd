@@ -1,0 +1,12 @@
+[
+  {
+    "step": "7. Khắc phục → hoàn tất hồ sơ",
+    "status": "PARTIAL",
+    "note": "final_state=cho_ra_quyet_dinh"
+  },
+  {
+    "step": "8. Thống kê/báo cáo hiển thị hồ sơ mới",
+    "status": "PASS",
+    "note": "ma_ho_so=HS-2026-000081"
+  }
+]

@@ -1,0 +1,17 @@
+[
+  {
+    "step": "6. Ra quyết định + ban hành",
+    "status": "PASS",
+    "note": "QD=[\"da_ban_hanh\"] state=da_ra_quyet_dinh"
+  },
+  {
+    "step": "7. Khắc phục → hoàn tất hồ sơ",
+    "status": "PASS",
+    "note": "final_state=da_khac_phuc"
+  },
+  {
+    "step": "8. Thống kê/báo cáo hiển thị hồ sơ mới",
+    "status": "PASS",
+    "note": "ma_ho_so=HS-2026-000082"
+  }
+]

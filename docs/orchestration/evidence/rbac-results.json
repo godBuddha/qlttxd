@@ -1,0 +1,200 @@
+{
+  "created_users": [
+    {
+      "username": "qa_handler",
+      "create_status": 201
+    },
+    {
+      "username": "qa_verifier",
+      "create_status": 201
+    },
+    {
+      "username": "qa_leader",
+      "create_status": 201
+    },
+    {
+      "username": "qa_citizen",
+      "create_status": 201
+    }
+  ],
+  "matrix": [
+    {
+      "role": "case_handler",
+      "username": "qa_handler",
+      "login_status": 200,
+      "checks": {
+        "tao_user_quan_tri": {
+          "status": 403,
+          "expected": 403,
+          "pass": true
+        },
+        "sua_cau_hinh": {
+          "status": 404,
+          "expected": 403,
+          "pass": false
+        },
+        "xem_danh_sach_ho_so": {
+          "status": 200
+        },
+        "xem_chi_tiet_ho_so": {
+          "status": 200,
+          "pass": true
+        },
+        "chuyen_trang_thai_ngoai_ma_tran": {
+          "status": 200,
+          "body": "da_dong"
+        },
+        "ra_quyet_dinh_khong_phai_leader": {
+          "status": 403,
+          "expected": 403,
+          "pass": true
+        }
+      }
+    },
+    {
+      "role": "verifier",
+      "username": "qa_verifier",
+      "login_status": 200,
+      "checks": {
+        "tao_user_quan_tri": {
+          "status": 403,
+          "expected": 403,
+          "pass": true
+        },
+        "sua_cau_hinh": {
+          "status": 404,
+          "expected": 403,
+          "pass": false
+        },
+        "xem_danh_sach_ho_so": {
+          "status": 200
+        },
+        "xem_chi_tiet_ho_so": {
+          "status": 200,
+          "pass": true
+        },
+        "chuyen_trang_thai_ngoai_ma_tran": {
+          "status": 400,
+          "body": "Chuyển trạng thái không hợp lệ"
+        },
+        "quan_ly_khac_phuc_khong_phai_handler": {
+          "status": 403,
+          "expected": 403,
+          "pass": true
+        }
+      }
+    },
+    {
+      "role": "leader",
+      "username": "qa_leader",
+      "login_status": 200,
+      "checks": {
+        "tao_user_quan_tri": {
+          "status": 403,
+          "expected": 403,
+          "pass": true
+        },
+        "sua_cau_hinh": {
+          "status": 404,
+          "expected": 403,
+          "pass": false
+        },
+        "xem_danh_sach_ho_so": {
+          "status": 200
+        },
+        "xem_chi_tiet_ho_so": {
+          "status": 200,
+          "pass": true
+        },
+        "chuyen_trang_thai_ngoai_ma_tran": {
+          "status": 403,
+          "body": "Bạn không có quyền thực hiện thao tác này"
+        },
+        "lap_bien_ban_khong_phai_handler": {
+          "status": 403,
+          "expected": 403,
+          "pass": true
+        }
+      }
+    },
+    {
+      "role": "citizen",
+      "username": "qa_citizen",
+      "login_status": 200,
+      "checks": {
+        "tao_user_quan_tri": {
+          "status": 403,
+          "expected": 403,
+          "pass": true
+        },
+        "sua_cau_hinh": {
+          "status": 404,
+          "expected": 403,
+          "pass": false
+        },
+        "xem_danh_sach_ho_so": {
+          "status": 403
+        },
+        "chuyen_trang_thai_ngoai_ma_tran": {
+          "status": 403,
+          "body": "Bạn không có quyền thực hiện thao tác này"
+        },
+        "tao_ho_so_officer_only": {
+          "status": 403,
+          "expected": 403,
+          "pass": true
+        },
+        "xem_bao_cao_cua_minh": {
+          "status": 200
+        }
+      }
+    }
+  ],
+  "summary": [
+    {
+      "role": "case_handler",
+      "checks": {
+        "tao_user_quan_tri": "PASS",
+        "sua_cau_hinh": "FAIL",
+        "xem_danh_sach_ho_so": 200,
+        "xem_chi_tiet_ho_so": "PASS",
+        "chuyen_trang_thai_ngoai_ma_tran": 200,
+        "ra_quyet_dinh_khong_phai_leader": "PASS"
+      }
+    },
+    {
+      "role": "verifier",
+      "checks": {
+        "tao_user_quan_tri": "PASS",
+        "sua_cau_hinh": "FAIL",
+        "xem_danh_sach_ho_so": 200,
+        "xem_chi_tiet_ho_so": "PASS",
+        "chuyen_trang_thai_ngoai_ma_tran": 400,
+        "quan_ly_khac_phuc_khong_phai_handler": "PASS"
+      }
+    },
+    {
+      "role": "leader",
+      "checks": {
+        "tao_user_quan_tri": "PASS",
+        "sua_cau_hinh": "FAIL",
+        "xem_danh_sach_ho_so": 200,
+        "xem_chi_tiet_ho_so": "PASS",
+        "chuyen_trang_thai_ngoai_ma_tran": 403,
+        "lap_bien_ban_khong_phai_handler": "PASS"
+      }
+    },
+    {
+      "role": "citizen",
+      "checks": {
+        "tao_user_quan_tri": "PASS",
+        "sua_cau_hinh": "FAIL",
+        "xem_danh_sach_ho_so": 403,
+        "chuyen_trang_thai_ngoai_ma_tran": 403,
+        "tao_ho_so_officer_only": "PASS",
+        "xem_bao_cao_cua_minh": 200
+      }
+    }
+  ],
+  "generated_at": "2026-08-26T05:05:36.540Z"
+}

@@ -1,0 +1,34 @@
+[
+  {
+    "role": "case_handler",
+    "status": 403,
+    "body": {
+      "error": "Bạn không có quyền cập nhật cấu hình này"
+    },
+    "pass": true
+  },
+  {
+    "role": "verifier",
+    "status": 403,
+    "body": {
+      "error": "Bạn không có quyền cập nhật cấu hình này"
+    },
+    "pass": true
+  },
+  {
+    "role": "leader",
+    "status": 403,
+    "body": {
+      "error": "Bạn không có quyền cập nhật cấu hình này"
+    },
+    "pass": true
+  },
+  {
+    "role": "citizen",
+    "status": 403,
+    "body": {
+      "error": "Bạn không có quyền cập nhật cấu hình này"
+    },
+    "pass": true
+  }
+]

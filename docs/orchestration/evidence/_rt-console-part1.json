@@ -1,0 +1,135 @@
+{
+  "consoleErrors": [
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "url": "http://localhost:5199/"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "url": "http://localhost:5199/"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "url": "http://localhost:5199/"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "url": "http://localhost:5199/"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "url": "http://localhost:5199/"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "url": "http://localhost:5199/"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://localhost:5199/"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "url": "http://localhost:5199/"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://localhost:5199/"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "url": "http://localhost:5199/"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://localhost:5199/citizen"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://localhost:5199/citizen"
+    },
+    {
+      "type": "warning",
+      "text": "The specified value \"[object Object]\" cannot be parsed, or is out of range.",
+      "url": "http://localhost:5199/citizen"
+    },
+    {
+      "type": "warning",
+      "text": "The specified value \"[object Object]\" cannot be parsed, or is out of range.",
+      "url": "http://localhost:5199/citizen"
+    },
+    {
+      "type": "warning",
+      "text": "The specified value \"undefined\" cannot be parsed, or is out of range.",
+      "url": "http://localhost:5199/citizen"
+    },
+    {
+      "type": "warning",
+      "text": "The specified value \"undefined\" cannot be parsed, or is out of range.",
+      "url": "http://localhost:5199/citizen"
+    },
+    {
+      "type": "warning",
+      "text": "The specified value \"undefined\" cannot be parsed, or is out of range.",
+      "url": "http://localhost:5199/citizen"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://localhost:5199/officer-reports"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://localhost:5199/officer-reports"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://localhost:5199/cases/9f10bce6-a92f-4f65-8165-5fe668eabea4"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://localhost:5199/cases/9f10bce6-a92f-4f65-8165-5fe668eabea4"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 400 (Bad Request)",
+      "url": "http://localhost:5199/cases/9f10bce6-a92f-4f65-8165-5fe668eabea4"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 400 (Bad Request)",
+      "url": "http://localhost:5199/cases/9f10bce6-a92f-4f65-8165-5fe668eabea4"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 400 (Bad Request)",
+      "url": "http://localhost:5199/cases/9f10bce6-a92f-4f65-8165-5fe668eabea4"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://localhost:5199/report"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://localhost:5199/report"
+    }
+  ],
+  "failedRequests": []
+}

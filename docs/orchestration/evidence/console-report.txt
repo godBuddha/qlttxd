@@ -1,0 +1,29 @@
+AUD-RUNTIME console/network report
+Generated: 2026-08-26T05:08:38.075Z
+
+== Browser console errors/warnings (đã lọc noise [vite]/React DevTools) ==
+Tổng: 40 mục
+
+-- error (35) --
+  Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    tại: http://localhost:5199/
+  Failed to load resource: the server responded with a status of 404 (Not Found)
+    tại: http://localhost:5199/ (+2 URL khác)
+    tại: http://localhost:5199/citizen (+2 URL khác)
+    tại: http://localhost:5199/officer-reports (+2 URL khác)
+  Failed to load resource: the server responded with a status of 400 (Bad Request)
+    tại: http://localhost:5199/cases/0bec11fe-ac66-4b72-89ed-6d798993cf03
+-- warning (5) --
+  The specified value "[object Object]" cannot be parsed, or is out of range.
+    tại: http://localhost:5199/citizen
+  The specified value "undefined" cannot be parsed, or is out of range.
+    tại: http://localhost:5199/citizen
+
+== Phân loại ==
+401 Unauthorized (auth probe khi chưa đăng nhập / refresh token): 15
+404 Not Found (resource phụ — favicon/asset hoặc API probe): 16
+400 Bad Request (từ bước test chuyển trạng thái SAI — kỳ vọng): 4
+"[object Object]"/"undefined" parse warning (DEF map click): 5
+
+== Failed network requests (non-API >=400 hoặc aborted) ==
+(none)

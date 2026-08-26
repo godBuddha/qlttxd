@@ -1,0 +1,52 @@
+[
+  {
+    "step": "1. Đăng nhập admin qua UI",
+    "status": "PASS",
+    "note": "url=http://localhost:5199/dashboard"
+  },
+  {
+    "step": "2a. Chọn vị trí trên bản đồ Leaflet (click)",
+    "status": "FAIL",
+    "note": "lat input sau click = \"\" (DEF: MapView.onPick truyền object, setPointCoords kỳ vọng 2 tham số)"
+  },
+  {
+    "step": "2b. Tạo báo cáo vi phạm (tọa độ nhập tay + ảnh)",
+    "status": "PASS",
+    "note": "ma_bao_cao=BC-2026-000102"
+  },
+  {
+    "step": "3. Danh sách báo cáo → tạo hồ sơ → chi tiết",
+    "status": "PASS",
+    "note": "ma_ho_so=HS-2026-000082 id=9f10bce6-a92f-4f65-8165-5fe668eabea4"
+  },
+  {
+    "step": "4a. Chặn chuyển SAI trạng thái (cho_tiep_nhan → da_dong)",
+    "status": "PASS",
+    "note": "HTTP 400: {\"error\":\"Chuyển trạng thái không hợp lệ\"}"
+  },
+  {
+    "step": "4. Máy trạng thái: tiếp nhận → chờ XM → đang XM → chờ lập BB",
+    "status": "PASS",
+    "note": "state=cho_lap_bien_ban"
+  },
+  {
+    "step": "5. Lập biên bản kiểm tra",
+    "status": "PASS",
+    "note": "BB created; trạng thái tự chuyển da_lap_bien_ban"
+  },
+  {
+    "step": "6. Ra quyết định xử phạt (+ ban hành)",
+    "status": "PASS",
+    "note": "bien_ban_options=1"
+  },
+  {
+    "step": "7. Khắc phục → hoàn tất hồ sơ",
+    "status": "PARTIAL",
+    "note": "final_state=da_lap_bien_ban"
+  },
+  {
+    "step": "8. Thống kê/báo cáo hiển thị",
+    "status": "PASS",
+    "note": "ma_ho_so=HS-2026-000082 nằm trong kỳ báo cáo"
+  }
+]
