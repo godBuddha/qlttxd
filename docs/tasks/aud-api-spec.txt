@@ -1,0 +1,32 @@
+Nhiệm vụ: AUD-API-CONTRACT — Đối chiếu hợp đồng API Backend vs Frontend (GĐ3, ORCH-04 Đợt B).
+
+KHÔNG sửa code sản phẩm. Chỉ đọc/grep/chạy kiểm chứng có sẵn. Xuất báo cáo docs/orchestration/AUD-API-CONTRACT-report.md
+
+## CÁCH LÀM
+
+1. Trích TẤT CẢ route BE: quét app/backend/routes/*.js — mỗi endpoint ghi:
+   method · đường dẫn đầy đủ (kèm prefix /api/v1 nếu có, xem server.js cách mount) · middleware auth/permission · file + dòng
+   Gợi ý pattern grep: router.(get|post|put|patch|delete)(
+
+2. Trích TẤT CẢ call FE: quét app/frontend/src — tìm api/fetch/request helper (app/frontend/src/lib/api* hoặc tương tự) rồi liệt kê mọi nơi gọi với method+path.
+
+3. ĐỐI CHIỀU 2 CHIỀU tạo bảng mismatch:
+   a. FE gọi nhưng BE KHÔNG có route (sai path/sai method) → FRONTEND-BACKEND-CONTRACT-MISMATCH nghiêm trọng
+   b. BE có route nhưng FE không dùng → đánh dấu "không consumer" (không phải lỗi, phục vụ dead-code audit GĐ7)
+   c. FE gửi field BE không validate/dùng hoặc ngược lại (so schema body chính nếu nhanh được; không cần đào sâu từng field — chỉ các field chính)
+
+4. Với mỗi MISMATCH phát hiện: xác minh lại bằng 2 nguồn (grep cả 2 phía) trước khi kết luận, ghi rõ evidence (file:dòng).
+
+## LƯU Ý
+
+- Route động :id/:code — chuẩn hóa khi so (ví dụ /ho-so/:id/trang-thai khớp `/ho-so/${id}/trang-thai`)
+- PATCH vs PUT: phân biệt rõ method
+- Endpoint đã biết: PATCH /config/auth không tồn tại (DEF-008) — đừng báo lại như phát hiện mới, chỉ liệt vào bảng mismatch với nhãn "đã biết DEF-008"
+
+## ĐẦU RA
+
+docs/orchestration/AUD-API-CONTRACT-report.md:
+- Bảng tổng hợp route BE (nhóm theo file)
+- Bảng call FE
+- Bảng MISMATCH (nếu có): method+path + phía nào sai + đề xuất sửa phía nào + mức độ ảnh hưởng người dùng thật
+- Thống kê: tổng route BE, tổng call FE, số match/mismatch/không-consumer
