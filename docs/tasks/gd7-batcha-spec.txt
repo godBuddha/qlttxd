@@ -1,0 +1,36 @@
+Nhiệm vụ: GĐ7-BATCH-A — Đo hiệu năng nền + Dọn mã chết (phần 1 của GĐ7).
+
+KHÔNG tối ưu vội, KHÔNG xóa gì ngoài danh sách được duyệt bên dưới. Xuất báo cáo docs/orchestration/GD7-batchA-report.md
+
+## PHẦN 1 — PERF BASELINE (chỉ ĐO, không tối ưu)
+
+1. Boot BE thật: PORT=4120 JWT_SECRET=test-secret-that-is-long-enough-for-jwt-smoke-32chars RATE_LIMIT_DISABLED=true PGHOST=/tmp PGPORT=5432 PGDATABASE=qlttxd PGUSER=postgres node server.js
+2. Login admin lấy token (admin / OrchAdmin2026x — mật khẩu này đã được orchestrator đặt trên DB dev; nếu fail thì reset qua bcryptjs như hướng dẫn orchestrator)
+3. Đo thời gian phản hồi (node fetch + performance.now, 5 lần lấy trung vị) cho:
+   - GET /health · POST /auth/login · GET /ho-so?limit=20 · GET /thong-ke/tong-quan (tìm đúng path thật trong routes) · GET /config/manifests (nếu có) · GET /api/v1/audit (admin)
+   Ghi bảng: endpoint · trung vị ms · nhận xét (nhanh/bình thường/chậm — ngưỡng: <100ms nhanh, <500ms bình thường, >=500ms ghi chú xem xét)
+4. Bundle size: chạy npm run build ở app/frontend, ghi kích thước các file chính trong dist/ (JS chunk lớn nhất, tổng JS, tổng gzip nếu dễ lấy)
+5. Ghi kết quả vào report — đây là BASELINE để so sánh tương lai, KHÔNG tối ưu gì trong task này
+
+## PHẦN 2 — DEAD-CODE CLEANUP (danh sách đã được ORCHESTRATOR DUYỆT)
+
+Xóa các route/mã sau sau khi xác minh lại từng item không còn consumer:
+1. lib/config.js — ĐÃ XÓA ở GĐ5 (kiểm tra lại không còn tham chiếu)
+2. Trong routes/config.js: PATCH auth không tồn tại là chuyện DEF-008 (FE đã chuyển PUT bulk) — KHÔNG cần làm gì
+3. Danh sách 14 route "không consumer FE" từ docs/orchestration/AUD-API-CONTRACT-report.md mục thống kê: với TỪNG route, phân loại:
+   a. Endpoint vận hành/docs chủ đích (health, version, openapi/docs, metrics...) → GIỮ, đánh dấu [KEEP-OPS] trong report
+   b. Route nghiệp vụ thật nhưng FE chưa dùng → LIỆT KÊ để orchestrator trình chủ dự án quyết (KHÔNG xóa trong task này)
+   c. Route rác/thử nghiệm/không ai cần → liệt kê [PROPOSED-DELETE] kèm lý do, KHÔNG xóa — chờ duyệt
+4. FE dead components/components trùng lặp nếu phát hiện nhanh bằng grep import — chỉ LIỆT KÊ, không xóa
+
+## QUY TẮC
+
+- Phần 1 không sửa code sản phẩm (chỉ đọc/đo). Phần 2 cũng KHÔNG xóa code — chỉ xuất danh sách phân loại.
+- Tắt server sau khi xong.
+- Báo cáo cuối: bảng baseline + bảng phân loại route + đề xuất.
+
+## ACCEPTANCE
+
+1. Report có số đo trung vị cụ thể cho ≥6 endpoint
+2. Bundle size có số liệu MB/KB cụ thể
+3. 14 route đều được phân loại KEEP-OPS/LIST-CHO-DUYỆT/PROPOSED-DELETE kèm lý do
