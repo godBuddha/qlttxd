@@ -1,0 +1,41 @@
+Nhiệm vụ: FIX-BATCH-2 — Bổ sung 2 API còn thiếu để mở khóa tính năng sửa trong Settings (GĐ6, DEF-001 + DEF-002/011).
+
+Đây là task SỬA CODE backend. Mỗi fix: implement + test + tự chạy kiểm chứng, KHÔNG commit.
+
+## FIX 1 — DEF-001: PUT /api/v1/config/workflow/states/:code (đổi tên hiển thị)
+
+- Hiện trạng: FE shell v2 WorkflowStatesPage chỉ xem được vì BE chưa có endpoint sửa label.
+- Yêu cầu:
+  a. Route mới: PUT /config/workflow/states/:code — body { ten_hien_thi } (kiểm tra tên cột thật trong bảng workflow_states trước khi code)
+  b. Permission: config.edit.workflow (đồng bộ với các route workflow khác trong routes/config.js)
+  c. Validate: không rỗng, độ dài hợp lý; :code phải tồn tại → 404 nếu không
+  d. Ghi audit (action system_config_update hoặc tương tự các route config dùng)
+  e. Trả về bản ghi sau cập nhật theo đúng shape GET /workflow/states đang trả
+
+## FIX 2 — DEF-002/DEF-011: PUT /api/v1/config/security/mime-types/:id (bật/tắt loại tệp)
+
+- Hiện trạng: MimeTypesPage toggle gọi PUT /config/security/mime-types/:id nhưng BE chưa có → rollback khi lỗi.
+- Yêu cầu:
+  a. Route mới: PUT /config/security/mime-types/:id — body { is_active } (boolean); nếu bảng allowed_mime_types có cột khác liên quan (ghi chú trong report), hỗ trợ tối thiểu is_active
+  b. Permission: permission tương ứng nhóm security config (xem cách route mime GET đang check — có thể là config.edit.security hoặc tương đương)
+  c. :id không tồn tại → 404; is_active thiếu/không boolean → 400
+  d. Ghi audit như FIX 1
+
+## TESTS (backend)
+
+- Thêm test cho cả 2 route trong app/backend/test/ (file mới hoặc gộp): 
+  + 200 happy path với admin token (setup giống test config-wave1.test.js)
+  + 403 khi user thường/thiếu quyền
+  + 404 khi code/id không tồn tại
+  + 400 validate sai
+- Chạy FULL backend suite node --test --test-concurrency=1 — tất cả PASS (baseline hiện tại 294/294)
+
+## FE (nhẹ)
+
+- Kiểm tra WorkflowStatesPage.jsx và MimeTypesPage.jsx đã sẵn sàng gọi đúng 2 route này (theo AUD-API chúng ĐANG gọi rồi) — nếu khớp thì không cần sửa FE; chạy npx vitest run + build đảm bảo không gãy.
+
+## RÀNG BUỘC
+
+- Không đổi schema DB (cả 2 chỉ UPDATE dữ liệu có sẵn). Nếu phát hiện bắt buộc phải thêm cột → DỪNG, ghi vào báo cáo chờ quyết định.
+- Không refactoring ngoài phạm vi.
+- Báo cáo: files changed, test thêm, kết quả chạy, curl demo 2 route (nếu tiện boot server local).
