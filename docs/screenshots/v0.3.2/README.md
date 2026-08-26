@@ -81,3 +81,7 @@ Toàn bộ ảnh chụp màn hình hệ thống Quản lý Trật tự Xây dự
 | [30-mobile-dashboard.png](30-mobile-dashboard.png) | Dashboard mobile            |
 | [31-mobile-cases.png](31-mobile-cases.png)         | Danh sách hồ sơ mobile       |
 | [32-mobile-ban-do.png](32-mobile-ban-do.png)       | Bản đồ mobile                |
+
+## Bổ sung 2026-08-26 — FIX-BATCH-2
+- `fixbatch2-workflow-states-edit.png` — trang Cài đặt → Trạng thái hồ sơ: tên hiển thị sửa inline được qua PUT /api/v1/config/workflow/states/:code (DEF-001).
+- `fixbatch2-mime-types-toggle.png` — trang Cài đặt → Loại tệp cho phép: công tắc bật/tắt lưu được qua PUT /api/v1/config/security/mime-types/:id (DEF-002/011).
