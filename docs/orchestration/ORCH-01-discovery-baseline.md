@@ -33,8 +33,8 @@ Mục tiêu: xác định trạng thái THỰC của dự án trước khi sửa
 
 ## 4. Baseline Report — ĐÃ XÁC MINH 2026-08-26 (orchestrator tự chạy lại, không dựa lời agent)
 
-- [x] BE suite: **290/290 PASS** (0 fail)
-- [x] FE vitest: **107/107 PASS** (23 file test)
+- [x] BE suite: **309/309 PASS** (0 fail — cập nhật sau FIX-BATCH-2, trước đó 290/290)
+- [x] FE vitest: **112/112 PASS** (cập nhật sau FIX-BATCH-2, trước đó 107/107)
 - [x] Build: **OK** (vite build thành công, cache qlttxd-mt993ymq trở đi)
 - [x] Server boot + health: **OK** — endpoint là `/health` (KHÔNG phải /api/v1/health); trả `{"status":"ok","db":"connected","uptime":6,"version":"0.3.2"}`
 - [x] Git sync state: sạch trừ file spec task (docs/tasks/*.txt) — đã commit định kỳ

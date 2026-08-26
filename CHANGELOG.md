@@ -1,5 +1,30 @@
 # CHANGELOG
 
+## v0.3.4 (2026-08-26) — Audit remediation (GĐ1–GĐ7)
+
+Chương trình audit + remediation trên nhánh `resolve-pending`: audit nền tảng
+(discovery, DB integrity, API contract, traceability, runtime, performance)
+theo quy trình ORCH-00 → ORCH-06, kèm hai batch sửa lỗi.
+
+### FIX-BATCH-1
+
+- **DEF-006:** Sửa contract `onPick` bản đồ GIS — trả object thay vì giá trị rời rạc
+- **DEF-009:** Chốt RBAC ma trận trạng thái (`role_state_permissions`) + migration 008 seed ma trận case_handler 4 trạng thái
+- **DEF-010:** Dọn path config — bỏ `lib/config.js`, frontend đọc qua Settings Center; xóa sạch tham chiếu
+- **DEF-007:** Bỏ khối route 404 thừa
+
+### FIX-BATCH-2
+
+- **DEF-001:** Thêm `PUT /api/v1/config/workflow/states/:code` — đổi label trạng thái workflow (perm `config.edit.workflow`, audit log, 400/404)
+- **DEF-002 / DEF-011:** Thêm `PUT /api/v1/config/security/mime-types/:mime` — bật/tắt `is_active` của MIME type
+
+### Docs-sync & verify
+
+- `.env.example` bổ sung biến nghiệp vụ code đang đọc (DEF-004): FRONTEND_URL, LOG_LEVEL, RATE_LIMIT_DISABLED, PGCONNECT_TIMEOUT, PGSSLMODE + mục riêng biến chỉ dùng test/dev (QLTTXD_DEBUG_TOKENS, TEST_ADMIN_PASSWORD)
+- Runbook vận hành: ghi chú migration 001–003 không có file down (rollback qua backup/restore)
+- Suite cuối: BE 309/309 PASS, FE vitest 112/112 PASS + build OK
+- Perf baseline GĐ7-A: 6 endpoint đo thật, median 4–77 ms (<100 ms)
+
 ## v0.3.3 (2026-08-09)
 
 ### Tính năng mới — Enterprise Settings Center

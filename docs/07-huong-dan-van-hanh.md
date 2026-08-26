@@ -113,7 +113,17 @@ E2E đầy đủ (login → báo cáo → hồ sơ → biên bản → quyết �
 
 6. Audit: mọi hành động tạo/cập nhật/đăng nhập ghi vào `audit_log`.
 
-7. **Frontend React 19 bắt buộc có `vite.config.js` với `@vitejs/plugin-react`**
+7. **Migration 001–003 không có file down** — rollback baseline schema (trước
+   migration 004) phải qua backup/restore, không có script downgrade:
+
+   ```sh
+   # Backup trước khi migrate (bắt buộc)
+   pg_dump -h /tmp -U postgres qlttxd > backup-$(date +%F).sql
+   # Rollback: khôi phục từ backup
+   psql -h /tmp -U postgres qlttxd < backup-YYYY-MM-DD.sql
+   ```
+
+8. **Frontend React 19 bắt buộc có `vite.config.js` với `@vitejs/plugin-react`**
    (T9, 2026-08-02). Nếu thiếu, Vite transform JSX theo classic runtime → trình
    duyệt báo `React is not defined` → trang trắng, dù `npm run build` vẫn PASS
    (build chỉ bundle, không thực thi JS nên không phát hiện lỗi runtime).
